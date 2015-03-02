@@ -2,8 +2,12 @@
 
 export(connect_watervogel)
 export(read_location)
+export(read_observation)
 export(read_specieslist)
 importFrom(RODBC,odbcClose)
 importFrom(RODBC,odbcDriverConnect)
 importFrom(RODBC,sqlQuery)
+importFrom(lubridate,round_date)
+importFrom(lubridate,year)
+importFrom(n2khelper,check_single_strictly_positive_integer)
 importFrom(n2khelper,read_delim_git)
