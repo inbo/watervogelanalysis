@@ -9,4 +9,9 @@ read_specieslist()
 \description{
 Read the species list and their constraints
 }
+\examples{
+species.list <- read_specieslist()
+head(species.list$species)
+head(species.list$species.constraint)
+}
 
