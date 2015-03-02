@@ -22,7 +22,9 @@ read_specieslist <- function(){
   species <- species[species$SpeciesID %in% species.constraint$SpeciesID, ]
   
   return(
-    species = species,
-    species.constraint = species.constraint
+    list(
+      species = species,
+      species.constraint = species.constraint
+    )
   )
 }
