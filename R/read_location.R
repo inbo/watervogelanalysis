@@ -17,6 +17,8 @@ read_location <- function(){
       tblGebied
     WHERE
       Actief = 1
+    ORDER BY
+      Code
   "
   location <- sqlQuery(channel = channel, query = sql, stringsAsFactors = FALSE)
   odbcClose(channel)
