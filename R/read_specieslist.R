@@ -23,7 +23,12 @@ read_specieslist <- function(){
   # restrict the species list to the species with constraints
   species.constraint <- merge(species.constraint, species[, c("SpeciesID", "SpeciesNL")])
   species.constraint$SpeciesNL <- NULL
+  species.constraint <- species.constraint[
+    order(species.constraint$SpeciesID, species.constraint$SpeciesCovered), 
+  ]
+  
   species <- species[species$SpeciesID %in% species.constraint$SpeciesID, ]
+  species <- species[order(species$SpeciesID), ]
 
   return(
     list(
