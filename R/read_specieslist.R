@@ -14,7 +14,7 @@ read_specieslist <- function(){
     FROM
       tblSoort
   "
-  species <- sqlQuery(channel = channel, query = sql)
+  species <- sqlQuery(channel = channel, query = sql, stringsAsFactors = FALSE)
   odbcClose(channel)
   # restrict the species list to the species with constraints
   species.constraint <- merge(species.constraint, species[, c("SpeciesID", "SpeciesNL")])
