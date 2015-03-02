@@ -9,4 +9,8 @@ read_location()
 \description{
 read the dataset of locations from the database
 }
+\examples{
+location <- read_location()
+head(location)
+}
 

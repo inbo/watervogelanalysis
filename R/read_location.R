@@ -1,6 +1,9 @@
 #' read the dataset of locations from the database
 #' @export
 #' @importFrom RODBC sqlQuery odbcClose
+#' @examples
+#' location <- read_location()
+#' head(location)
 read_location <- function(){
   channel <- connect_watervogel()
   sql <- "
