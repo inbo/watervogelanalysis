@@ -8,6 +8,7 @@ Depends:
 Imports:
   n2khelper,
   lubridate,
+  plyr,
   RODBC
 License: GPL-3
 LazyData: true
