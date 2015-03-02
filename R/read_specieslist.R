@@ -24,11 +24,11 @@ read_specieslist <- function(){
   species.constraint <- merge(species.constraint, species[, c("SpeciesID", "SpeciesNL")])
   species.constraint$SpeciesNL <- NULL
   species <- species[species$SpeciesID %in% species.constraint$SpeciesID, ]
-  
+
   return(
     list(
       species = species,
-      species.constraint = species.constraint
+      species.constraint = species.constraint[, c("SpeciesID", "Firstyear", "SpeciesCovered")]
     )
   )
 }
