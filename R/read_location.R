@@ -15,6 +15,8 @@ read_location <- function(){
       EgVogelrichtlijngebied AS SPA
     FROM
       tblGebied
+    WHERE
+      Actief = 1
   "
   location <- sqlQuery(channel = channel, query = sql, stringsAsFactors = FALSE)
   odbcClose(channel)
