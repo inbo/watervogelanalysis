@@ -17,11 +17,12 @@
 #' @importFrom RODBC sqlQuery odbcClose
 #' @importFrom lubridate round_date year
 #' @examples
-#' read_observation(
+#' observation <- read_observation(
 #'   species.id = 4860, 
 #'   first.winter = 1992, 
 #'   species.covered = c("w", "weg", "wegm", "wem", "st")
 #' )
+#' head(observation)
 read_observation <- function(species.id, first.winter, species.covered){
   species.id <- check_single_strictly_positive_integer(species.id)
   first.winter <- check_single_strictly_positive_integer(first.winter)
