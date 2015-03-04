@@ -1,5 +1,8 @@
 #' Prepare the raw datasets and save them to the git repository
+#' 
+#' The raw data is written to the git repository. All changes are always staged and committed. The commit is pushed when both username and password are provided.
 #' @param verbose Display a progress bar when TRUE (default)
+#' @inheritParams n2khelper::auto_commit
 #' @export
 #' @importFrom n2khelper write_delim_git check_single_logical auto_commit
 #' @importFrom n2kanalysis select_factor_count_strictly_positive select_factor_threshold select_observed_range
@@ -9,7 +12,7 @@
 #' \dontrun{
 #'  prepare_dataset()
 #' }
-prepare_dataset <- function(verbose = TRUE){
+prepare_dataset <- function(username, password, verbose = TRUE){
   verbose <- check_single_logical(verbose)
   
   #read and save locations
@@ -69,7 +72,11 @@ prepare_dataset <- function(verbose = TRUE){
     write_delim_git(x = observation, file = paste0(x$SpeciesID[1], "_VL.txt"), path = "watervogel")
   })
   
-  auto_commit(package = environmentName(parent.env(environment())))
+  auto_commit(
+    package = environmentName(parent.env(environment())),
+    username = username,
+    password = password
+  )
   
   return(invisible(NULL))
 }
