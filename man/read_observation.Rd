@@ -27,11 +27,13 @@ The selection uses several constraints. The user defined constraints are \code{f
 }
 }
 \examples{
+\dontrun{
 observation <- read_observation(
   species.id = 4860,
   first.winter = 1992,
   species.covered = c("w", "weg", "wegm", "wem", "st")
 )
 head(observation)
+}
 }
 

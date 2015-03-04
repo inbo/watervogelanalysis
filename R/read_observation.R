@@ -15,14 +15,15 @@
 #' @export
 #' @importFrom n2khelper check_single_strictly_positive_integer
 #' @importFrom RODBC sqlQuery odbcClose
-#' @importFrom lubridate round_date year
 #' @examples
+#' \dontrun{
 #' observation <- read_observation(
 #'   species.id = 4860, 
 #'   first.winter = 1992, 
 #'   species.covered = c("w", "weg", "wegm", "wem", "st")
 #' )
 #' head(observation)
+#' }
 read_observation <- function(species.id, first.winter, species.covered){
   species.id <- check_single_strictly_positive_integer(species.id)
   first.winter <- check_single_strictly_positive_integer(first.winter)
@@ -38,7 +39,6 @@ read_observation <- function(species.id, first.winter, species.covered){
   sql <- paste0("
     SELECT
       ObservationID,
-      SpeciesObservationID,
       LocationID,
       Date,
       Complete,
@@ -110,25 +110,6 @@ read_observation <- function(species.id, first.winter, species.covered){
   observation$Complete <- observation$Complete == 1
   observation$Count[is.na(observation$Count)] <- 0
   
-  # select months with average at least 5% of the top month
-  observation$Month <- as.integer(strftime(observation$Date, "%m"))
-  observation$Month <- factor(observation$Month, levels = c(10, 11, 12, 1, 2, 3))
-  model.month <- glm(Count ~ 0 + Month, data = observation, family = poisson)
-  threshold <- max(coef(model.month)) + log(0.05)
-  selected.months <- levels(observation$Month)[coef(model.month) >= threshold]
-  observation <- observation[observation$Month %in% selected.months, ]
-  observation$Month <- NULL
-  
-  # remove unrelevant locations
-  positive.observation <- observation[observation$Count > 0, ]
-  positive.observation$Winter <- year(round_date(positive.observation$Date, unit = "year"))
-  location.table <- table(positive.observation$Location, positive.observation$Winter)
-  select.location <- 
-    rowSums(location.table) >= 4 & # a relevant location has at least 4 positive observations
-    rowSums(location.table > 0) >= 3 # a relevant location has at least positive observations in at least 3 different winters
-  relevant.location <- as.integer(rownames(location.table)[select.location])
-  observation <- observation[observation$LocationID %in% relevant.location, ]
-  
-  observation <- observation[order(observation$ObservationID, observation$SpeciesObservationID), ]
+  observation <- observation[order(observation$ObservationID), ]
   return(observation)
 }
