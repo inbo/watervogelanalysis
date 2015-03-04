@@ -11,7 +11,7 @@
 #' @param species.id The id of the species
 #' @param first.winter The oldest winter from which the observation are relevant. Observation prior to \code{first.winter} are ignored
 #' @param species.covered A vector with codes of relevant methodes
-#' @return A \code{data.frame} with observations. \code{Complete} indicates that the entire location was surveyed. 
+#' @return A \code{data.frame} with observations. \code{Complete= 1} indicates that the entire location was surveyed. 
 #' @export
 #' @importFrom n2khelper check_single_strictly_positive_integer
 #' @importFrom RODBC sqlQuery odbcClose
@@ -107,7 +107,6 @@ read_observation <- function(species.id, first.winter, species.covered){
   observation <- sqlQuery(channel = channel, query = sql, stringsAsFactors = FALSE)
   odbcClose(channel)
   
-  observation$Complete <- observation$Complete == 1
   observation$Count[is.na(observation$Count)] <- 0
   
   observation <- observation[order(observation$ObservationID), ]

@@ -14,7 +14,7 @@ read_observation(species.id, first.winter, species.covered)
 \item{species.covered}{A vector with codes of relevant methodes}
 }
 \value{
-A \code{data.frame} with observations. \code{Complete} indicates that the entire location was surveyed.
+A \code{data.frame} with observations. \code{Complete= 1} indicates that the entire location was surveyed.
 }
 \description{
 The selection uses several constraints. The user defined constraints are \code{first.winter} and \code{species.covered}. Following contraints are imposed at the same time as the user defined contraints:
