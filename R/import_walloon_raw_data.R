@@ -69,7 +69,7 @@ import_walloon_raw_data <- function(
   }
   visit <- visit[, old.names]
   colnames(visit) <- new.names
-  visit$Date <- as.Date(visit$Date, format = "%d/%M/%Y")
+  visit$Date <- as.Date(visit$Date, format = "%d/%m/%Y")
   if(any(duplicated(visit$ObservationID))){
     warning("duplicate id in ", visit.file)
     visit <- aggregate(
