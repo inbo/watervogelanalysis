@@ -1,4 +1,4 @@
-#' Read the relevant observations from a species
+#' Read the Flemish observations from a species
 #' 
 #' The selection uses several constraints. The user defined constraints are \code{first.winter} and \code{species.covered}. Following contraints are imposed at the same time as the user defined contraints:
 #'\itemize{

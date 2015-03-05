@@ -2,7 +2,7 @@
 % Please edit documentation in R/read_observation.R
 \name{read_observation}
 \alias{read_observation}
-\title{Read the relevant observations from a species}
+\title{Read the Flemish observations from a species}
 \usage{
 read_observation(species.id, first.winter, species.covered)
 }
