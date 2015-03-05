@@ -1,6 +1,6 @@
 #' Add the raw data from Wallonia to the git repository
 #' 
-#' This functions reads the files and performs some basic checks on them. See the details section for the required format of the files.
+#' This functions reads the files and performs some basic checks on them. See the details section for the required format of the files. The median date is used in case of multiple dates per visit id. The maximum is used in case of multiple observations per visit id.
 #' 
 #' All files must textfile with ';' separated fields and '.' to indicate decimal points
 #' 
@@ -53,7 +53,7 @@ import_walloon_raw_data <- function(
   location <- location[, old.names]
   colnames(location) <- new.names
   if(any(duplicated(location$LocationID))){
-    stop("duplicate id in ", location.file)
+    warning("duplicate id in ", location.file)
   }
   location <- location[order(location$LocationID), ]
   write_delim_git(location, file = "location.txt", path = "watervogel/wallonia")
@@ -69,9 +69,15 @@ import_walloon_raw_data <- function(
   }
   visit <- visit[, old.names]
   colnames(visit) <- new.names
-  if(any(duplicated(visit$OBservationID))){
-    stop("duplicate id in ", visit.file)
+  if(any(duplicated(visit$ObservationID))){
+    warning("duplicate id in ", visit.file)
+    visit <- aggregate(
+      visit[, "Date", drop = FALSE],
+      visit[, c("ObservationID", "LocationID")],
+      FUN = median
+    )
   }
+  
   if(!all(visit$LocationID %in% location$LocationID)){
     stop(visit.file, " contains id which is not in ", location.file)
   }
@@ -99,7 +105,12 @@ import_walloon_raw_data <- function(
     warning("Species in ", data.file, " but not present in read_specieslist(limit = FALSE):\n", paste(sort(unknown.species), collapse = "\n"))
   }
   data <- merge(data, species[, c("SpeciesID", "Species")])
-  data$Species <- NULL
+  data <- aggregate(
+    data[, "Count", drop = FALSE],
+    data[, c("ObservationID", "SpeciesID")],
+    FUN = max
+  )
+
   data <- data[order(data$ObservationID, data$SpeciesID), ]
   write_delim_git(data, file = "data.txt", path = "watervogel/wallonia")
   

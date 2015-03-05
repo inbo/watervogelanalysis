@@ -21,7 +21,7 @@ import_walloon_raw_data(location.file, visit.file, data.file, path = ".",
 \item{password}{the user's password for the git repository}
 }
 \description{
-This functions reads the files and performs some basic checks on them. See the details section for the required format of the files.
+This functions reads the files and performs some basic checks on them. See the details section for the required format of the files. The median date is used in case of multiple dates per visit id. The maximum is used in case of multiple observations per visit id.
 }
 \details{
 All files must textfile with ';' separated fields and '.' to indicate decimal points
