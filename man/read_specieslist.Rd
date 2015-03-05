@@ -4,7 +4,10 @@
 \alias{read_specieslist}
 \title{Read the species list and their constraints}
 \usage{
-read_specieslist()
+read_specieslist(limit = TRUE)
+}
+\arguments{
+\item{limit}{Return only species with explicit constraints (default = TRUE). Otherwise return all species in the database}
 }
 \description{
 Read the species list and their constraints
