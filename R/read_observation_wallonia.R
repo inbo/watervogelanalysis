@@ -26,6 +26,7 @@ read_observation_wallonia <- function(species.id, first.winter){
   
   observation <- merge(visit, data, all.x = TRUE)
   observation$SpeciesID <- NULL
+  observation$Complete <- 1
   observation$Count[is.na(observation$Count)] <- 0
   
   observation <- observation[order(observation$ObservationID), ]
