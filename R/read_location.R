@@ -12,7 +12,7 @@ read_location <- function(){
       Gebiedsnaam AS LocationName,
       BeginDatum AS StartDate,
       EindDatum AS EndDate,
-      EgVogelrichtlijngebied AS SPA
+      ABS(EgVogelrichtlijngebied) AS SPA
     FROM
       tblGebied
     WHERE
@@ -23,6 +23,6 @@ read_location <- function(){
   location <- sqlQuery(channel = channel, query = sql, stringsAsFactors = FALSE)
   odbcClose(channel)
   location$SPA[is.na(location$SPA)] <- 0
-  location$SPA <- location$SPA == -1
+  
   return(location)
 }
