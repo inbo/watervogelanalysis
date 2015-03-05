@@ -1,6 +1,6 @@
 #' Read the Wallon observations from a species
 #' 
-#' All available imported data is used. The only constraint is 
+#' All available imported data is used. The only constraint is that the observation are not older than \code{first.winter} and originate form november up to februari.
 #' @inheritParams read_observation
 #' @export
 #' @importFrom n2khelper read_delim_git
@@ -18,6 +18,9 @@ read_observation_wallonia <- function(species.id, first.winter){
   
   visit <- read_delim_git(file = "visit.txt", path = "watervogel/wallonia")
   visit$Date <- as.Date(visit$Date)
+  #limit to november to februari
+  visit <- visit[format(visit$Date, "%m") %in% c("11", "12", "01", "02"), ]
+  
   visit.winter <- year(round_date(visit$Date, unit = "year"))
   visit <- visit[visit.winter >= first.winter, ]
   

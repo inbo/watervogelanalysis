@@ -12,6 +12,6 @@ read_observation_wallonia(species.id, first.winter)
 \item{first.winter}{The oldest winter from which the observation are relevant. Observation prior to \code{first.winter} are ignored}
 }
 \description{
-All available imported data is used. The only constraint is
+All available imported data is used. The only constraint is that the observation are not older than \code{first.winter} and originate form november up to februari.
 }
 
