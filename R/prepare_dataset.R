@@ -35,10 +35,34 @@ prepare_dataset <- function(username, password, verbose = TRUE){
       first.winter = x$Firstyear[1], 
       species.covered = x$SpeciesCovered
     )
+    observation.walloon <- read_observation_wallonia(
+      species.id = x$SpeciesID[1], 
+      first.winter = x$Firstyear[1]
+    )
     
     observation <- select_relevant(observation.flemish)
     if(!is.null(observation)){
       write_delim_git(x = observation, file = paste0(x$SpeciesID[1], "_VL.txt"), path = "watervogel")
+    }
+    
+    observation <- select_relevant(observation.walloon)
+    if(!is.null(observation)){
+      write_delim_git(x = observation, file = paste0(x$SpeciesID[1], "_WA.txt"), path = "watervogel")
+    }
+    
+    selection <- format(observation.flemish$Date, "%m") %in% c("11", "12", "01", "02")
+    if(is.null(observation.walloon)){
+      observation <- observation.flemish[selection, ]
+    } else {
+      observation <- rbind(
+        observation.flemish[selection, ],
+        observation.walloon
+      )
+    }
+    observation <- select_relevant(observation)
+    if(!is.null(observation)){
+      observation <- observation[order(observation$ObservationID), ]
+      write_delim_git(x = observation, file = paste0(x$SpeciesID[1], "_BE.txt"), path = "watervogel")
     }
   })
   
