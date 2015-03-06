@@ -11,12 +11,19 @@
 #' @export
 #' @importFrom lubridate round_date
 select_relevant <- function(observation){
+  if(is.null(observation)){
+    return(NULL)
+  }
+  
   # select locations with at least 4 prescences
   observation <- select_factor_count_strictly_positive(
     observation = observation, 
     variable = "LocationID",
     threshold = 4
   )
+  if(nrow(observation) == 0){
+    return(NULL)
+  }
   
   # select months with have on average at least 5% of the top month
   observation$Month <- factor(format(observation$Date, format = "%m"))
@@ -26,6 +33,9 @@ select_relevant <- function(observation){
     threshold = 0.05
   )
   observation$Month <- NULL
+  if(nrow(observation) == 0){
+    return(NULL)
+  }
   
   # select locations with prescences in at least 3 years
   observation$Winter <- round_date(observation$Date, unit = "year")
@@ -35,6 +45,9 @@ select_relevant <- function(observation){
     threshold = 3,
     dimension = 1
   )
+  if(nrow(observation) == 0){
+    return(NULL)
+  }
   
   # remove time periodes without prescences
   observation <- select_observed_range(
@@ -42,6 +55,9 @@ select_relevant <- function(observation){
     variable = "Winter"
   )
   observation$Winter <- NULL
+  if(nrow(observation) == 0){
+    return(NULL)
+  }
   
   return(observation)
 }

@@ -37,7 +37,9 @@ prepare_dataset <- function(username, password, verbose = TRUE){
     )
     
     observation <- select_relevant(observation.flemish)
-    write_delim_git(x = observation, file = paste0(x$SpeciesID[1], "_VL.txt"), path = "watervogel")
+    if(!is.null(observation)){
+      write_delim_git(x = observation, file = paste0(x$SpeciesID[1], "_VL.txt"), path = "watervogel")
+    }
   })
   
   auto_commit(
