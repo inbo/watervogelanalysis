@@ -4,7 +4,7 @@
 \alias{prepare_dataset}
 \title{Prepare the raw datasets and save them to the git repository}
 \usage{
-prepare_dataset(username, password, verbose = TRUE)
+prepare_dataset(username, password, verbose = TRUE, develop = TRUE)
 }
 \arguments{
 \item{username}{the username for the git repository}
@@ -12,6 +12,8 @@ prepare_dataset(username, password, verbose = TRUE)
 \item{password}{the user's password for the git repository}
 
 \item{verbose}{Display a progress bar when TRUE (default)}
+
+\item{develop}{Logical value. Indicates the location ton the results database}
 }
 \description{
 The raw data is written to the git repository. All changes are always staged and committed. The commit is pushed when both username and password are provided.

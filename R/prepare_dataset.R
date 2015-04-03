@@ -3,6 +3,7 @@
 #' The raw data is written to the git repository. All changes are always staged and committed. The commit is pushed when both username and password are provided.
 #' @param verbose Display a progress bar when TRUE (default)
 #' @inheritParams n2khelper::auto_commit
+#' @inheritParams n2khelper::odbc_connect
 #' @export
 #' @importFrom n2khelper write_delim_git check_single_logical auto_commit
 #' @importFrom n2kanalysis select_factor_count_strictly_positive select_factor_threshold select_observed_range
@@ -11,15 +12,15 @@
 #' \dontrun{
 #'  prepare_dataset()
 #' }
-prepare_dataset <- function(username, password, verbose = TRUE){
+prepare_dataset <- function(username, password, verbose = TRUE, develop = TRUE){
   verbose <- check_single_logical(verbose)
   
   #read and save locations
-  location <- read_location()
+  location <- read_location(develop = develop)
   write_delim_git(x = location, file = "location.txt", path = "watervogel")
   
   #read and save species
-  species.list <- read_specieslist()
+  species.list <- read_specieslist(develop = develop)
   write_delim_git(x = species.list$species, file = "species.txt", path = "watervogel")
   
   # read and save observations
@@ -33,7 +34,8 @@ prepare_dataset <- function(username, password, verbose = TRUE){
     observation.flemish <- read_observation(
       species.id = x$SpeciesID[1], 
       first.winter = x$Firstyear[1], 
-      species.covered = x$SpeciesCovered
+      species.covered = x$SpeciesCovered,
+      develop = develop
     )
     observation.walloon <- read_observation_wallonia(
       species.id = x$SpeciesID[1], 

@@ -11,6 +11,7 @@
 #' @param species.id The id of the species
 #' @param first.winter The oldest winter from which the observation are relevant. Observation prior to \code{first.winter} are ignored
 #' @param species.covered A vector with codes of relevant methodes
+#' @inheritParams n2khelper::odbc_connect
 #' @return A \code{data.frame} with observations. \code{Complete= 1} indicates that the entire location was surveyed. 
 #' @export
 #' @importFrom n2khelper check_single_strictly_positive_integer
@@ -24,10 +25,10 @@
 #' )
 #' head(observation)
 #' }
-read_observation <- function(species.id, first.winter, species.covered){
+read_observation <- function(species.id, first.winter, species.covered, develop = TRUE){
   species.id <- check_single_strictly_positive_integer(species.id)
   first.winter <- check_single_strictly_positive_integer(first.winter)
-  channel <- connect_watervogel()
+  channel <- odbc_connect(data.source = "Raw data watervogels Flanders", develop = develop)
   species.covered.sql <- paste0(
     "SoortenTellingCode IN (",
     paste0(

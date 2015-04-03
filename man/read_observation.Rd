@@ -4,7 +4,7 @@
 \alias{read_observation}
 \title{Read the Flemish observations from a species}
 \usage{
-read_observation(species.id, first.winter, species.covered)
+read_observation(species.id, first.winter, species.covered, develop = TRUE)
 }
 \arguments{
 \item{species.id}{The id of the species}
@@ -12,6 +12,8 @@ read_observation(species.id, first.winter, species.covered)
 \item{first.winter}{The oldest winter from which the observation are relevant. Observation prior to \code{first.winter} are ignored}
 
 \item{species.covered}{A vector with codes of relevant methodes}
+
+\item{develop}{Logical value. Indicates the location ton the results database}
 }
 \value{
 A \code{data.frame} with observations. \code{Complete= 1} indicates that the entire location was surveyed.

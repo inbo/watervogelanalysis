@@ -4,7 +4,10 @@
 \alias{read_location}
 \title{read the dataset of locations from the database}
 \usage{
-read_location()
+read_location(develop = TRUE)
+}
+\arguments{
+\item{develop}{Logical value. Indicates the location ton the results database}
 }
 \description{
 read the dataset of locations from the database

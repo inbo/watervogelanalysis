@@ -1,11 +1,13 @@
 #' read the dataset of locations from the database
+#' @inheritParams n2khelper::odbc_connect
 #' @export
+#' @importFrom n2khelper odbc_connect
 #' @importFrom RODBC sqlQuery odbcClose
 #' @examples
 #' location <- read_location()
 #' head(location)
-read_location <- function(){
-  channel <- connect_watervogel()
+read_location <- function(develop = TRUE){
+  channel <- odbc_connect(data.source = "Raw data watervogels Flanders", develop = develop)
   sql <- "
     SELECT
       Code AS LocationID,

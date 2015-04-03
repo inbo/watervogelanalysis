@@ -1,5 +1,6 @@
 #' Read the species list and their constraints
 #' @param limit Return only species with explicit constraints (default = TRUE). Otherwise return all species in the database
+#' @inheritParams n2khelper::odbc_connect
 #' @export
 #'@importFrom n2khelper read_delim_git
 #'@importFrom RODBC sqlQuery odbcClose
@@ -7,9 +8,9 @@
 #'species.list <- read_specieslist()
 #'head(species.list$species)
 #'head(species.list$species.constraint)
-read_specieslist <- function(limit = TRUE){
+read_specieslist <- function(limit = TRUE, develop = TRUE){
   species.constraint <- read_delim_git(file = "soorttelling.txt", path = "watervogel/attribuut")
-  channel <- connect_watervogel()
+  channel <- odbc_connect(data.source = "Raw data watervogels Flanders", develop = develop)
   sql <- "
     SELECT
       EuringCode AS SpeciesID,
