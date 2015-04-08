@@ -28,7 +28,7 @@
 read_observation <- function(species.id, first.winter, species.covered, develop = TRUE){
   species.id <- check_single_strictly_positive_integer(species.id)
   first.winter <- check_single_strictly_positive_integer(first.winter)
-  channel <- odbc_connect(data.source = "Raw data watervogels Flanders", develop = develop)
+  channel <- odbc_connect(data.source.name = "Raw data watervogels Flanders", develop = develop)
   species.covered.sql <- paste0(
     "SoortenTellingCode IN (",
     paste0(
