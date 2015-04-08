@@ -4,12 +4,15 @@
 \alias{prepare_dataset}
 \title{Prepare the raw datasets and save them to the git repository}
 \usage{
-prepare_dataset(username, password, verbose = TRUE, develop = TRUE)
+prepare_dataset(username, password, scheme.id = get_scheme_id("Watervogels"),
+  verbose = TRUE, develop = TRUE)
 }
 \arguments{
 \item{username}{the username for the git repository}
 
 \item{password}{the user's password for the git repository}
+
+\item{scheme.id}{the id of the scheme}
 
 \item{verbose}{Display a progress bar when TRUE (default)}
 
