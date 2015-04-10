@@ -9,7 +9,7 @@
 #' @importFrom n2khelper check_single_logical check_single_strictly_positive_integer connect_result odbc_get_multi_id write_delim_git auto_commit odbc_get_id
 #' @importFrom n2kanalysis select_factor_count_strictly_positive select_factor_threshold select_observed_range
 #' @importFrom RODBC odbcClose
-#' @importFrom plyr d_ply
+#' @importFrom plyr ddply
 #' @examples
 #' \dontrun{
 #'  prepare_dataset()
@@ -39,15 +39,16 @@ prepare_dataset <- function(
   )
   location <- merge(database.id, location)
   location$Description <- NULL
-  location$ExternalCode <- NULL
   
   # define and save location groups
+  # \\u0137 is the ASCII code for e umlaut
   location.group <- data.frame(
     Description = c("Vlaanderen", "Walloni\\u0137", "Belgi\\u0137", "Vogelrichtlijn Vlaanderen", "Vogelrichtlijn Walloni\\u0137", "Vogelrichtlijn Belgi\\u0137"),
     Flanders = c(TRUE, FALSE, TRUE, TRUE, FALSE, TRUE),
     Wallonia = c(FALSE, TRUE, TRUE, FALSE, TRUE, TRUE),
     SPA = c(FALSE, FALSE, FALSE, TRUE, TRUE, TRUE),
-    Impute = c(TRUE, TRUE, TRUE, FALSE, FALSE, FALSE),
+    Impute = c("Vlaanderen", "Walloni\\u0137", "Belgi\\u0137", "Vlaanderen", "Walloni\\u0137", "Belgi\\u0137"),
+    SubsetMonths = c(FALSE, TRUE, TRUE, FALSE, TRUE, TRUE),
     SchemeID = scheme.id
   )
   database.id <- odbc_get_multi_id(
@@ -56,7 +57,16 @@ prepare_dataset <- function(
     channel = channel, create = TRUE
   )
   location.group <- merge(database.id, location.group)
+  location.group <- merge(
+    location.group,
+    location.group[, c("ID", "Description")],
+    by.x = "Impute",
+    by.y = "Description",
+    suffixes = c("", ".y")
+  )
+  location.group$Impute <- location.group$ID.y
   
+  location.group$ID.y <- NULL
   location.group$SchemeID <- NULL
   location.group$Description <- NULL
   
@@ -65,6 +75,12 @@ prepare_dataset <- function(
     table = "Datasource", 
     variable = "Description", 
     value = "Raw data watervogels Flanders", 
+    develop = develop
+  )
+  wallonia <- odbc_get_id(
+    table = "Datasource", 
+    variable = "Description", 
+    value = "Raw data watervogels Wallonia", 
     develop = develop
   )
   location.group.location <- do.call(rbind, lapply(
@@ -95,8 +111,11 @@ prepare_dataset <- function(
     channel = channel, create = TRUE
   )
   
-  location <- location[order(location$ID), c("ID", "StartDate", "EndDate")]
-  location.group <- location.group[order(location.group$ID), c("ID", "Impute")]
+  location <- location[
+    order(location$ID), 
+    c("ID", "StartDate", "EndDate", "ExternalCode", "DatasourceID")
+  ]
+  location.group <- location.group[order(location.group$ID), c("ID", "Impute", "SubsetMonths")]
   location.group.location <- location.group.location[
     order(
       location.group.location$LocationGroupID,
@@ -106,7 +125,8 @@ prepare_dataset <- function(
   ]
   
   location.sha <- write_delim_git(
-    x = location, file = "location.txt", path = "watervogel"
+    x = location[, c("ID", "StartDate", "EndDate")], 
+    file = "location.txt", path = "watervogel"
   )
   location.group.sha <- write_delim_git(
     x = location.group, file = "locationgroup.txt", path = "watervogel"
@@ -130,8 +150,15 @@ prepare_dataset <- function(
   )
   
   #read and save species
-  species.list <- read_specieslist(develop = develop)
-  write_delim_git(x = species.list$species, file = "species.txt", path = "watervogel")
+  species.list <- read_specieslist(limit = TRUE, develop = develop)
+  database.id <- odbc_get_multi_id(
+    data = species.list$species,
+    id.field = "ID", merge.field = "ExternalCode", table = "Species",
+    channel = channel, create = TRUE
+  )
+  species.constraint <- merge(database.id, species.list$species.constraint)
+  
+  
   
   # read and save observations
   if(verbose){
@@ -139,45 +166,100 @@ prepare_dataset <- function(
   } else {
     progress <- "none"
   }
-
-  d_ply(species.list$species.constraint, "SpeciesID", .progress = progress, function(x){
+#   x <- subset(species.constraint, ExternalCode == 1210)
+  dataset <- ddply(species.constraint, "ExternalCode", .progress = progress, function(x){
+    import.date <- Sys.time()
     observation.flemish <- read_observation(
-      species.id = x$SpeciesID[1], 
+      species.id = x$ExternalCode[1], 
       first.winter = x$Firstyear[1], 
       species.covered = x$SpeciesCovered,
       develop = develop
     )
+    observation.flemish$DatasourceID <- flanders
+    
     observation.walloon <- read_observation_wallonia(
-      species.id = x$SpeciesID[1], 
+      species.id = x$ExternalCode[1], 
       first.winter = x$Firstyear[1]
     )
-    
-    observation <- select_relevant(observation.flemish)
-    if(!is.null(observation)){
-      write_delim_git(x = observation, file = paste0(x$SpeciesID[1], "_VL.txt"), path = "watervogel")
-    }
-    
-    observation <- select_relevant(observation.walloon)
-    if(!is.null(observation)){
-      write_delim_git(x = observation, file = paste0(x$SpeciesID[1], "_WA.txt"), path = "watervogel")
-    }
-    
-    selection <- format(observation.flemish$Date, "%m") %in% c("11", "12", "01", "02")
     if(is.null(observation.walloon)){
-      observation <- observation.flemish[selection, ]
+      observation <- observation.flemish
     } else {
-      observation <- rbind(
-        observation.flemish[selection, ],
-        observation.walloon
+      observation.walloon$DatasourceID <- wallonia
+      observation <- rbind(observation.flemish, observation.walloon)
+    }
+    
+    observation <- merge(
+      observation, 
+      location[, c("ID", "ExternalCode", "DatasourceID")], 
+      by.x = c("LocationID", "DatasourceID"), 
+      by.y = c("ExternalCode", "DatasourceID")
+    )
+    observation$LocationID <- observation$ID
+    
+    observation <- observation[
+      order(observation$LocationID, observation$Date, observation$ObservationID),
+      c("LocationID", "Date", "ObservationID", "Complete", "Count")
+    ]
+    observation <- select_relevant_import(observation)
+    
+    filename <- paste0(x$ID[1], ".txt")
+    pathname <- "watervogel"
+    if(is.null(observation)){
+      observation.sha <- NA
+    } else {
+      observation.sha <- write_delim_git(
+        x = observation, 
+        file = filename, 
+        path = pathname
       )
     }
-    observation <- select_relevant(observation)
-    if(!is.null(observation)){
-      observation <- observation[order(observation$ObservationID), ]
-      write_delim_git(x = observation, file = paste0(x$SpeciesID[1], "_BE.txt"), path = "watervogel")
-    }
+    
+    data.frame(
+      FileName = filename,
+      PathName = pathname,
+      Fingerprint = observation.sha,
+      ImportDate = import.date,
+      Obsolete = FALSE
+    )
   })
-  
+  dataset$ExternalCode <- NULL
+
+  database.id <- odbc_get_multi_id(
+    data = dataset,
+    id.field = "ID", merge.field = c("FileName", "PathName", "Fingerprint"), 
+    table = "Dataset", 
+    channel = channel, create = TRUE
+  )
+
+  # mark obsolete datasets
+  sql <- "
+    UPDATE
+      Dataset
+    SET
+      Dataset.Obsolete = 1
+    FROM
+        Dataset
+      INNER JOIN
+        (
+          SELECT
+            FileName, 
+            PathName, 
+            Max(ImportDate) AS MostRecent
+          FROM
+            Dataset
+          GROUP BY
+            FileName, 
+            PathName
+        ) AS Recent
+      ON 
+        Dataset.FileName = Recent.FileName AND 
+        Dataset.PathName = Recent.PathName
+    WHERE
+      Obsolete = 0 AND
+      ImportDate < MostRecent
+  "
+  sqlQuery(channel = channel, query = sql)  
+
   auto_commit(
     package = environmentName(parent.env(environment())),
     username = username,
