@@ -6,7 +6,7 @@
 #' @inheritParams n2khelper::auto_commit
 #' @inheritParams n2khelper::odbc_connect
 #' @export
-#' @importFrom n2khelper check_single_logical connect_result odbc_get_id write_delim_git auto_commit get_scheme_id get_datasource_id
+#' @importFrom n2khelper check_single_logical check_single_strictly_positive_integer connect_result odbc_get_multi_id write_delim_git auto_commit odbc_get_id
 #' @importFrom n2kanalysis select_factor_count_strictly_positive select_factor_threshold select_observed_range
 #' @importFrom RODBC odbcClose
 #' @importFrom plyr d_ply
@@ -16,7 +16,7 @@
 #' }
 prepare_dataset <- function(username, password, scheme.id = get_scheme_id("Watervogels"), verbose = TRUE, develop = TRUE){
   verbose <- check_single_logical(verbose)
-  develop <- check_single_logical(develop)
+  scheme.id <- check_single_strictly_positive_integer(scheme.id)
   
   #read and save locations to database
   import.date <- Sys.time()

@@ -11,6 +11,8 @@
 read_specieslist <- function(limit = TRUE, develop = TRUE){
   species.constraint <- read_delim_git(file = "soorttelling.txt", path = "watervogel/attribuut")
   channel <- odbc_connect(data.source.name = "Raw data watervogels Flanders", develop = develop)
+  limit <- check_single_logical(limit)
+  
   sql <- "
     SELECT
       EuringCode AS SpeciesID,

@@ -4,11 +4,13 @@
 #' @param rawdata.file Name of the rawdata file
 #' @param path Path to store the analysis files
 #' @return A data.frame with the species id number of rows in the analysis dataset, number of precenses in the analysis datset and SHA-1 of the analysis dataset or NULL if not enough data.
-#' @importFrom n2khelper read_delim_git
 #' @importFrom lubridate ymd round_date year month 
+#' @importFrom n2khelper check_single_character check_dataframe_variable read_delim_git
 #' @importFrom digest digest
 #' @export
 prepare_analysis_dataset <- function(rawdata.file, path = "."){
+  rawdata.file <- check_single_character(rawdata.file, name = "rawdata.file")
+  path <- check_single_character(path, name = "path")
   if(!file_test("-d", path)){
     dir.create(path, recursive = TRUE)
   }

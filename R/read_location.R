@@ -7,7 +7,6 @@
 #' location <- read_location()
 #' head(location)
 read_location <- function(develop = TRUE){
-  develop <- check_single_logical(develop)
   
   # read Flemisch data from the database
   data.source.name <- "Raw data watervogels Flanders"
