@@ -3,7 +3,7 @@
 #' All available imported data is used. The only constraint is that the observation are not older than \code{first.winter} and originate form november up to februari.
 #' @inheritParams read_observation
 #' @export
-#' @importFrom n2khelper read_delim_git
+#' @importFrom n2khelper check_single_strictly_positive_integer read_delim_git
 #' @importFrom lubridate round_date year
 read_observation_wallonia <- function(species.id, first.winter){
   species.id <- check_single_strictly_positive_integer(species.id)

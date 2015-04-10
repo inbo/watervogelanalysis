@@ -21,7 +21,7 @@ A \code{data.frame} with observations. \code{Complete= 1} indicates that the ent
 \description{
 The selection uses several constraints. The user defined constraints are \code{first.winter} and \code{species.covered}. Following contraints are imposed at the same time as the user defined contraints:
 \itemize{
- \item The observation is valided
+ \item The observation is validated
  \item The observation is a midmonthly observation
  \item The observation is not 'unobserved'
  \item The location is 'active' and the observation date is within the 'active' period of the location

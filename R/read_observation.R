@@ -2,7 +2,7 @@
 #' 
 #' The selection uses several constraints. The user defined constraints are \code{first.winter} and \code{species.covered}. Following contraints are imposed at the same time as the user defined contraints:
 #'\itemize{
-#'  \item The observation is valided
+#'  \item The observation is validated
 #'  \item The observation is a midmonthly observation
 #'  \item The observation is not 'unobserved'
 #'  \item The location is 'active' and the observation date is within the 'active' period of the location
@@ -14,7 +14,7 @@
 #' @inheritParams n2khelper::odbc_connect
 #' @return A \code{data.frame} with observations. \code{Complete= 1} indicates that the entire location was surveyed. 
 #' @export
-#' @importFrom n2khelper check_single_strictly_positive_integer
+#' @importFrom n2khelper check_single_strictly_positive_integer odbc_connect
 #' @importFrom RODBC sqlQuery odbcClose
 #' @examples
 #' \dontrun{
@@ -28,7 +28,10 @@
 read_observation <- function(species.id, first.winter, species.covered, develop = TRUE){
   species.id <- check_single_strictly_positive_integer(species.id)
   first.winter <- check_single_strictly_positive_integer(first.winter)
-  channel <- odbc_connect(data.source.name = "Raw data watervogels Flanders", develop = develop)
+  
+  channel <- odbc_connect(
+    data.source.name = "Raw data watervogels Flanders", develop = develop
+  )
   species.covered.sql <- paste0(
     "SoortenTellingCode IN (",
     paste0(
