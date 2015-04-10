@@ -14,16 +14,25 @@
 #' \dontrun{
 #'  prepare_dataset()
 #' }
-prepare_dataset <- function(username, password, scheme.id = get_scheme_id("Watervogels"), verbose = TRUE, develop = TRUE){
+prepare_dataset <- function(
+  username, 
+  password, 
+  verbose = TRUE, 
+  develop = TRUE, 
+  scheme.id = odbc_get_id(
+    table = "Scheme", variable = "Description", value = "Watervogels", develop = develop
+  )
+){
   verbose <- check_single_logical(verbose)
   scheme.id <- check_single_strictly_positive_integer(scheme.id)
+
+  channel <- connect_result(develop = develop)
   
   #read and save locations to database
   import.date <- Sys.time()
   location <- read_location(develop = develop)
   
-  channel <- connect_result(develop = develop)
-  database.id <- odbc_get_id(
+  database.id <- odbc_get_multi_id(
     data = location[, c("ExternalCode", "DatasourceID", "Description")],
     id.field = "ID", merge.field = c("ExternalCode", "DatasourceID"), table = "Location",
     channel = channel, create = TRUE
@@ -41,7 +50,7 @@ prepare_dataset <- function(username, password, scheme.id = get_scheme_id("Water
     Impute = c(TRUE, TRUE, TRUE, FALSE, FALSE, FALSE),
     SchemeID = scheme.id
   )
-  database.id <- odbc_get_id(
+  database.id <- odbc_get_multi_id(
     data = location.group[, c("SchemeID", "Description")],
     id.field = "ID", merge.field = c("SchemeID", "Description"), table = "LocationGroup",
     channel = channel, create = TRUE
@@ -52,7 +61,12 @@ prepare_dataset <- function(username, password, scheme.id = get_scheme_id("Water
   location.group$Description <- NULL
   
   # get the locations per location group
-  flanders <- get_datasource_id(data.source.name = "Raw data watervogels Flanders")
+  flanders <- odbc_get_id(
+    table = "Datasource", 
+    variable = "Description", 
+    value = "Raw data watervogels Flanders", 
+    develop = develop
+  )
   location.group.location <- do.call(rbind, lapply(
     seq_along(location.group$ID),
     function(i){
@@ -74,9 +88,10 @@ prepare_dataset <- function(username, password, scheme.id = get_scheme_id("Water
       )
     }
   ))
-  database.id <- odbc_get_id(
+  database.id <- odbc_get_multi_id(
     data = location.group.location[, c("LocationGroupID", "LocationID")],
-    id.field = "ID", merge.field = c("LocationGroupID", "LocationID"), table = "LocationGroupLocation",
+    id.field = "ID", merge.field = c("LocationGroupID", "LocationID"), 
+    table = "LocationGroupLocation",
     channel = channel, create = TRUE
   )
   
@@ -107,9 +122,10 @@ prepare_dataset <- function(username, password, scheme.id = get_scheme_id("Water
     ImportDate = import.date,
     Obsolete = FALSE
   )
-  database.id <- odbc_get_id(
+  database.id <- odbc_get_multi_id(
     data = dataset,
-    id.field = "ID", merge.field = c("FileName", "PathName", "Fingerprint"), table = "Dataset",
+    id.field = "ID", merge.field = c("FileName", "PathName", "Fingerprint"), 
+    table = "Dataset", 
     channel = channel, create = TRUE
   )
   
