@@ -17,7 +17,7 @@ select_relevant_import <- function(observation){
   }
   check_dataframe_variable(
     df = observation, 
-    variable = c("Count", "Date", "LocationID"), 
+    variable = c("Count", "Year", "fMonth", "LocationID"), 
     name = "observation"
   )
   
@@ -32,10 +32,9 @@ select_relevant_import <- function(observation){
   }
   
   # select locations with prescences in at least 3 years
-  observation$Winter <- round_date(observation$Date, unit = "year")
   observation <- select_factor_count_strictly_positive(
     observation = observation, 
-    variable = c("LocationID", "Winter"),
+    variable = c("LocationID", "Year"),
     threshold = 3,
     dimension = 1
   )
@@ -46,9 +45,8 @@ select_relevant_import <- function(observation){
   # remove time periodes without prescences
   observation <- select_observed_range(
     observation = observation,
-    variable = "Winter"
+    variable = "Year"
   )
-  observation$Winter <- NULL
   if(nrow(observation) == 0){
     return(NULL)
   }
