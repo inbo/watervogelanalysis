@@ -2,52 +2,48 @@
 #' 
 #' The analysis dataset is saved to a rda file with the SHA-1 as name.
 #' @param rawdata.file Name of the rawdata file
+#' @param location a data.frame with the locations
 #' @param path Path to store the analysis files
 #' @return A data.frame with the species id number of rows in the analysis dataset, number of precenses in the analysis datset and SHA-1 of the analysis dataset or NULL if not enough data.
-#' @importFrom lubridate ymd round_date year month 
 #' @importFrom n2khelper check_single_character check_dataframe_variable read_delim_git
+#' @importFrom n2kanalysis select_factor_threshold
+#' @importFrom plyr ddply
 #' @importFrom digest digest
 #' @export
-prepare_analysis_dataset <- function(rawdata.file, path = "."){
+prepare_analysis_dataset <- function(rawdata.file, location, path = "."){
   rawdata.file <- check_single_character(rawdata.file, name = "rawdata.file")
   path <- check_single_character(path, name = "path")
+  check_dataframe_variable(
+    df = location, 
+    variable = c("LocationID", "LocationGroupID", "SubsetMonths", "StartYear", "EndYear"), 
+    name = "location"
+  )
+  
   if(!file_test("-d", path)){
     dir.create(path, recursive = TRUE)
   }
-  species.id <- as.integer(gsub("_.*", "", rawdata.file))
-  region <- gsub(
-    ".*_", 
-    "",
-    gsub("\\.txt$", "", rawdata.file)
-  )
+  species.group.id <- as.integer(gsub("\\.txt", "", rawdata.file))
   
-  analysis <- read_delim_git(file = rawdata.file, path = "watervogel")
-  if(class(analysis) != "data.frame"){
+  rawdata <- read_delim_git(file = rawdata.file, path = "watervogel")
+  if(class(rawdata) != "data.frame"){
     stop(rawdata.file, " not available")
   }
-  location <- read_delim_git(file = "location.txt", path = "watervogel")
   
-  analysis$Date <- ymd(analysis$Date)
-  location$StartDate <- ymd(location$StartDate)
-  location$EndDate <- ymd(location$EndDate)
-  
-  analysis$Year <- year(round_date(analysis$Date, unit = "year"))
-  location$StartYear <- year(round_date(location$StartDate, unit = "year"))
-  location$EndYear <- year(round_date(location$EndDate, unit = "year"))
-
-  analysis$fMonth <- factor(month(analysis$Date))
-  analysis$Date <- NULL
+  rawdata$Complete <- rawdata$Complete == 1
   
   full.combination <- expand.grid(
-    Year = unique(analysis$Year),
-    fMonth = unique(analysis$fMonth),
-    LocationID = unique(analysis$LocationID)
+    Year = unique(rawdata$Year),
+    fMonth = unique(rawdata$fMonth),
+    LocationID = unique(rawdata$LocationID)
   )
   full.combination <- merge(
     full.combination, 
-    location[, c("LocationID", "StartYear", "EndYear")]
+    location[, c("LocationID", "LocationGroupID", "SubsetMonths", "StartYear", "EndYear")]
   )
   rm(location)
+  
+  remove.month <- full.combination$SubsetMonths & full.combination$fMonth %in% c("3", "10")
+  full.combination <- full.combination[!remove.month, ]
   
   relevant.start <- is.na(full.combination$StartYear) | 
     full.combination$StartYear <= full.combination$Year
@@ -56,65 +52,81 @@ prepare_analysis_dataset <- function(rawdata.file, path = "."){
   full.combination <- full.combination[relevant.start & relevant.end, ]
   rm(relevant.start, relevant.end)
   
-  analysis <- merge(
-    full.combination[, c("LocationID", "Year", "fMonth")], 
-    analysis, 
+  rawdata <- merge(
+    full.combination[, c("LocationGroupID", "LocationID", "Year", "fMonth")], 
+    rawdata, 
     all.x = TRUE
   )
-  analysis$Minimum <- pmax(0, analysis$Count, na.rm = TRUE)
-  analysis$Count[!is.na(analysis$Count) & analysis$Complete == 0] <- NA
-  analysis$Complete <- NULL
-  
-  analysis$fYear <- factor(analysis$Year)
-  base.variable <- c("ObservationID", "Count", "Minimum", "fYear")
-  base.model.set <- c("0 + fYear")
-  
-  if(length(levels(analysis$fMonth)) > 1){
-    base.variable <- c(base.variable, "fMonth")
-    base.model.set <- c(base.model.set, "fMonth")
-  }
+  rawdata$Minimum <- ifelse(is.na(rawdata$Count), 0, rawdata$Count)
+  rawdata$Count[!is.na(rawdata$Complete) & !rawdata$Complete] <- 0
+  rawdata$Complete <- NULL
 
-  analysis$fLocation <- factor(analysis$LocationID)
-  if(length(levels(analysis$fLocation)) > 1){
-    base.variable <- c(base.variable, "fLocation")
-    if(length(levels(analysis$fLocation)) > 10){
-      base.model.set <- c(base.model.set, "f(fLocation, model = 'iid')")
+#   dataset <- subset(rawdata, LocationGroupID == 8)
+  output <- ddply(rawdata, "LocationGroupID", function(dataset){
+    location.group.id <- dataset$LocationGroupID[1]
+    dataset$LocationGroupID <- NULL
+    dataset$fMonth <- factor(dataset$fMonth)
+    dataset <- select_relevant_analysis(dataset)
+    
+    if(length(unique(dataset$Year)) > 1){
+      dataset$fYear <- factor(dataset$Year)
+      covariate <- "0 + fYear"
     } else {
-      base.model.set <- c(base.model.set, "fLocation")
+      covariate <- "1"
     }
-  }
-  
-  base.model.set <- paste(base.model.set, collapse = " + ")
+    dataset$Year <- NULL
 
-  analysis$fLocationYear <- interaction(analysis$fLocation, analysis$fYear)
-  extra.variable <- "fLocationYear"
-  extra.model.set <- "f(fLocationYear, model = 'iid')"
-
-  analysis$cYear <- analysis$Year - min(analysis$Year)
-  extra.variable <- c(extra.variable, "cYear")
-  extra.model.set <- c(extra.model.set, "f(cYear, model = 'rw1', replicate = as.integer(fLocation))")
-  
-  model.type <- "inla nbinomial"
-  data <- analysis[, base.variable]
-  model.set <- base.model.set
-  sha <- digest(
-    list(species.id, region, model.type, model.set, data), 
-    algo = "sha1"
-  )
-  save(species.id, region, model.type, model.set, data, file = paste0(path, "/", sha, ".rda"))
-  
-  for(i in seq_along(extra.model.set)){
-    data <- analysis[, c(base.variable, extra.variable[i])]
-    model.set <- paste(base.model.set, extra.model.set[i], sep = " + ")
-    sha <- digest(
-      list(species.id, region, model.type, model.set, data), 
+    if(length(levels(dataset$fMonth)) == 1){
+      dataset$fMonth <- NULL
+    } else {
+      covariate <- c(covariate, "fMonth")
+      if("fYear" %in% colnames(dataset)){
+        dataset$fYearMonth <- interaction(dataset$fYear, dataset$fMonth, drop = TRUE)
+        covariate <- c(covariate, "f(fYearMonth, model = 'iid')")
+      }
+    }
+    
+    if(length(unique(dataset$LocationID)) == 1){
+      n.location <- 1
+    } else {
+      dataset$fLocation <- factor(dataset$LocationID)
+      n.location <- length(levels(dataset$fLocation))
+      covariate <- c(covariate, "f(fLocation, model = 'iid')")
+      if("fYear" %in% colnames(dataset)){
+        dataset$fYearLocation <- interaction(dataset$fYear, dataset$fLocation, drop = TRUE)
+        covariate <- c(covariate, "f(fYearLocation, model = 'iid')")
+      }
+    }
+    dataset$LocationID <- NULL
+    sort.column <- na.omit(match(c("fLocation", "fYear", "fMonth"), colnames(dataset)))
+    dataset <- dataset[do.call(order, dataset[, sort.column]), ]
+    
+    order.column <- c("fLocation", "fYear", "fMonth", "Count", "Minimum", "ObservationID", "fYearLocation", "fYearMonth")
+    order.column <- order.column[order.column %in% colnames(dataset)]
+    dataset <- dataset[, order.column]
+    
+    covariate <- paste(covariate, collapse = " + ")
+    modeltype <- "inla_nbinomial: Year * (Month + Location)"
+    data.fingerprint <- digest(dataset, algo = "sha1")
+    file.fingerprint <- digest(
+      list(
+        species.group.id, location.group.id, data, covariate, modeltype, data.fingerprint
+      ),
       algo = "sha1"
     )
     save(
-      species.id, region, model.type, model.set, data, 
-      file = paste0(path, "/", sha, ".rda")
+      species.group.id, location.group.id, data, covariate, modeltype, data.fingerprint,
+      file = paste0(path, "/", file.fingerprint, ".rda")
     )
-  }
-  
-  return(analysis)
+    data.frame(
+      ModelType = modeltype,
+      Covariate = covariate,
+      Fingerprint = file.fingerprint,
+      NObs = nrow(dataset),
+      NLocation = n.location
+    )
+  })
+  output$SpeciesGroupID <- species.group.id  
+
+  return(output)
 }

@@ -4,10 +4,12 @@
 \alias{prepare_analysis}
 \title{Prepare all datasets and a to do list of models}
 \usage{
-prepare_analysis(path = ".")
+prepare_analysis(path = ".", develop = TRUE)
 }
 \arguments{
 \item{path}{Path to store the analysis files}
+
+\item{develop}{Logical value. Indicates the location ton the results database}
 }
 \description{
 Prepare all datasets and a to do list of models

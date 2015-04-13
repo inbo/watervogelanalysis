@@ -4,10 +4,12 @@
 \alias{prepare_analysis_dataset}
 \title{Create the analysis dataset based on the available raw data}
 \usage{
-prepare_analysis_dataset(rawdata.file, path = ".")
+prepare_analysis_dataset(rawdata.file, location, path = ".")
 }
 \arguments{
 \item{rawdata.file}{Name of the rawdata file}
+
+\item{location}{a data.frame with the locations}
 
 \item{path}{Path to store the analysis files}
 }
