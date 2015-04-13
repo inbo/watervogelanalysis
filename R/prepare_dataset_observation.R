@@ -78,9 +78,9 @@ prepare_dataset_observation <- function(
   
   observation <- result$Observation[
     order(
-      observation$LocationID, 
-      observation$Year, 
-      observation$fMonth
+      result$Observation$LocationID, 
+      result$Observation$Year, 
+      result$Observation$fMonth
     ),
     c("LocationID", "Year", "fMonth", "ObservationID", "Complete", "Count")
   ]

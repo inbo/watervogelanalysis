@@ -44,7 +44,7 @@ remove_duplicate_observation <- function(observation){
     FUN = max
   )
   observation.to.clean <- merge(
-    observation,
+    observation.to.clean,
     max.complete
   )
   
