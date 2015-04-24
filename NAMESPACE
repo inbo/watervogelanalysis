@@ -2,6 +2,7 @@
 
 export(connect_attribute)
 export(connect_flemish_source)
+export(connect_raw)
 export(connect_walloon_source)
 export(datasource_id_flanders)
 export(datasource_id_raw)
