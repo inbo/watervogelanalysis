@@ -4,20 +4,23 @@
 \alias{prepare_dataset}
 \title{Prepare the raw datasets and save them to the git repository}
 \usage{
-prepare_dataset(username, password, verbose = TRUE, develop = TRUE,
-  scheme.id = odbc_get_id(table = "Scheme", variable = "Description", value =
-  "Watervogels", develop = develop))
+prepare_dataset(scheme.id, raw.connection, result.channel, attribute.connection,
+  walloon.connection, flemish.channel, verbose = TRUE)
 }
 \arguments{
-\item{username}{the username for the git repository}
+\item{scheme.id}{the id of the scheme}
 
-\item{password}{the user's password for the git repository}
+\item{raw.connection}{a git-connection object to write the output to}
+
+\item{result.channel}{An open RODBC connection to the results database}
+
+\item{attribute.connection}{a git-connection object to the attributes}
+
+\item{walloon.connection}{a git-connection object to the Walloon source data}
+
+\item{flemish.channel}{An open ODBC connection to the source database}
 
 \item{verbose}{Display a progress bar when TRUE (default)}
-
-\item{develop}{Logical value. Indicates the location ton the results database}
-
-\item{scheme.id}{the id of the scheme}
 }
 \description{
 The raw data is written to the git repository. All changes are always staged and committed. The commit is pushed when both username and password are provided.

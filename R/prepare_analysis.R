@@ -3,23 +3,24 @@
 #' @importFrom n2khelper check_single_character read_delim_git list_files_git check_single_strictly_positive_integer
 #' @importFrom lubridate ymd year round_date
 #' @inheritParams prepare_analysis_dataset
+#' @inheritParams prepare_dataset
 #' @inheritParams n2khelper::odbc_connect
-prepare_analysis <- function(path = ".", develop = TRUE){
-  path <- check_single_character(path)
+prepare_analysis <- function(output.path = ".", raw.connection){
+  path <- check_single_character(output.path)
   
   # remove existing rda files
-  if(file_test("-d", path)){
-    existing <- list.files(path, pattern = ".rda", full.names = TRUE)
+  if(file_test("-d", output.path)){
+    existing <- list.files(output.path, pattern = ".rda", full.names = TRUE)
     success <- file.remove(existing)
     if(length(success) > 0 & !all(success)){
       stop("unable to remove some files:\n", paste(existing[!success], collapse = "\n"))
     }
   }
   
-  location <- read_delim_git(file = "location.txt", path = "watervogel")
-  location.group <- read_delim_git(file = "locationgroup.txt", path = "watervogel")
+  location <- read_delim_git(file = "location.txt", connection = raw.connection)
+  location.group <- read_delim_git(file = "locationgroup.txt", connection = raw.connection)
   location.group.location <- read_delim_git(
-    file = "locationgrouplocation.txt", path = "watervogel"
+    file = "locationgrouplocation.txt", connection = raw.connection
   )
   
   location$StartDate <- ymd(location$StartDate)
@@ -43,14 +44,16 @@ prepare_analysis <- function(path = ".", develop = TRUE){
   )
   rm(location.group.location)
 
-  rawdata.files <- list_files_git(path = "watervogel")
+  rawdata.files <- list_files_git(connection = raw.connection, pattern = "^[0-9.*]\\.txt$")
   output <- lapply(
     rawdata.files, 
     prepare_analysis_dataset, 
     path = path, location = location
   )
   output <- do.call(rbind, output)
-  filename <- normalizePath(paste0(path, "/to_do.rda"), winslash = "/", mustWork = FALSE)
+  filename <- normalizePath(
+    paste0(output.path, "/to_do.rda"), winslash = "/", mustWork = FALSE
+  )
   save(output, file = filename)
   return(output)
 }

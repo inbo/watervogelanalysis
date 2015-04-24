@@ -4,7 +4,7 @@
 \alias{read_observation}
 \title{Read the Flemish observations from a species}
 \usage{
-read_observation(species.id, first.winter, species.covered, develop = TRUE)
+read_observation(species.id, first.winter, species.covered, flemish.channel)
 }
 \arguments{
 \item{species.id}{The id of the species}
@@ -13,7 +13,7 @@ read_observation(species.id, first.winter, species.covered, develop = TRUE)
 
 \item{species.covered}{A vector with codes of relevant methodes}
 
-\item{develop}{Logical value. Indicates the location ton the results database}
+\item{flemish.channel}{An open ODBC connection to the source database}
 }
 \value{
 A \code{data.frame} with observations. \code{Complete= 1} indicates that the entire location was surveyed.

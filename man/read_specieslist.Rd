@@ -4,18 +4,30 @@
 \alias{read_specieslist}
 \title{Read the species list and their constraints}
 \usage{
-read_specieslist(limit = TRUE, develop = TRUE)
+read_specieslist(flemish.channel, attribute.connection, limit = TRUE)
 }
 \arguments{
-\item{limit}{Return only species with explicit constraints (default = TRUE). Otherwise return all species in the database}
+\item{flemish.channel}{An open ODBC connection to the source database}
 
-\item{develop}{Logical value. Indicates the location ton the results database}
+\item{attribute.connection}{a git-connection object to the attributes}
+
+\item{limit}{Return only species with explicit constraints (default = TRUE). Otherwise return all species in the database}
 }
 \description{
 Read the species list and their constraints
 }
 \examples{
-species.list <- read_specieslist()
+result.channel <- n2khelper::connect_result()
+flemish.channel <- connect_flemish_source(result.channel = result.channel)
+attribute.connection <- connect_attribute(
+  result.channel = result.channel,
+  username = "Someone",
+  password = "xxxx"
+)
+species.list <- read_specieslist(
+  flemish.channel = flemish.channel,
+  attribute.connection = attribute.connection
+)
 head(species.list$species)
 head(species.list$species.constraint)
 }

@@ -1,22 +1,28 @@
 #' read the dataset of locations from the database
-#' @inheritParams n2khelper::odbc_connect
+#' @inheritParams read_specieslist
+#' @inheritParams connect_flemish_source
+#' @inheritParams prepare_dataset
 #' @export
 #' @importFrom n2khelper odbc_get_id odbc_connect git_connect read_delim_git
-#' @importFrom RODBC sqlQuery odbcClose
+#' @importFrom RODBC sqlQuery
 #' @examples
-#' location <- read_location()
+#' result.channel <- n2khelper::connect_result()
+#' flemish.channel <- connect_flemish_source(result.channel = result.channel)
+#' walloon.connection <- connect_walloon_source(
+#'   result.channel = result.channel,
+#'   username = "Someone",
+#'   password = "xxxx"
+#' )
+#' location <- read_location(
+#'   result.channel = result.channel, 
+#'   flemish.channel = flemish.channel, 
+#'   walloon.connection = walloon.connection
+#' )
 #' head(location)
-read_location <- function(develop = TRUE){
+read_location <- function(result.channel, flemish.channel, walloon.connection){
   
   # read Flemisch data from the database
-  data.source.name <- "Raw data watervogels Flanders"
-  data.source.id <- odbc_get_id(
-    table = "Datasource",
-    variable = "Description",
-    value = data.source.name,
-    develop = develop
-  )
-  channel <- odbc_connect(data.source.name = data.source.name, develop = develop)
+  data.source.id <- datasource_id_flanders(result.channel = result.channel)
   sql <- "
     SELECT
       Code AS ExternalCode,
@@ -31,21 +37,13 @@ read_location <- function(develop = TRUE){
     ORDER BY
       Code
   "
-  location <- sqlQuery(channel = channel, query = sql, stringsAsFactors = FALSE)
-  odbcClose(channel)
+  location <- sqlQuery(channel = flemish.channel, query = sql, stringsAsFactors = FALSE)
   location$DatasourceID <- data.source.id
   location$SPA[is.na(location$SPA)] <- 0
   
   # Read Walloon data from the git repository
-  data.source.name <- "Raw data watervogels Wallonia"
-  data.source.id <- odbc_get_id(
-    table = "Datasource",
-    variable = "Description",
-    value = "Raw data watervogels Wallonia",
-    develop = develop
-  )
-  path <- git_connect(data.source.name = data.source.name, develop = develop)
-  walloon.location <- read_delim_git(file = "location.txt", path = path)
+  data.source.id <- datasource_id_wallonia(result.channel = result.channel)
+  walloon.location <- read_delim_git(file = "location.txt", connection = walloon.connection)
   if(class(walloon.location) == "logical"){
     Encoding(location$Description) <- "UTF-8"
     return(location)

@@ -4,16 +4,31 @@
 \alias{read_location}
 \title{read the dataset of locations from the database}
 \usage{
-read_location(develop = TRUE)
+read_location(result.channel, flemish.channel, walloon.connection)
 }
 \arguments{
-\item{develop}{Logical value. Indicates the location ton the results database}
+\item{result.channel}{An open RODBC connection to the results database}
+
+\item{flemish.channel}{An open ODBC connection to the source database}
+
+\item{walloon.connection}{a git-connection object to the Walloon source data}
 }
 \description{
 read the dataset of locations from the database
 }
 \examples{
-location <- read_location()
+result.channel <- n2khelper::connect_result()
+flemish.channel <- connect_flemish_source(result.channel = result.channel)
+walloon.connection <- connect_walloon_source(
+  result.channel = result.channel,
+  username = "Someone",
+  password = "xxxx"
+)
+location <- read_location(
+  result.channel = result.channel,
+  flemish.channel = flemish.channel,
+  walloon.connection = walloon.connection
+)
 head(location)
 }
 

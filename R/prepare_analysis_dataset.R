@@ -3,28 +3,34 @@
 #' The analysis dataset is saved to a rda file with the SHA-1 as name.
 #' @param rawdata.file Name of the rawdata file
 #' @param location a data.frame with the locations
-#' @param path Path to store the analysis files
+#' @param output.path Path to store the analysis files
+#' @inheritParams prepare_dataset
 #' @return A data.frame with the species id number of rows in the analysis dataset, number of precenses in the analysis datset and SHA-1 of the analysis dataset or NULL if not enough data.
 #' @importFrom n2khelper check_single_character check_dataframe_variable read_delim_git
 #' @importFrom n2kanalysis select_factor_threshold
 #' @importFrom plyr ddply
 #' @importFrom digest digest
 #' @export
-prepare_analysis_dataset <- function(rawdata.file, location, path = "."){
+prepare_analysis_dataset <- function(
+  rawdata.file, 
+  location, 
+  output.path = ".", 
+  raw.connection
+){
   rawdata.file <- check_single_character(rawdata.file, name = "rawdata.file")
-  path <- check_single_character(path, name = "path")
+  output.path <- check_single_character(output.path, name = "output.path")
   check_dataframe_variable(
     df = location, 
     variable = c("LocationID", "LocationGroupID", "SubsetMonths", "StartYear", "EndYear"), 
     name = "location"
   )
   
-  if(!file_test("-d", path)){
-    dir.create(path, recursive = TRUE)
+  if(!file_test("-d", output.path)){
+    dir.create(output.path, recursive = TRUE)
   }
   species.group.id <- as.integer(gsub("\\.txt", "", rawdata.file))
   
-  rawdata <- read_delim_git(file = rawdata.file, path = "watervogel")
+  rawdata <- read_delim_git(file = rawdata.file, connection = raw.connection)
   if(class(rawdata) != "data.frame"){
     stop(rawdata.file, " not available")
   }
@@ -116,7 +122,7 @@ prepare_analysis_dataset <- function(rawdata.file, location, path = "."){
     )
     save(
       species.group.id, location.group.id, data, covariate, modeltype, data.fingerprint,
-      file = paste0(path, "/", file.fingerprint, ".rda")
+      file = paste0(output.path, "/", file.fingerprint, ".rda")
     )
     data.frame(
       ModelType = modeltype,

@@ -4,13 +4,17 @@
 \alias{prepare_dataset_species}
 \title{Read the species for the raw datasource, save them to the results database}
 \usage{
-prepare_dataset_species(scheme.id = odbc_get_id(table = "Scheme", variable =
-  "Description", value = "Watervogels", develop = develop), develop = develop)
+prepare_dataset_species(scheme.id, result.channel, flemish.channel,
+  attribute.connection)
 }
 \arguments{
 \item{scheme.id}{the id of the scheme}
 
-\item{develop}{Logical value. Indicates the location ton the results database}
+\item{result.channel}{An open RODBC connection to the results database}
+
+\item{flemish.channel}{An open ODBC connection to the source database}
+
+\item{attribute.connection}{a git-connection object to the attributes}
 }
 \value{
 the species group constraint information

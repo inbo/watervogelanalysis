@@ -4,9 +4,8 @@
 \alias{prepare_dataset_observation}
 \title{Read the observations for the raw datasource, save them to the git repository and the results database}
 \usage{
-prepare_dataset_observation(this.constraint, location,
-  scheme.id = odbc_get_id(table = "Scheme", variable = "Description", value =
-  "Watervogels", develop = develop), develop = TRUE)
+prepare_dataset_observation(this.constraint, location, scheme.id,
+  flemish.channel, result.channel, raw.connection)
 }
 \arguments{
 \item{this.constraint}{the constraints for this species group}
@@ -15,7 +14,11 @@ prepare_dataset_observation(this.constraint, location,
 
 \item{scheme.id}{the id of the scheme}
 
-\item{develop}{Logical value. Indicates the location ton the results database}
+\item{flemish.channel}{An open ODBC connection to the source database}
+
+\item{result.channel}{An open RODBC connection to the results database}
+
+\item{raw.connection}{a git-connection object to write the output to}
 }
 \description{
 Read the observations for the raw datasource, save them to the git repository and the results database

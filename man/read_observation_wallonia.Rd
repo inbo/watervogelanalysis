@@ -4,12 +4,14 @@
 \alias{read_observation_wallonia}
 \title{Read the Wallon observations from a species}
 \usage{
-read_observation_wallonia(species.id, first.winter)
+read_observation_wallonia(species.id, first.winter, walloon.connection)
 }
 \arguments{
 \item{species.id}{The id of the species}
 
 \item{first.winter}{The oldest winter from which the observation are relevant. Observation prior to \code{first.winter} are ignored}
+
+\item{walloon.connection}{a git-connection object to the Walloon source data}
 }
 \description{
 All available imported data is used. The only constraint is that the observation are not older than \code{first.winter} and originate form november up to februari.

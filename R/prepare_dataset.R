@@ -2,9 +2,11 @@
 #' 
 #' The raw data is written to the git repository. All changes are always staged and committed. The commit is pushed when both username and password are provided.
 #' @param scheme.id the id of the scheme
+#' @param raw.connection a git-connection object to write the output to
+#' @param walloon.connection a git-connection object to the Walloon source data
 #' @param verbose Display a progress bar when TRUE (default)
-#' @inheritParams n2khelper::auto_commit
-#' @inheritParams n2khelper::odbc_connect
+#' @inheritParams connect_flemish_source
+#' @inheritParams read_specieslist
 #' @export
 #' @importFrom n2khelper check_single_logical check_single_strictly_positive_integer remove_files_git auto_commit odbc_get_id
 #' @importFrom RODBC odbcClose
@@ -14,29 +16,34 @@
 #'  prepare_dataset()
 #' }
 prepare_dataset <- function(
-  username, 
-  password, 
-  verbose = TRUE, 
-  develop = TRUE, 
-  scheme.id = odbc_get_id(
-    table = "Scheme", variable = "Description", value = "Watervogels", develop = develop
-  )
+  scheme.id,
+  raw.connection,
+  result.channel,
+  attribute.connection,
+  walloon.connection,
+  flemish.channel,
+  verbose = TRUE
 ){
   verbose <- check_single_logical(verbose)
   scheme.id <- check_single_strictly_positive_integer(scheme.id)
 
-  path <- "watervogel"
-  pattern <- "\\.txt$"
-  success <- remove_files_git(path = path, pattern = pattern)
-  if(length(success) > 0 && !all(success)){
-    stop("Error cleaning existing files in the git repository. Path: '", path, "', pattern: '", pattern, "'")
-  }
+  success <- remove_files_git(connection = raw.connection, pattern = "\\.txt$")
   
   #read and save locations to database
-  location <- prepare_dataset_location(develop = develop)
+  location <- prepare_dataset_location(  
+    scheme.id = scheme.id, 
+    flemish.channel = flemish.channel, 
+    result.channel = result.channel, 
+    raw.connection = raw.connection
+  )
   
   #read and save species
-  species.constraint <- prepare_dataset_species(develop = develop)
+  species.constraint <- prepare_dataset_species(
+    scheme.id = scheme.id, 
+    flemish.channel = flemish.channel, 
+    result.channel = result.channel,
+    attribute.connection = attribute.connection
+  )
   
   # read and save observations
   if(verbose){
@@ -52,13 +59,15 @@ prepare_dataset <- function(
     .fun = prepare_dataset_observation,
     location = location,
     scheme.id = scheme.id,
-    develop = develop
+    result.channel = result.channel,
+    flemish.channel = flemish.channel,
+    walloon.connection = walloon.connection,
+    raw.connection = raw.connection
   )
 
   auto_commit(
     package = environmentName(parent.env(environment())),
-    username = username,
-    password = password
+    connection = raw.connection
   )
 
   return(invisible(NULL))
