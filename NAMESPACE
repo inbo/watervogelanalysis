@@ -2,6 +2,9 @@
 
 export(connect_source)
 export(import_walloon_raw_data)
+export(datasource_id_flanders)
+export(datasource_id_raw)
+export(datasource_id_wallonia)
 export(prepare_analysis)
 export(prepare_analysis_dataset)
 export(prepare_dataset)
