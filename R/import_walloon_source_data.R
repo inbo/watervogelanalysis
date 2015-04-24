@@ -31,64 +31,87 @@
 #' @param visit.file file with details on the visits to each location
 #' @param data.file file with observed species at each visit
 #' @param path directory were the above files are stored
-#' @inheritParams n2khelper::auto_commit
+#' @inheritParams prepare_dataset
 #' @export
-#' @importFrom n2khelper check_dataframe_variable write_delim_git auto_commit
-import_walloon_raw_data <- function(
-  location.file, visit.file, data.file, path = ".", username, password
+#' @importFrom n2khelper check_path git_connect check_dataframe_variable write_delim_git auto_commit
+#' @importFrom digest digest
+import_walloon_source_data <- function(
+  location.file, visit.file, data.file, path = ".", walloon.connection
 ){
-  path <- normalizePath(path, winslash = "/", mustWork = TRUE)
+  path <- check_path(path, type = "directory")
+  location.file <- check_path(
+    paste(path, location.file, sep = "/"), 
+    type = "file"
+  )
+  visit.file <- check_path(
+    paste(path, visit.file, sep = "/"), 
+    type = "file"
+  )
+  data.file <- check_path(
+    paste(path, data.file, sep = "/"), 
+    type = "file"
+  )
   
   old.names <- c("CODE_ULT", "Nom_site", "ZPS", "Area", "Xlamb", "Ylamb")
   new.names <- c(
     "LocationID", "LocationName", "SPA", "Area", "XBelgiumLambert72", "YBelgiumLambert72"
   )
   location <- read.csv2(
-    paste(path, location.file, sep = "/"), 
+    location.file, 
     dec = "."
   )
-  if(!check_dataframe_variable(df = location, variable = old.names, name = "location")){
+  if(!check_dataframe_variable(df = location, variable = old.names, name = "location", error = FALSE)){
     stop("Some required variables are missing in ", location.file)
   }
   location <- location[, old.names]
   colnames(location) <- new.names
-  if(any(duplicated(location$LocationID))){
+  if(anyDuplicated(location$LocationID)){
     warning("duplicate id in ", location.file)
   }
   location <- location[order(location$LocationID), ]
-  write_delim_git(location, file = "location.txt", path = "watervogel/wallonia")
+  write_delim_git(location, file = "location.txt", connection = walloon.connection)
   
   old.names <- c("ID_visit", "CODE_ULT", "DATE")
-  new.names <- c("ObservationID", "LocationID", "Date")
+  new.names <- c("OriginalObservationID", "LocationID", "Date")
   visit <- read.csv2(
-    paste(path, visit.file, sep = "/"), 
+    visit.file,
     dec = "."
   )
-  if(!check_dataframe_variable(df = visit, variable = old.names, name = "visit")){
+  if(!check_dataframe_variable(df = visit, variable = old.names, name = "visit", error = FALSE)){
     stop("Some required variables are missing in ", visit.file)
   }
   visit <- visit[, old.names]
   colnames(visit) <- new.names
   visit$Date <- as.Date(visit$Date, format = "%d/%m/%Y")
-  if(any(duplicated(visit$ObservationID))){
+  if(anyDuplicated(visit$OriginalObservationID)){
     warning("duplicate id in ", visit.file)
+    duplicate.id <- names(which(table(visit$OriginalObservationID) > 1))
+    visit.duplicate <- visit[visit$OriginalObservationID %in% duplicate.id, ]
     visit <- aggregate(
       visit[, "Date", drop = FALSE],
-      visit[, c("ObservationID", "LocationID")],
+      visit[, c("OriginalObservationID", "LocationID")],
       FUN = median
     )
+  } else {
+    visit.duplicate <- FALSE
   }
-  
   if(!all(visit$LocationID %in% location$LocationID)){
     stop(visit.file, " contains id which is not in ", location.file)
   }
-  visit <- visit[order(visit$ObservationID), ]
-  write_delim_git(visit, file = "visit.txt", path = "watervogel/wallonia")
+  
+  visit$ObservationID <- apply(
+    visit[, c("OriginalObservationID", "LocationID")], 
+    1, 
+    digest, 
+    algo = "sha1"
+  )
+  visit <- visit[order(visit$OriginalObservationID), c("ObservationID", new.names)]
+  write_delim_git(visit, file = "visit.txt", connection = walloon.connection)
   
   old.names <- c("ID_visit", "TAXPRIO", "SommeDeN")
-  new.names <- c("ObservationID", "Species", "Count")
+  new.names <- c("OriginalObservationID", "Species", "Count")
   data <- read.csv2(
-    paste(path, data.file, sep = "/"), 
+    data.file, 
     dec = "."
   )
   if(!check_dataframe_variable(df = data, variable = old.names, name = "data")){
@@ -96,27 +119,37 @@ import_walloon_raw_data <- function(
   }
   data <- data[, old.names]
   colnames(data) <- new.names
-  if(!all(data$ObservationID %in% visit$ObservationID)){
+  if(!all(data$OriginalObservationID %in% visit$OriginalObservationID)){
     stop(data.file, " contains id which is not in ", visit.file)
   }
-  species <- read_specieslist(limit = FALSE)$species
-  detected.species <- unique(data$Species) 
-  unknown.species <- detected.species[!detected.species %in% species$Species]
-  if(length(unknown.species) > 0){
-    warning("Species in ", data.file, " but not present in read_specieslist(limit = FALSE):\n", paste(sort(unknown.species), collapse = "\n"))
+  if(any(table(data$OriginalObservationID, data$Species) > 1)){
+    warning("Species with multiple counts per visit. Only the highest values is retained")
+    n.obs <- aggregate(
+      data[, "Count"],
+      data[, c("OriginalObservationID", "Species")],
+      FUN = length
+    )    
+    data.duplicate <- merge(
+      n.obs[n.obs$x > 1, c("OriginalObservationID", "Species")],
+      data
+    )
+    data <- aggregate(
+      data[, "Count", drop = FALSE],
+      data[, c("OriginalObservationID", "Species")],
+      FUN = max
+    )    
+  } else {
+    data.duplicate <- NA
   }
-  data <- merge(data, species[, c("SpeciesID", "Species")])
-  data <- aggregate(
-    data[, "Count", drop = FALSE],
-    data[, c("ObservationID", "SpeciesID")],
-    FUN = max
-  )
-
-  data <- data[order(data$ObservationID, data$SpeciesID), ]
-  write_delim_git(data, file = "data.txt", path = "watervogel/wallonia")
+  data <- data[order(data$OriginalObservationID, data$Species), new.names]
+  write_delim_git(data, file = "data.txt", connection = walloon.connection)
   
   auto_commit(
     package = environmentName(parent.env(environment())), 
-    username = username, password = password
+    connection = walloon.connection
   )
+  return(list(
+    DuplicateVisit = visit.duplicate,
+    DuplicateData = data.duplicate
+  ))
 }
