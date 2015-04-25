@@ -60,9 +60,7 @@ import_walloon_source_data <- function(
     location.file, 
     dec = "."
   )
-  if(!check_dataframe_variable(df = location, variable = old.names, name = "location", error = FALSE)){
-    stop("Some required variables are missing in ", location.file)
-  }
+  check_dataframe_variable(df = location, variable = old.names, name = location.file)
   location <- location[, old.names]
   colnames(location) <- new.names
   if(anyDuplicated(location$LocationID)){
@@ -77,9 +75,7 @@ import_walloon_source_data <- function(
     visit.file,
     dec = "."
   )
-  if(!check_dataframe_variable(df = visit, variable = old.names, name = "visit", error = FALSE)){
-    stop("Some required variables are missing in ", visit.file)
-  }
+  check_dataframe_variable(df = visit, variable = old.names, name = visit.file)
   visit <- visit[, old.names]
   colnames(visit) <- new.names
   visit$Date <- as.Date(visit$Date, format = "%d/%m/%Y")
@@ -114,9 +110,7 @@ import_walloon_source_data <- function(
     data.file, 
     dec = "."
   )
-  if(!check_dataframe_variable(df = data, variable = old.names, name = "data")){
-    stop("Some required variables are missing in ", data.file)
-  }
+  check_dataframe_variable(df = data, variable = old.names, name = data.file)
   data <- data[, old.names]
   colnames(data) <- new.names
   if(!all(data$OriginalObservationID %in% visit$OriginalObservationID)){
