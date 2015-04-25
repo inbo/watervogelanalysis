@@ -25,8 +25,11 @@ prepare_dataset_location <- function(
   # store the locations
   database.id <- odbc_get_multi_id(
     data = location[, c("ExternalCode", "DatasourceID", "Description")],
-    id.field = "ID", merge.field = c("ExternalCode", "DatasourceID"), table = "Location",
-    channel = result.channel, create = TRUE
+    id.field = "ID", 
+    merge.field = c("ExternalCode", "DatasourceID"), 
+    table = "Location",
+    channel = result.channel, 
+    create = TRUE
   )
   location <- merge(database.id, location)
   location$Description <- NULL
@@ -45,7 +48,8 @@ prepare_dataset_location <- function(
   database.id <- odbc_get_multi_id(
     data = location.group[, c("SchemeID", "Description")],
     id.field = "ID", merge.field = c("SchemeID", "Description"), table = "LocationGroup",
-    channel = result.channel, create = TRUE
+    channel = result.channel, 
+    create = TRUE
   )
   location.group <- merge(database.id, location.group)
   location.group <- merge(
@@ -95,7 +99,7 @@ prepare_dataset_location <- function(
   location <- location[
     order(location$ID), 
     c("ID", "StartDate", "EndDate", "ExternalCode", "DatasourceID")
-    ]
+  ]
   location.group <- location.group[
     order(location.group$ID), 
     c("ID", "Impute", "SubsetMonths")
@@ -116,7 +120,9 @@ prepare_dataset_location <- function(
     connection = raw.connection
   )
   location.group.sha <- write_delim_git(
-    x = location.group, file = "locationgroup.txt", connection = raw.connection
+    x = location.group, 
+    file = "locationgroup.txt", 
+    connection = raw.connection
   )
   location.group.location.sha <- write_delim_git(
     x = location.group.location, 
@@ -126,7 +132,7 @@ prepare_dataset_location <- function(
   
   dataset <- data.frame(
     FileName = c("location.txt", "locationgroup.txt", "locationgrouplocation.txt"),
-    PathName = "watervogel",
+    PathName = raw.connection@LocalPath,
     Fingerprint = c(location.sha, location.group.sha, location.group.location.sha),
     ImportDate = import.date,
     Obsolete = FALSE

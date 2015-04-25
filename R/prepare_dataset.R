@@ -32,8 +32,9 @@ prepare_dataset <- function(
   #read and save locations to database
   location <- prepare_dataset_location(  
     scheme.id = scheme.id, 
-    flemish.channel = flemish.channel, 
     result.channel = result.channel, 
+    flemish.channel = flemish.channel, 
+    walloon.connection = walloon.connection,
     raw.connection = raw.connection
   )
   
