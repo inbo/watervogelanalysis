@@ -33,7 +33,7 @@
 #' @param path directory were the above files are stored
 #' @inheritParams prepare_dataset
 #' @export
-#' @importFrom n2khelper check_path git_connect check_dataframe_variable write_delim_git auto_commit
+#' @importFrom n2khelper check_path git_connect check_dataframe_variable write_delim_git get_nbn_key_multi auto_commit
 #' @importFrom digest digest
 import_walloon_source_data <- function(
   location.file, visit.file, data.file, path = ".", walloon.connection
@@ -135,7 +135,29 @@ import_walloon_source_data <- function(
   } else {
     data.duplicate <- NA
   }
-  data <- data[order(data$OriginalObservationID, data$Species), new.names]
+  species <- data.frame(ScientificName = unique(data$Species))
+  species <- get_nbn_key_multi(species, orders = "la")
+  if(anyNA(species$NBNID)){
+    species.no.match <- species$ScientificName[is.na(species$NBNID)]
+    warning(
+      "Unmatched species will be ignored:\n",
+      paste(species.no.match, collapse = "\n")
+    )
+    species <- species[!is.na(species$NBNID), ]
+  } else {
+    species.no.match <- NA
+  }
+  species <- species[order(species$NBNID), ]
+  write_delim_git(species, file = "species.txt", connection = walloon.connection)
+  
+  
+  data <- merge(data, species, by.x = "Species", by.y = "ScientificName")
+  data$Species <- NULL
+  
+  data <- data[
+    order(data$OriginalObservationID, data$NBNID), 
+    c("OriginalObservationID", "NBNID", "Count")
+  ]
   write_delim_git(data, file = "data.txt", connection = walloon.connection)
   
   auto_commit(
@@ -144,6 +166,7 @@ import_walloon_source_data <- function(
   )
   return(list(
     DuplicateVisit = visit.duplicate,
-    DuplicateData = data.duplicate
+    DuplicateData = data.duplicate,
+    UnmatchedSpecies = species.no.match
   ))
 }
