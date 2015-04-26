@@ -7,11 +7,11 @@
 #' @importFrom n2khelper check_single_strictly_positive_integer read_delim_git
 #' @importFrom lubridate round_date year
 read_observation_wallonia <- function(species.id, first.winter, walloon.connection){
-  species.id <- check_single_strictly_positive_integer(species.id)
-  first.winter <- check_single_strictly_positive_integer(first.winter)
+  species.id <- check_single_character(species.id, name = "species.id")
+  first.winter <- check_single_strictly_positive_integer(first.winter, name = "first.winter")
   
   data <- read_delim_git(file = "data.txt", connection = walloon.connection)
-  data <- data[!is.na(data$SpeciesID) & data$SpeciesID == species.id, ]
+  data <- data[!is.na(data$NBNID) & data$NBNID == species.id, ]
   
   if(nrow(data) == 0){
     return(NULL)
@@ -26,7 +26,8 @@ read_observation_wallonia <- function(species.id, first.winter, walloon.connecti
   visit <- visit[visit.winter >= first.winter, ]
   
   observation <- merge(visit, data, all.x = TRUE)
-  observation$SpeciesID <- NULL
+  observation$OriginalObservationID <- NULL
+  observation$NBNID <- NULL
   observation$Complete <- 1
   observation$Count[is.na(observation$Count)] <- 0
   
