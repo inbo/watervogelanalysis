@@ -116,22 +116,22 @@ prepare_dataset_observation <- function(
     channel = result.channel, create = TRUE
   )$ID
 
-#   version <- paste(
-#     "watervogelanalyis version", 
-#     sessionInfo()$otherPkgs$watervogelanalysis$Version
-#   )
-#   version.id <- odbc_get_id(
-#     table = "AnalysisVersion", 
-#     variable = "Description", 
-#     value = version, 
-#     develop = develop
-#   )
-  version.id <- 4
-  test <- check_id(value = version.id, variable = "ID", table = "AnalysisVersion", channel = result.channel)
-  if(!test){
-    stop("Unknown version id")
-  }
-  warning("update code when version description is nchar instead of int")
+  version <- data.frame(
+    Description = paste(
+      "watervogelanalyis version", 
+      sessionInfo()$otherPkgs$watervogelanalysis$Version
+    ),
+    Obsolete = FALSE
+  )
+  version.id <- odbc_get_multi_id(
+    data = version,
+    id.field = "ID", 
+    merge.field = "Description", 
+    table = "AnalysisVersion",
+    channel = result.channel, 
+    create = TRUE
+  )$ID
+  
   
   analysis <- data.frame(
     ModelSetID = model.set.id,
