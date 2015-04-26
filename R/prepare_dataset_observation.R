@@ -132,6 +132,18 @@ prepare_dataset_observation <- function(
     create = TRUE
   )$ID
   
+  sql <- "
+    SELECT
+      ID, FileName, PathName, Fingerprint
+  FROM
+  Dataset
+  WHERE
+  PathName = 'watervogel' AND
+  Filename IN ('location.txt', 'locationgroup.txt', 'locationgrouplocation.txt') AND
+  Obsolete = 0
+  "
+  location.ds <- sqlQuery(channel = result.channel, query = sql, stringsAsFactors = FALSE)
+  sha <- sort(c(location.ds$Fingerprint, observation.sha))
   
   analysis <- data.frame(
     ModelSetID = model.set.id,
@@ -144,29 +156,17 @@ prepare_dataset_observation <- function(
     SpeciesGroupID = this.constraint$SpeciesGroupID[1],
     AnalysisVersionID = version.id,
     AnalysisDate = import.date,
-    StatusID = status.id
+    StatusID = status.id,
+    Fingerprint = digest(sha, algo = "sha1")
   )
-  warning("add fingerprint to code when available in database")
   analysis.id <- odbc_get_multi_id(
     data = analysis,
     id.field = "ID", 
-    merge.field = c("ModelSetID", "LocationGroupID", "SpeciesGroupID", "AnalysisVersionID"),
+    merge.field = c("ModelSetID", "LocationGroupID", "SpeciesGroupID", "AnalysisVersionID", "Fingerprint"),
     table = "Analysis",
     channel = result.channel,
     create = TRUE
   )$ID
-
-  sql <- "
-    SELECT
-      ID, FileName, PathName, Fingerprint
-    FROM
-      Dataset
-    WHERE
-      PathName = 'watervogel' AND
-      Filename IN ('location.txt', 'locationgroup.txt', 'locationgrouplocation.txt') AND
-      Obsolete = 0
-  "
-  location.ds <- sqlQuery(channel = result.channel, query = sql, stringsAsFactors = FALSE)
 
   if(!is.na(observation.sha)){
     dataset <- data.frame(
