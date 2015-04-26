@@ -5,7 +5,7 @@
 \title{Read the observations for the raw datasource, save them to the git repository and the results database}
 \usage{
 prepare_dataset_observation(this.constraint, location, scheme.id,
-  flemish.channel, result.channel, raw.connection)
+  flemish.channel, walloon.connection, result.channel, raw.connection)
 }
 \arguments{
 \item{this.constraint}{the constraints for this species group}
@@ -15,6 +15,8 @@ prepare_dataset_observation(this.constraint, location, scheme.id,
 \item{scheme.id}{the id of the scheme}
 
 \item{flemish.channel}{An open ODBC connection to the source database}
+
+\item{walloon.connection}{a git-connection object to the Walloon source data}
 
 \item{result.channel}{An open RODBC connection to the results database}
 

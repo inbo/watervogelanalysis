@@ -8,12 +8,13 @@
 #' @importFrom n2khelper check_dataframe_variable odbc_get_id odbc_get_multi_id check_id
 #' @importFrom lubridate round_date year month
 #' @importFrom n2kanalysis mark_obsolete_dataset
+#' @importFrom digest digest
 prepare_dataset_observation <- function(
-  this.constraint, location, scheme.id, flemish.channel, result.channel, raw.connection
+  this.constraint, location, scheme.id, flemish.channel, walloon.connection, result.channel, raw.connection
 ){
   check_dataframe_variable(
     df = this.constraint, 
-    variable = c("Firstyear", "ExternalCode", "SpeciesCovered", "SpeciesGroupID"),
+    variable = c("Firstyear", "ExternalCode", "DatasourceID", "SpeciesCovered", "SpeciesGroupID"),
     name = "this.constraint"
   )
   check_dataframe_variable(
@@ -21,33 +22,43 @@ prepare_dataset_observation <- function(
     variable = c("ID", "ExternalCode", "DatasourceID"),
     name = "location"
   )
-  if(nrow(unique(this.constraint[, c("ExternalCode", "SpeciesGroupID", "Firstyear")])) != 1){
-    stop("this.constraint must contain just one ExternalCode, one SpeciesGroupID and one Firstyear")
+  external <- unique(this.constraint[, c("ExternalCode", "DatasourceID")])
+  if(any(table(external$ExternalCode, external$DatasourceID) > 1)){
+    stop("Each datasource must use just one ExternalCode")
+  }
+  if(nrow(unique(this.constraint[, c("SpeciesGroupID", "Firstyear")])) != 1){
+    stop("this.constraint must contain just one SpeciesGroupID and one Firstyear")
   }
   
   import.date <- Sys.time()
+  flanders.id <- datasource_id_flanders(result.channel = result.channel)
   observation.flemish <- read_observation(
-    species.id = this.constraint$ExternalCode[1], 
+    species.id = as.integer(
+      this.constraint$ExternalCode[this.constraint$DatasourceID == flanders.id][1]
+    ), 
     first.winter = this.constraint$Firstyear[1], 
-    species.covered = this.constraint$SpeciesCovered,
+    species.covered = unique(this.constraint$SpeciesCovered),
     flemish.channel = flemish.channel
   )
-  flanders.id <- datasource_id_flanders(result.channel = result.channel)
   observation.flemish$DatasourceID <- flanders.id
   
-  observation.walloon <- read_observation_wallonia(
-    species.id = this.constraint$ExternalCode[1], 
-    first.winter = this.constraint$Firstyear[1]
-  )
+  wallonia.id <- datasource_id_wallonia(result.channel = result.channel)
+  if(any(this.constraint$DatasourceID == wallonia.id)){
+    observation.walloon <- read_observation_wallonia(
+      species.id = this.constraint$ExternalCode[this.constraint$DatasourceID == wallonia.id][1], 
+      first.winter = this.constraint$Firstyear[1],
+      walloon.connection = walloon.connection
+    )
+  } else {
+    observation.walloon <- NULL
+  }
   if(is.null(observation.walloon)){
     observation <- observation.flemish
   } else {
-    observation.walloon$DatasourceID <- datasource_id_wallonia(
-      result.channel = result.channel
-    )
+    observation.walloon$DatasourceID <- wallonia.id
     observation <- rbind(observation.flemish, observation.walloon)
   }
-  
+
   observation$Year <- year(round_date(observation$Date, unit = "year"))
   observation$fMonth <- factor(month(observation$Date))
   observation$Date <- NULL
