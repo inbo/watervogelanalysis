@@ -143,16 +143,16 @@ prepare_dataset_observation <- function(
     create = TRUE
   )$ID
   
-  sql <- "
+  sql <- paste0("
     SELECT
       ID, FileName, PathName, Fingerprint
-  FROM
-  Dataset
-  WHERE
-  PathName = 'watervogel' AND
-  Filename IN ('location.txt', 'locationgroup.txt', 'locationgrouplocation.txt') AND
-  Obsolete = 0
-  "
+    FROM
+      Dataset
+    WHERE
+      PathName = '", raw.connection@LocalPath, "' AND
+      Filename IN ('location.txt', 'locationgroup.txt', 'locationgrouplocation.txt') AND
+      Obsolete = 0
+  ")
   location.ds <- sqlQuery(channel = result.channel, query = sql, stringsAsFactors = FALSE)
   sha <- sort(c(location.ds$Fingerprint, observation.sha))
   
@@ -182,7 +182,7 @@ prepare_dataset_observation <- function(
   if(!is.na(observation.sha)){
     dataset <- data.frame(
       FileName = filename,
-      PathName = "watervogel",
+      PathName = raw.connection@LocalPath,
       Fingerprint = observation.sha,
       ImportDate = import.date,
       Obsolete = FALSE
