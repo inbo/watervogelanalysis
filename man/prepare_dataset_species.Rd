@@ -5,7 +5,7 @@
 \title{Read the species for the raw datasource, save them to the results database}
 \usage{
 prepare_dataset_species(scheme.id, result.channel, flemish.channel,
-  attribute.connection)
+  attribute.connection, walloon.connection)
 }
 \arguments{
 \item{scheme.id}{the id of the scheme}
@@ -15,6 +15,8 @@ prepare_dataset_species(scheme.id, result.channel, flemish.channel,
 \item{flemish.channel}{An open ODBC connection to the source database}
 
 \item{attribute.connection}{a git-connection object to the attributes}
+
+\item{walloon.connection}{a git-connection object to the Walloon source data}
 }
 \value{
 the species group constraint information

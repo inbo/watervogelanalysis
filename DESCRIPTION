@@ -10,6 +10,7 @@ Imports:
   n2kanalysis,
   lubridate,
   plyr,
+  reshape2,
   digest,
   RODBC
 License: GPL-3
