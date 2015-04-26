@@ -29,7 +29,9 @@ prepare_dataset <- function(
 
   success <- remove_files_git(connection = raw.connection, pattern = "\\.txt$")
   
-  #read and save locations to database
+  if(verbose){
+    message("Reading and saving locations")
+  }
   location <- prepare_dataset_location(  
     scheme.id = scheme.id, 
     result.channel = result.channel, 
@@ -38,24 +40,28 @@ prepare_dataset <- function(
     raw.connection = raw.connection
   )
   
-  #read and save species
+  if(verbose){
+    message("Reading and saving species")
+  }
   species.constraint <- prepare_dataset_species(
     scheme.id = scheme.id, 
     flemish.channel = flemish.channel, 
+    walloon.connection = walloon.connection,
     result.channel = result.channel,
     attribute.connection = attribute.connection
   )
   
   # read and save observations
   if(verbose){
+    message("Reading and saving observations")
     progress <- "time"
   } else {
     progress <- "none"
   }
-#   this.constraint <- subset(species.constraint, ExternalCode == 70)
+#   this.constraint <- subset(species.constraint, SpeciesGroupID == 2)
   junk <- d_ply(
     .data = species.constraint, 
-    .variables = "ExternalCode", 
+    .variables = "SpeciesGroupID", 
     .progress = progress, 
     .fun = prepare_dataset_observation,
     location = location,
