@@ -2,6 +2,7 @@
 #' @param limit Return only species with explicit constraints (default = TRUE). Otherwise return all species in the database
 #' @param flemish.channel An open ODBC connection to the source database
 #' @param attribute.connection a git-connection object to the attributes
+#' @inheritParams connect_flemish_source
 #' @export
 #' @importFrom n2khelper check_single_logical odbc_connect read_delim_git
 #' @importFrom RODBC sqlQuery odbcClose
@@ -14,12 +15,13 @@
 #'   password = "xxxx"
 #' )
 #' species.list <- read_specieslist(
+#'   result.channel = result.channel,
 #'   flemish.channel = flemish.channel,
 #'   attribute.connection = attribute.connection
 #' )
 #' head(species.list$species)
 #' head(species.list$species.constraint)
-read_specieslist <- function(flemish.channel, attribute.connection, limit = TRUE){
+read_specieslist <- function(result.channel, flemish.channel, attribute.connection, limit = TRUE){
   limit <- check_single_logical(limit)
   
   sql <- "
@@ -33,7 +35,10 @@ read_specieslist <- function(flemish.channel, attribute.connection, limit = TRUE
       tblSoort
   "
   species <- sqlQuery(channel = flemish.channel, query = sql, stringsAsFactors = FALSE)
-  
+  species$DatasourceID <- datasource_id_flanders(result.channel = result.channel)
+  species$TableName <- "tblSoort"
+  species$ColumnName <- "EuringCode"
+    
   # restrict the species list to the species with constraints
   species.constraint <- read_delim_git(
     file = "soorttelling.txt", 

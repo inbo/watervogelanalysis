@@ -4,9 +4,12 @@
 \alias{read_specieslist}
 \title{Read the species list and their constraints}
 \usage{
-read_specieslist(flemish.channel, attribute.connection, limit = TRUE)
+read_specieslist(result.channel, flemish.channel, attribute.connection,
+  limit = TRUE)
 }
 \arguments{
+\item{result.channel}{An open RODBC connection to the results database}
+
 \item{flemish.channel}{An open ODBC connection to the source database}
 
 \item{attribute.connection}{a git-connection object to the attributes}
@@ -25,6 +28,7 @@ attribute.connection <- connect_attribute(
   password = "xxxx"
 )
 species.list <- read_specieslist(
+  result.channel = result.channel,
   flemish.channel = flemish.channel,
   attribute.connection = attribute.connection
 )

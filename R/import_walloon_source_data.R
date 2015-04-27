@@ -137,17 +137,17 @@ import_walloon_source_data <- function(
   }
   species <- data.frame(ScientificName = unique(data$Species))
   species <- get_nbn_key_multi(species, orders = "la")
-  if(anyNA(species$NBNID)){
-    species.no.match <- species$ScientificName[is.na(species$NBNID)]
+  if(anyNA(species$NBNKey)){
+    species.no.match <- species$ScientificName[is.na(species$NBNKey)]
     warning(
       "Unmatched species will be ignored:\n",
       paste(species.no.match, collapse = "\n")
     )
-    species <- species[!is.na(species$NBNID), ]
+    species <- species[!is.na(species$NBNKey), ]
   } else {
     species.no.match <- NA
   }
-  species <- species[order(species$NBNID), ]
+  species <- species[order(species$NBNKey), ]
   write_delim_git(species, file = "species.txt", connection = walloon.connection)
   
   
@@ -155,8 +155,8 @@ import_walloon_source_data <- function(
   data$Species <- NULL
   
   data <- data[
-    order(data$OriginalObservationID, data$NBNID), 
-    c("OriginalObservationID", "NBNID", "Count")
+    order(data$OriginalObservationID, data$NBNKey), 
+    c("OriginalObservationID", "NBNKey", "Count")
   ]
   write_delim_git(data, file = "data.txt", connection = walloon.connection)
   

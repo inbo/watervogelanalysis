@@ -17,36 +17,39 @@ prepare_dataset_species <- function(
   
   # read Flemish species list
   species.list <- read_specieslist(
+    result.channel = result.channel,
     flemish.channel = flemish.channel,
     attribute.connection = attribute.connection,
     limit = TRUE
   )
   
   species <- get_nbn_key_multi(species.list$species, orders = c("la", "nl", "en"))
-  species$DatasourceID <- datasource_id_flanders(result.channel = result.channel)
   species$Description <- species$DutchName
   
   species.constraint <- merge(
-    species[, c("ExternalCode", "NBNID")],
+    species[, c("ExternalCode", "NBNKey")],
     species.list$species.constraint
   )
   species.constraint$ExternalCode <- NULL
   
   # read Walloon species list
   walloon.species <- read_delim_git(file = "species.txt", connection = walloon.connection)
-  walloon.species <- walloon.species[walloon.species$NBNID %in% species.constraint$NBNID, ]
-  walloon.species$ExternalCode <- walloon.species$NBNID
+  walloon.species <- walloon.species[walloon.species$NBNKey %in% species.constraint$NBNKey, ]
+  walloon.species$ExternalCode <- walloon.species$NBNKey
   walloon.species$Description <- walloon.species$ScientificName
   walloon.species$DatasourceID <- datasource_id_wallonia(result.channel = result.channel)
+  walloon.species$TableName <- "species.txt"
+  walloon.species$ColumnName <- "NBNKey"
   species <- rbind(
-    species[, c("ExternalCode", "DatasourceID", "Description", "NBNID")],
-    walloon.species[, c("ExternalCode", "DatasourceID", "Description", "NBNID")]
+    species[, c("ExternalCode", "DatasourceID", "Description", "NBNKey", "TableName", "ColumnName")],
+    walloon.species[, c("ExternalCode", "DatasourceID", "Description", "NBNKey", "TableName", "ColumnName")]
   )
   rm(walloon.species)
   
   database.id <- odbc_get_multi_id(
-    data = species[, c("ExternalCode", "DatasourceID", "Description")],
-    id.field = "ID", merge.field = c("ExternalCode", "DatasourceID"), 
+    data = species[, c("ExternalCode", "DatasourceID", "Description", "TableName", "ColumnName")],
+    id.field = "ID", 
+    merge.field = c("ExternalCode", "DatasourceID"), 
     table = "Sourcespecies",
     channel = result.channel, 
     create = TRUE
@@ -56,18 +59,18 @@ prepare_dataset_species <- function(
   species$Description <- NULL
   
   nbn.species <- dcast(
-    get_nbn_name(species$NBNID), 
-    formula = NBNID ~ Language, 
+    get_nbn_name(species$NBNKey), 
+    formula = NBNKey ~ Language, 
     value.var = "Name"
   )
   colnames(nbn.species) <- gsub("^en$", "EnglishName", colnames(nbn.species))
   colnames(nbn.species) <- gsub("^la$", "ScientificName", colnames(nbn.species))
   colnames(nbn.species) <- gsub("^nl$", "DutchName", colnames(nbn.species))
   colnames(nbn.species) <- gsub("^fr$", "FrenchName", colnames(nbn.species))
-
+  
   database.id <- odbc_get_multi_id(
     data = nbn.species,
-    id.field = "ID", merge.field = "NBNID", 
+    id.field = "ID", merge.field = "NBNKey", 
     table = "Species",
     channel = result.channel, 
     create = TRUE
@@ -121,9 +124,9 @@ prepare_dataset_species <- function(
   
   species.constraint <- merge(
     species.constraint,
-    species[, c("NBNID", "SpeciesID", "ExternalCode", "DatasourceID")]
+    species[, c("NBNKey", "SpeciesID", "ExternalCode", "DatasourceID")]
   )
-  species.constraint$NBNID <- NULL
+  species.constraint$NBNKey <- NULL
   species.constraint <- merge(
     species.constraint,
     species.group.species
