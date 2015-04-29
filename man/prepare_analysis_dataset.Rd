@@ -4,17 +4,19 @@
 \alias{prepare_analysis_dataset}
 \title{Create the analysis dataset based on the available raw data}
 \usage{
-prepare_analysis_dataset(rawdata.file, location, output.path = ".",
-  raw.connection)
+prepare_analysis_dataset(rawdata.file, location, analysis.path, raw.connection,
+  scheme.id)
 }
 \arguments{
 \item{rawdata.file}{Name of the rawdata file}
 
 \item{location}{a data.frame with the locations}
 
-\item{output.path}{Path to store the analysis files}
+\item{analysis.path}{Path to store the analysis files}
 
 \item{raw.connection}{a git-connection object to write the output to}
+
+\item{scheme.id}{the id of the scheme}
 }
 \value{
 A data.frame with the species id number of rows in the analysis dataset, number of precenses in the analysis datset and SHA-1 of the analysis dataset or NULL if not enough data.

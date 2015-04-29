@@ -1,21 +1,17 @@
 #' Prepare all datasets and a to do list of models
 #' @export
-#' @importFrom n2khelper check_single_character read_delim_git list_files_git check_single_strictly_positive_integer
+#' @importFrom n2khelper check_single_character read_delim_git list_files_git git_sha
 #' @importFrom lubridate ymd year round_date
 #' @inheritParams prepare_analysis_dataset
 #' @inheritParams prepare_dataset
-#' @inheritParams n2khelper::odbc_connect
-prepare_analysis <- function(output.path = ".", raw.connection){
-  path <- check_single_character(output.path)
-  
-  # remove existing rda files
-  if(file_test("-d", output.path)){
-    existing <- list.files(output.path, pattern = ".rda", full.names = TRUE)
-    success <- file.remove(existing)
-    if(length(success) > 0 & !all(success)){
-      stop("unable to remove some files:\n", paste(existing[!success], collapse = "\n"))
-    }
+prepare_analysis <- function(analysis.path = ".", raw.connection, scheme.id){
+  path <- check_path(paste0(analysis.path, "/"), type = "directory", error = FALSE)
+  if(is.logical(path)){
+    dir.create(path = analysis.path, recursive = TRUE)
+    path <- check_path(paste0(analysis.path, "/"), type = "directory")
   }
+  analysis.path <- path
+  
   
   location <- read_delim_git(file = "location.txt", connection = raw.connection)
   location.group <- read_delim_git(file = "locationgroup.txt", connection = raw.connection)
@@ -44,16 +40,47 @@ prepare_analysis <- function(output.path = ".", raw.connection){
   )
   rm(location.group.location)
 
-  rawdata.files <- list_files_git(connection = raw.connection, pattern = "^[0-9.*]\\.txt$")
-  output <- lapply(
+  rawdata.files <- list_files_git(connection = raw.connection, pattern = "^[0-9]*\\.txt$")
+  analysis <- do.call(rbind, lapply(
     rawdata.files, 
     prepare_analysis_dataset, 
-    path = path, location = location
+    analysis.path = analysis.path, 
+    location = location,
+    scheme.id = scheme.id,
+    raw.connection = raw.connection
+  ))
+  sha.rawdata <- git_sha(
+    file = c(
+      rawdata.files, 
+      "location.txt",  "locationgroup.txt", "locationgrouplocation.txt"
+    ), 
+    connection = raw.connection
   )
-  output <- do.call(rbind, output)
-  filename <- normalizePath(
-    paste0(output.path, "/to_do.rda"), winslash = "/", mustWork = FALSE
+  dataset <- merge(
+    analysis[, c("FileName", "PathName", "Fingerprint")], 
+    sha.rawdata,
+    by.x = c("FileName", "PathName"),
+    by.y = c("File", "Path")
   )
-  save(output, file = filename)
-  return(output)
+  
+  to.do.extra <- analysis[
+    !is.na(analysis$Covariate), 
+    c("SchemeID", "SpeciesGroupID", "LocationGroupID", "ModelType", "Covariate", "AnalysisDate", "NObs", "NLocation", "Fingerprint")
+  ]
+  to.do.extra$Status <- "new"
+  to.do.file <- check_path(paste0(analysis.path, "todo.rda"), type = "file", error = FALSE)
+  if(is.logical(to.do.file)){
+    to.do <- to.do.extra
+  } else {
+    load(to.do.file)
+    to.do <- rbind(to.do, to.do.extra)
+  }
+  save(to.do, file = paste0(analysis.path, "todo.rda"))
+  
+  return(
+    list(
+      Analysis = analysis,
+      AnalysisDataset = dataset
+    )
+  )
 }

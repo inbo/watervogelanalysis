@@ -3,10 +3,10 @@
 #' The analysis dataset is saved to a rda file with the SHA-1 as name.
 #' @param rawdata.file Name of the rawdata file
 #' @param location a data.frame with the locations
-#' @param output.path Path to store the analysis files
+#' @param analysis.path Path to store the analysis files
 #' @inheritParams prepare_dataset
 #' @return A data.frame with the species id number of rows in the analysis dataset, number of precenses in the analysis datset and SHA-1 of the analysis dataset or NULL if not enough data.
-#' @importFrom n2khelper check_single_character check_dataframe_variable read_delim_git
+#' @importFrom n2khelper check_single_character check_dataframe_variable read_delim_git git_recent
 #' @importFrom n2kanalysis select_factor_threshold
 #' @importFrom plyr ddply
 #' @importFrom digest digest
@@ -14,26 +14,25 @@
 prepare_analysis_dataset <- function(
   rawdata.file, 
   location, 
-  output.path = ".", 
-  raw.connection
+  analysis.path, 
+  raw.connection,
+  scheme.id
 ){
-  rawdata.file <- check_single_character(rawdata.file, name = "rawdata.file")
-  output.path <- check_single_character(output.path, name = "output.path")
+  scheme.id <- check_single_strictly_positive_integer(scheme.id)
+  analysis.path <- check_path(paste0(analysis.path, "/"), type = "directory")
   check_dataframe_variable(
     df = location, 
     variable = c("LocationID", "LocationGroupID", "SubsetMonths", "StartYear", "EndYear"), 
     name = "location"
   )
   
-  if(!file_test("-d", output.path)){
-    dir.create(output.path, recursive = TRUE)
-  }
   species.group.id <- as.integer(gsub("\\.txt", "", rawdata.file))
   
   rawdata <- read_delim_git(file = rawdata.file, connection = raw.connection)
   if(class(rawdata) != "data.frame"){
     stop(rawdata.file, " not available")
   }
+  analysis.date <- git_recent(file = rawdata.file, connection = raw.connection)$Date
   
   rawdata$Complete <- rawdata$Complete == 1
   
@@ -67,13 +66,27 @@ prepare_analysis_dataset <- function(
   rawdata$Count[!is.na(rawdata$Complete) & !rawdata$Complete] <- 0
   rawdata$Complete <- NULL
 
-#   dataset <- subset(rawdata, LocationGroupID == 8)
-  output <- ddply(rawdata, "LocationGroupID", function(dataset){
+#   dataset <- subset(rawdata, LocationGroupID == 1)
+  analysis <- ddply(rawdata, "LocationGroupID", function(dataset){
     location.group.id <- dataset$LocationGroupID[1]
     dataset$LocationGroupID <- NULL
     dataset$fMonth <- factor(dataset$fMonth)
     dataset <- select_relevant_analysis(dataset)
     
+    modeltype <- "inla_nbinomial: Year * (Month + Location)"
+    if(is.null(dataset)){
+      return(
+        data.frame(
+          LocationGroupID = location.group.id,
+          ModelType = modeltype,
+          Covariate = NA,
+          Fingerprint = digest(dataset, algo = "sha1"),
+          AnalysisDate = analysis.date,
+          NObs = 0,
+          NLocation = 0
+        )
+      )
+    }
     if(length(unique(dataset$Year)) > 1){
       dataset$fYear <- factor(dataset$Year)
       covariate <- "0 + fYear"
@@ -109,30 +122,34 @@ prepare_analysis_dataset <- function(
     
     order.column <- c("fLocation", "fYear", "fMonth", "Count", "Minimum", "ObservationID", "fYearLocation", "fYearMonth")
     order.column <- order.column[order.column %in% colnames(dataset)]
-    dataset <- dataset[, order.column]
+    data <- dataset[, order.column]
     
     covariate <- paste(covariate, collapse = " + ")
-    modeltype <- "inla_nbinomial: Year * (Month + Location)"
     data.fingerprint <- digest(dataset, algo = "sha1")
     file.fingerprint <- digest(
       list(
-        species.group.id, location.group.id, data, covariate, modeltype, data.fingerprint
+        scheme.id, species.group.id, location.group.id, data, covariate, modeltype, analysis.date, data.fingerprint
       ),
       algo = "sha1"
     )
+    filename <- paste0(analysis.path, file.fingerprint, ".rda")
     save(
-      species.group.id, location.group.id, data, covariate, modeltype, data.fingerprint,
-      file = paste0(output.path, "/", file.fingerprint, ".rda")
+      scheme.id, species.group.id, location.group.id, data, covariate, modeltype, analysis.date, data.fingerprint,
+      file = filename
     )
     data.frame(
+      LocationGroupID = location.group.id,
       ModelType = modeltype,
       Covariate = covariate,
       Fingerprint = file.fingerprint,
-      NObs = nrow(dataset),
+      NObs = nrow(data),
       NLocation = n.location
     )
   })
-  output$SpeciesGroupID <- species.group.id  
-
-  return(output)
+  analysis$SchemeID <- scheme.id
+  analysis$AnalysisDate <- analysis.date
+  analysis$SpeciesGroupID <- species.group.id
+  analysis$FileName <- rawdata.file
+  analysis$PathName <- raw.connection@LocalPath
+  return(analysis)
 }
