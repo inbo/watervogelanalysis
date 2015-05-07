@@ -85,7 +85,7 @@ prepare_analysis_dataset <- function(
         analysis.date = analysis.date,
         status = "insufficient data"
       )
-      filename <- paste0(analysis.path, get_file_fingerprint(analysis), ".rda")
+      filename <- paste0(analysis.path, "/", get_file_fingerprint(analysis), ".rda")
       if(!file.exists(filename)){
         save(analysis, file = filename)
       }
@@ -136,7 +136,7 @@ prepare_analysis_dataset <- function(
       covariate = covariate,
       analysis.date = analysis.date
     )
-    filename <- paste0(analysis.path, get_file_fingerprint(analysis), ".rda")
+    filename <- paste0(analysis.path, "/", get_file_fingerprint(analysis), ".rda")
     if(!file.exists(filename)){
       save(analysis, file = filename)
     }
