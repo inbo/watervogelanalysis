@@ -4,14 +4,12 @@
 \alias{prepare_analysis}
 \title{Prepare all datasets and a to do list of models}
 \usage{
-prepare_analysis(analysis.path = ".", raw.connection, scheme.id)
+prepare_analysis(analysis.path = ".", raw.connection)
 }
 \arguments{
 \item{analysis.path}{Path to store the analysis files}
 
 \item{raw.connection}{a git-connection object to write the output to}
-
-\item{scheme.id}{the id of the scheme}
 }
 \description{
 Prepare all datasets and a to do list of models
