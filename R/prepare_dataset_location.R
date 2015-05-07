@@ -3,16 +3,18 @@
 #' @inheritParams connect_flemish_source
 #' @inheritParams prepare_dataset
 #' @export
-#' @importFrom n2khelper odbc_get_multi_id write_delim_git connect_result
+#' @importFrom n2khelper odbc_get_multi_id write_delim_git connect_result read_delim_git check_single_strictly_positive_integer
 #' @importFrom n2kanalysis mark_obsolete_dataset
 #' @importFrom RODBC odbcClose
 prepare_dataset_location <- function(
-  scheme.id, 
   result.channel, 
   flemish.channel, 
   walloon.connection,
   raw.connection
 ){
+  scheme.id <- read_delim_git(file = "scheme.txt", connection = raw.connection)$SchemeID
+  scheme.id <- check_single_strictly_positive_integer(scheme.id, name = "scheme.txt")
+  
   import.date <- Sys.time()
 
   # read the locations

@@ -8,7 +8,7 @@
 #' @inheritParams connect_flemish_source
 #' @inheritParams read_specieslist
 #' @export
-#' @importFrom n2khelper check_single_logical check_single_strictly_positive_integer remove_files_git auto_commit odbc_get_id
+#' @importFrom n2khelper check_single_logical check_single_strictly_positive_integer remove_files_git write_delim_git auto_commit odbc_get_id
 #' @importFrom RODBC odbcClose
 #' @importFrom plyr d_ply
 #' @examples
@@ -28,12 +28,16 @@ prepare_dataset <- function(
   scheme.id <- check_single_strictly_positive_integer(scheme.id)
 
   success <- remove_files_git(connection = raw.connection, pattern = "\\.txt$")
+  write_delim_git(
+    x = data.frame(SchemeID = scheme.id),
+    file = "scheme.txt",
+    connection = raw.connection
+  )
   
   if(verbose){
     message("Reading and saving locations")
   }
   location <- prepare_dataset_location(  
-    scheme.id = scheme.id, 
     result.channel = result.channel, 
     flemish.channel = flemish.channel, 
     walloon.connection = walloon.connection,
@@ -44,7 +48,7 @@ prepare_dataset <- function(
     message("Reading and saving species")
   }
   species.constraint <- prepare_dataset_species(
-    scheme.id = scheme.id, 
+    raw.connection = raw.connection,
     flemish.channel = flemish.channel, 
     walloon.connection = walloon.connection,
     result.channel = result.channel,
@@ -65,7 +69,6 @@ prepare_dataset <- function(
     .progress = progress, 
     .fun = prepare_dataset_observation,
     location = location,
-    scheme.id = scheme.id,
     result.channel = result.channel,
     flemish.channel = flemish.channel,
     walloon.connection = walloon.connection,

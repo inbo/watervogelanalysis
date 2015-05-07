@@ -4,16 +4,18 @@
 #' @inheritParams connect_flemish_source
 #' @inheritParams prepare_dataset
 #' @export
-#' @importFrom n2khelper odbc_get_multi_id get_nbn_key_multi get_nbn_name
+#' @importFrom n2khelper odbc_get_multi_id get_nbn_key_multi get_nbn_name read_delim_git check_single_strictly_positive_integer
 #' @importFrom RODBC odbcClose
 #' @importFrom reshape2 dcast
 prepare_dataset_species <- function(
-  scheme.id, 
+  raw.connection,
   result.channel, 
   flemish.channel, 
   attribute.connection,
   walloon.connection
 ){
+  scheme.id <- read_delim_git(file = "scheme.txt", connection = raw.connection)$SchemeID
+  scheme.id <- check_single_strictly_positive_integer(scheme.id, name = "scheme.txt")
   
   # read Flemish species list
   species.list <- read_specieslist(

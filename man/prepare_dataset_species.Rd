@@ -4,11 +4,11 @@
 \alias{prepare_dataset_species}
 \title{Read the species for the raw datasource, save them to the results database}
 \usage{
-prepare_dataset_species(scheme.id, result.channel, flemish.channel,
+prepare_dataset_species(raw.connection, result.channel, flemish.channel,
   attribute.connection, walloon.connection)
 }
 \arguments{
-\item{scheme.id}{the id of the scheme}
+\item{raw.connection}{a git-connection object to write the output to}
 
 \item{result.channel}{An open RODBC connection to the results database}
 
