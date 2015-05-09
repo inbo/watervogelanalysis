@@ -54,6 +54,7 @@ prepare_dataset <- function(
     result.channel = result.channel,
     attribute.connection = attribute.connection
   )
+  species.constraint$ExternalCode <- levels(species.constraint$ExternalCode)[species.constraint$ExternalCode]
   
   # read and save observations
   if(verbose){
@@ -62,7 +63,7 @@ prepare_dataset <- function(
   } else {
     progress <- "none"
   }
-#   this.constraint <- subset(species.constraint, SpeciesGroupID == 2)
+#   this.constraint <- subset(species.constraint, SpeciesGroupID == 1)
   junk <- d_ply(
     .data = species.constraint, 
     .variables = "SpeciesGroupID", 

@@ -9,9 +9,9 @@ connect_attribute(result.channel, username, password)
 \arguments{
 \item{result.channel}{An open RODBC connection to the results database}
 
-\item{username}{the username in case the ConnectMethod is "Credentials supplied by the user running the report". Ignored in all other cases.}
+\item{username}{The optional username used in case of  https authentication. Ignored when \code{key} is provided.}
 
-\item{password}{the password to be used in combination with the username.}
+\item{password}{The password required for the ssh key or the username. Should be missing when the ssh-key doesn't require a password.}
 }
 \description{
 Make a git connection to the attribute

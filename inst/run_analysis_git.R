@@ -4,7 +4,6 @@ prepare_analysis(
   raw.connection = git_connection(
     repo.path = "~/rawdata",
     local.path = "watervogel",
-    username = username,
-    password = password
+    key = "~/.ssh/id_rsa_n2kreadonly"
   )
 )
