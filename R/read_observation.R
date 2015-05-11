@@ -10,6 +10,7 @@
 #'}
 #' @param species.id The id of the species
 #' @param first.winter The oldest winter from which the observation are relevant. Observation prior to \code{first.winter} are ignored
+#' @param last.winter The most recent winter from which the observation are relevant. Observation after \code{last.winter} are ignored
 #' @param species.covered A vector with codes of relevant methodes
 #' @inheritParams read_specieslist
 #' @return A \code{data.frame} with observations. \code{Complete= 1} indicates that the entire location was surveyed. 
@@ -25,9 +26,10 @@
 #' )
 #' head(observation)
 #' }
-read_observation <- function(species.id, first.winter, species.covered, flemish.channel){
-  species.id <- check_single_strictly_positive_integer(species.id)
-  first.winter <- check_single_strictly_positive_integer(first.winter)
+read_observation <- function(species.id, first.winter, last.winter, species.covered, flemish.channel){
+  species.id <- check_single_strictly_positive_integer(species.id, name = "species.id")
+  first.winter <- check_single_strictly_positive_integer(first.winter, name = "first.winter")
+  last.winter <- check_single_strictly_positive_integer(last.winter, name = "last.winter")
   
   species.covered.sql <- paste0(
     "SoortenTellingCode IN (",
@@ -93,6 +95,7 @@ read_observation <- function(species.id, first.winter, species.covered, flemish.
             ) AND ",
             species.covered.sql, " AND
             TelDatum >= '", first.winter - 1, "/10/01' AND
+            TelDatum <= '", last.winter, "/03/31' AND
             (
               TelDatum >= StartDate OR
               StartDate IS NULL

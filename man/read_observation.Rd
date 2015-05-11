@@ -4,12 +4,15 @@
 \alias{read_observation}
 \title{Read the Flemish observations from a species}
 \usage{
-read_observation(species.id, first.winter, species.covered, flemish.channel)
+read_observation(species.id, first.winter, last.winter, species.covered,
+  flemish.channel)
 }
 \arguments{
 \item{species.id}{The id of the species}
 
 \item{first.winter}{The oldest winter from which the observation are relevant. Observation prior to \code{first.winter} are ignored}
+
+\item{last.winter}{The most recent winter from which the observation are relevant. Observation after \code{last.winter} are ignored}
 
 \item{species.covered}{A vector with codes of relevant methodes}
 

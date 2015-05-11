@@ -4,12 +4,15 @@
 \alias{read_observation_wallonia}
 \title{Read the Wallon observations from a species}
 \usage{
-read_observation_wallonia(species.id, first.winter, walloon.connection)
+read_observation_wallonia(species.id, first.winter, last.winter,
+  walloon.connection)
 }
 \arguments{
 \item{species.id}{The id of the species}
 
 \item{first.winter}{The oldest winter from which the observation are relevant. Observation prior to \code{first.winter} are ignored}
+
+\item{last.winter}{The most recent winter from which the observation are relevant. Observation after \code{last.winter} are ignored}
 
 \item{walloon.connection}{a git-connection object to the Walloon source data}
 }
