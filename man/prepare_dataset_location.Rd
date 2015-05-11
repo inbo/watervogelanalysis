@@ -5,7 +5,7 @@
 \title{Read the locations for the raw datasource, save them to the git repository and the results database}
 \usage{
 prepare_dataset_location(result.channel, flemish.channel, walloon.connection,
-  raw.connection)
+  raw.connection, scheme.id)
 }
 \arguments{
 \item{result.channel}{An open RODBC connection to the results database}
@@ -15,6 +15,8 @@ prepare_dataset_location(result.channel, flemish.channel, walloon.connection,
 \item{walloon.connection}{a git-connection object to the Walloon source data}
 
 \item{raw.connection}{a git-connection object to write the output to}
+
+\item{scheme.id}{the id of the scheme}
 }
 \value{
 a data.frame with the locations

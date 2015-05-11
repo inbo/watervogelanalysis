@@ -10,9 +10,9 @@ prepare_dataset_location <- function(
   result.channel, 
   flemish.channel, 
   walloon.connection,
-  raw.connection
+  raw.connection,
+  scheme.id
 ){
-  scheme.id <- read_delim_git(file = "scheme.txt", connection = raw.connection)$SchemeID
   scheme.id <- check_single_strictly_positive_integer(scheme.id, name = "scheme.txt")
   
   import.date <- Sys.time()

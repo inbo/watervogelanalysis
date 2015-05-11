@@ -12,9 +12,9 @@ prepare_dataset_species <- function(
   result.channel, 
   flemish.channel, 
   attribute.connection,
-  walloon.connection
+  walloon.connection,
+  scheme.id
 ){
-  scheme.id <- read_delim_git(file = "scheme.txt", connection = raw.connection)$SchemeID
   scheme.id <- check_single_strictly_positive_integer(scheme.id, name = "scheme.txt")
   
   # read Flemish species list

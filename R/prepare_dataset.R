@@ -28,11 +28,6 @@ prepare_dataset <- function(
   scheme.id <- check_single_strictly_positive_integer(scheme.id)
 
   success <- remove_files_git(connection = raw.connection, pattern = "\\.txt$")
-  write_delim_git(
-    x = data.frame(SchemeID = scheme.id),
-    file = "scheme.txt",
-    connection = raw.connection
-  )
   
   if(verbose){
     message("Reading and saving locations")
@@ -41,7 +36,8 @@ prepare_dataset <- function(
     result.channel = result.channel, 
     flemish.channel = flemish.channel, 
     walloon.connection = walloon.connection,
-    raw.connection = raw.connection
+    raw.connection = raw.connection,
+    scheme.id = scheme.id
   )
   
   if(verbose){
@@ -52,9 +48,26 @@ prepare_dataset <- function(
     flemish.channel = flemish.channel, 
     walloon.connection = walloon.connection,
     result.channel = result.channel,
-    attribute.connection = attribute.connection
+    attribute.connection = attribute.connection,
+    scheme.id = scheme.id
   )
   species.constraint$ExternalCode <- levels(species.constraint$ExternalCode)[species.constraint$ExternalCode]
+  latest.year <- as.integer(format(Sys.time(), "%Y"))
+  if(Sys.time() < as.POSIXct(format(Sys.time(), "%Y-05-15"))){
+    latest.year <- latest.year - 1
+  }
+  species.constraint$Lastyear <- latest.year
+    
+  metadata <- unique(species.constraint[, c("SpeciesGroupID", "Firstyear", "Lastyear")])
+  colnames(metadata) <- c("SpeciesGroupID", "FirstImportedYear", "LastImportedYear")
+  metadata$Duration <- metadata$LastImportedYear - metadata$FirstImportedYear + 1
+  metadata$SchemeID <- scheme.id
+  metadata <- metadata[order(metadata$SpeciesGroupID), ]
+  metadata.sha <- write_delim_git(
+    x = metadata, 
+    file = "metadata.txt", 
+    connection = raw.connection
+  )
   
   # read and save observations
   if(verbose){
@@ -73,7 +86,8 @@ prepare_dataset <- function(
     result.channel = result.channel,
     flemish.channel = flemish.channel,
     walloon.connection = walloon.connection,
-    raw.connection = raw.connection
+    raw.connection = raw.connection,
+    scheme.id = scheme.id
   )
 
   auto_commit(

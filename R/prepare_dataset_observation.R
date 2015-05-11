@@ -10,7 +10,7 @@
 #' @importFrom n2kanalysis mark_obsolete_dataset
 #' @importFrom digest digest
 prepare_dataset_observation <- function(
-  this.constraint, location, flemish.channel, walloon.connection, result.channel, raw.connection
+  this.constraint, location, flemish.channel, walloon.connection, result.channel, raw.connection, scheme.id
 ){
   check_dataframe_variable(
     df = this.constraint, 
@@ -29,7 +29,6 @@ prepare_dataset_observation <- function(
   if(nrow(unique(this.constraint[, c("SpeciesGroupID", "Firstyear")])) != 1){
     stop("this.constraint must contain just one SpeciesGroupID and one Firstyear")
   }
-  scheme.id <- read_delim_git(file = "scheme.txt", connection = raw.connection)$SchemeID
   scheme.id <- check_single_strictly_positive_integer(scheme.id, name = "scheme.txt")
   
   import.date <- Sys.time()
@@ -39,6 +38,7 @@ prepare_dataset_observation <- function(
       this.constraint$ExternalCode[this.constraint$DatasourceID == flanders.id][1]
     ), 
     first.winter = this.constraint$Firstyear[1], 
+    last.winter = this.constraint$Lastyear[1],
     species.covered = unique(this.constraint$SpeciesCovered),
     flemish.channel = flemish.channel
   )
@@ -49,6 +49,7 @@ prepare_dataset_observation <- function(
     observation.walloon <- read_observation_wallonia(
       species.id = this.constraint$ExternalCode[this.constraint$DatasourceID == wallonia.id][1], 
       first.winter = this.constraint$Firstyear[1],
+      last.winter = this.constraint$Lastyear[1],
       walloon.connection = walloon.connection
     )
   } else {
