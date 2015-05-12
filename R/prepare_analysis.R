@@ -12,7 +12,6 @@ prepare_analysis <- function(analysis.path = ".", raw.connection){
   }
   analysis.path <- path
   
-  
   location <- read_delim_git(file = "location.txt", connection = raw.connection)
   location.group <- read_delim_git(file = "locationgroup.txt", connection = raw.connection)
   location.group.location <- read_delim_git(

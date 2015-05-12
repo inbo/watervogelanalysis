@@ -23,10 +23,20 @@ prepare_analysis_dataset <- function(
     variable = c("LocationID", "LocationGroupID", "SubsetMonths", "StartYear", "EndYear"), 
     name = "location"
   )
-  scheme.id <- read_delim_git(file = "scheme.txt", connection = raw.connection)$SchemeID
-  scheme.id <- check_single_strictly_positive_integer(scheme.id, name = "scheme.txt")
   
   species.group.id <- as.integer(gsub("\\.txt", "", rawdata.file))
+  metadata <- read_delim_git(file = "metadata.txt", connection = raw.connection)
+  metadata <- metadata[metadata$SpeciesGroupID == species.group.id, ]
+  
+  scheme.id <- check_single_strictly_positive_integer(metadata$SchemeID, name = "SchemeID")
+  first.year <- check_single_strictly_positive_integer(
+    metadata$FirstImportedYear, 
+    name = "FirstImportedYear"
+  )
+  last.year <- check_single_strictly_positive_integer(
+    metadata$LastImportedYear, 
+    name = "LastImportedYear"
+  )
   
   rawdata <- read_delim_git(file = rawdata.file, connection = raw.connection)
   if(class(rawdata) != "data.frame"){
@@ -82,6 +92,8 @@ prepare_analysis_dataset <- function(
         location.group.id = location.group.id,
         model.type = model.type,
         covariate = covariate,
+        first.imported.year = first.year,
+        last.imported.year = last.year,
         analysis.date = analysis.date,
         status = "insufficient data"
       )
@@ -134,6 +146,8 @@ prepare_analysis_dataset <- function(
       location.group.id = location.group.id,
       model.type = model.type,
       covariate = covariate,
+      first.imported.year = first.year,
+      last.imported.year = last.year,
       analysis.date = analysis.date
     )
     filename <- paste0(analysis.path, "/", get_file_fingerprint(analysis), ".rda")
