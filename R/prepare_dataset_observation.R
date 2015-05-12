@@ -119,8 +119,8 @@ prepare_dataset_observation <- function(
   model.set <- data.frame(
     ModelTypeID = import.id,
     FirstYear = this.constraint$Firstyear[1],
-    LastYear = NA,
-    Duration = NA
+    LastYear = this.constraint$Lastyear[1],
+    Duration = this.constraint$Lastyear[1] - this.constraint$Firstyear[1] + 1
   )
   
   model.set.id <- odbc_get_multi_id(
