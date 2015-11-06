@@ -3,7 +3,7 @@ Title: Analysis of the Wintering Birds
 Version: 0.0
 Authors@R: c(person("Thierry", "Onkelinx", email = "thierry.onkelinx@inbo.be", role = c("aut", "cre")))
 Description: Imports the data from the Flemish and Walloon monitoring schemes of the wintering birds. Prepares analysis datasets and runs the analysis.
-Depends: 
+Depends:
   R (>= 3.1.2)
 Imports:
   n2khelper,
@@ -13,5 +13,7 @@ Imports:
   reshape2,
   digest,
   RODBC
+Suggests:
+  testthat
 License: GPL-3
 LazyData: true
