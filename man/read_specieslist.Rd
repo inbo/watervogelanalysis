@@ -20,12 +20,15 @@ read_specieslist(result.channel, flemish.channel, attribute.connection,
 Read the species list and their constraints
 }
 \examples{
+\dontrun{
 result.channel <- n2khelper::connect_result()
 flemish.channel <- connect_flemish_source(result.channel = result.channel)
 attribute.connection <- connect_attribute(
   result.channel = result.channel,
   username = "Someone",
-  password = "xxxx"
+  password = "xxxx",
+  commit.user = "Someone",
+  commit.email = "some\\\\u0040one.com"
 )
 species.list <- read_specieslist(
   result.channel = result.channel,
@@ -34,5 +37,6 @@ species.list <- read_specieslist(
 )
 head(species.list$species)
 head(species.list$species.constraint)
+}
 }
 

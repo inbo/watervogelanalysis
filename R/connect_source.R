@@ -4,7 +4,8 @@
 #' @importFrom n2khelper odbc_connect
 connect_flemish_source <- function(result.channel){
   odbc_connect(
-    data.source.name = "Source data watervogels Flanders", channel = result.channel
+    data.source.name = "Source data watervogels Flanders",
+    channel = result.channel
   )
 }
 
@@ -13,12 +14,20 @@ connect_flemish_source <- function(result.channel){
 #' @inheritParams connect_flemish_source
 #' @inheritParams n2khelper::git_connection
 #' @importFrom n2khelper git_connect
-connect_walloon_source <- function(result.channel, username, password){
+connect_walloon_source <- function(
+  result.channel,
+  username,
+  password,
+  commit.user,
+  commit.email
+){
   git_connect(
-    data.source.name = "Source data watervogels Wallonia", 
+    data.source.name = "Source data watervogels Wallonia",
     channel = result.channel,
     username = username,
-    password = password
+    password = password,
+    commit.user = commit.user,
+    commit.email = commit.email
   )
 }
 
@@ -27,12 +36,20 @@ connect_walloon_source <- function(result.channel, username, password){
 #' @inheritParams connect_flemish_source
 #' @inheritParams n2khelper::git_connection
 #' @importFrom n2khelper git_connect
-connect_attribute <- function(result.channel, username, password){
+connect_attribute <- function(
+  result.channel,
+  username,
+  password,
+  commit.user,
+  commit.email
+){
   git_connect(
-    data.source.name = "Attributes watervogels", 
+    data.source.name = "Attributes watervogels",
     channel = result.channel,
     username = username,
-    password = password
+    password = password,
+    commit.user = commit.user,
+    commit.email = commit.email
   )
 }
 
@@ -41,11 +58,19 @@ connect_attribute <- function(result.channel, username, password){
 #' @inheritParams connect_flemish_source
 #' @inheritParams n2khelper::git_connection
 #' @importFrom n2khelper git_connect
-connect_raw <- function(result.channel, username, password){
+connect_raw <- function(
+  result.channel,
+  username,
+  password,
+  commit.user,
+  commit.email
+){
   git_connect(
-    data.source.name = "Raw data watervogel", 
+    data.source.name = "Raw data watervogel",
     channel = result.channel,
     username = username,
-    password = password
+    password = password,
+    commit.user = commit.user,
+    commit.email = commit.email
   )
 }

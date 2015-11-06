@@ -17,12 +17,15 @@ read_location(result.channel, flemish.channel, walloon.connection)
 read the dataset of locations from the database
 }
 \examples{
+\dontrun{
 result.channel <- n2khelper::connect_result()
 flemish.channel <- connect_flemish_source(result.channel = result.channel)
 walloon.connection <- connect_walloon_source(
   result.channel = result.channel,
   username = "Someone",
-  password = "xxxx"
+  password = "xxxx",
+  commit.user = "Someone",
+  commit.email = "some\\\\u0040one.com"
 )
 location <- read_location(
   result.channel = result.channel,
@@ -30,5 +33,6 @@ location <- read_location(
   walloon.connection = walloon.connection
 )
 head(location)
+}
 }
 
