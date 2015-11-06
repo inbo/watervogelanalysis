@@ -4,14 +4,20 @@
 \alias{connect_raw}
 \title{Make a git connection to the raw data}
 \usage{
-connect_raw(result.channel, username, password)
+connect_raw(result.channel, username, password, commit.user, commit.email)
 }
 \arguments{
 \item{result.channel}{An open RODBC connection to the results database}
 
-\item{username}{The optional username used in case of  https authentication. Ignored when \code{key} is provided.}
+\item{username}{The optional username used in case of  https authentication.
+Ignored when \code{key} is provided.}
 
-\item{password}{The password required for the ssh key or the username. Should be missing when the ssh-key doesn't require a password.}
+\item{password}{The password required for the ssh key or the username. Should
+be missing when the ssh-key doesn't require a password.}
+
+\item{commit.user}{the name of the user how will commit}
+
+\item{commit.email}{the email of the user how will commit}
 }
 \description{
 Make a git connection to the raw data

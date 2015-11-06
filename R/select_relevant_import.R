@@ -1,5 +1,5 @@
 #' Select the relevant observations when importing the raw data
-#' 
+#'
 #' Relevant observations have
 #' \itemize{
 #'  \item At least 4 presences per location
@@ -12,28 +12,28 @@
 #' @importFrom n2kanalysis select_factor_count_strictly_positive select_observed_range
 #' @importFrom lubridate round_date
 select_relevant_import <- function(observation){
-  if(is.null(observation)){
+  if (is.null(observation)) {
     return(NULL)
   }
   check_dataframe_variable(
-    df = observation, 
-    variable = c("Count", "Year", "fMonth", "LocationID"), 
+    df = observation,
+    variable = c("Count", "Year", "fMonth", "LocationID"),
     name = "observation"
   )
-  
+
   # select locations with at least 4 prescences
-  observation <- select_factor_count_strictly_positive(
-    observation = observation, 
+  observation <- select_factor_count_strictly_positive( #nolint
+    observation = observation,
     variable = "LocationID",
     threshold = 4
   )
-  if(nrow(observation) == 0){
+  if (nrow(observation) == 0) {
     return(NULL)
   }
-  
+
   # select locations with prescences in at least 3 years
-  observation <- select_factor_count_strictly_positive(
-    observation = observation, 
+  observation <- select_factor_count_strictly_positive( #nolint
+    observation = observation,
     variable = c("LocationID", "Year"),
     threshold = 3,
     dimension = 1
@@ -41,7 +41,7 @@ select_relevant_import <- function(observation){
   if(nrow(observation) == 0){
     return(NULL)
   }
-  
+
   # remove time periodes without prescences
   observation <- select_observed_range(
     observation = observation,
@@ -50,6 +50,6 @@ select_relevant_import <- function(observation){
   if(nrow(observation) == 0){
     return(NULL)
   }
-  
+
   return(observation)
 }

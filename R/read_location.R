@@ -20,9 +20,9 @@
 #' )
 #' head(location)
 read_location <- function(result.channel, flemish.channel, walloon.connection){
-  
+
   # read Flemisch data from the database
-  data.source.id <- datasource_id_flanders(result.channel = result.channel)
+  datasource.id <- datasource_id_flanders(result.channel = result.channel)
   sql <- "
     SELECT
       Code AS ExternalCode,
@@ -37,24 +37,31 @@ read_location <- function(result.channel, flemish.channel, walloon.connection){
     ORDER BY
       Code
   "
-  location <- sqlQuery(channel = flemish.channel, query = sql, stringsAsFactors = FALSE)
-  location$DatasourceID <- data.source.id
+  location <- sqlQuery(
+    channel = flemish.channel,
+    query = sql,
+    stringsAsFactors = FALSE
+  )
+  location$DatasourceID <- datasource.id
   location$SPA[is.na(location$SPA)] <- 0
-  
+
   # Read Walloon data from the git repository
-  data.source.id <- datasource_id_wallonia(result.channel = result.channel)
-  walloon.location <- read_delim_git(file = "location.txt", connection = walloon.connection)
-  if(class(walloon.location) == "logical"){
+  datasource.id <- datasource_id_wallonia(result.channel = result.channel)
+  walloon.location <- read_delim_git(
+    file = "location.txt",
+    connection = walloon.connection
+  )
+  if (class(walloon.location) == "logical") {
     Encoding(location$Description) <- "UTF-8"
     return(location)
   }
   walloon.location <- walloon.location[, c("LocationID", "LocationName", "SPA")]
-  colnames(walloon.location) <- c("ExternalCode", "Description", "SPA")  
+  colnames(walloon.location) <- c("ExternalCode", "Description", "SPA")
   walloon.location$SPA[is.na(walloon.location$SPA)] <- 0
   walloon.location$StartDate <- NA
   walloon.location$EndDate <- NA
-  walloon.location$DatasourceID <- data.source.id
-  
+  walloon.location$DatasourceID <- datasource.id
+
   location <- rbind(location, walloon.location)
   Encoding(location$Description) <- "UTF-8"
 

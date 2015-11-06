@@ -25,7 +25,9 @@ flemish.channel <- connect_flemish_source(result.channel = result.channel)
 attribute.connection <- connect_attribute(
   result.channel = result.channel,
   username = "Someone",
-  password = "xxxx"
+  password = "xxxx",
+  commit.user = "Someone",
+  commit.email = "some\\\\u0040one.com"
 )
 species.list <- read_specieslist(
   result.channel = result.channel,

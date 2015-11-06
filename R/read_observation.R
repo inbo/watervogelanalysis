@@ -1,5 +1,5 @@
 #' Read the Flemish observations from a species
-#' 
+#'
 #' The selection uses several constraints. The user defined constraints are \code{first.winter} and \code{species.covered}. Following contraints are imposed at the same time as the user defined contraints:
 #'\itemize{
 #'  \item The observation is validated
@@ -13,25 +13,35 @@
 #' @param last.winter The most recent winter from which the observation are relevant. Observation after \code{last.winter} are ignored
 #' @param species.covered A vector with codes of relevant methodes
 #' @inheritParams read_specieslist
-#' @return A \code{data.frame} with observations. \code{Complete= 1} indicates that the entire location was surveyed. 
+#' @return A \code{data.frame} with observations. \code{Complete= 1} indicates that the entire location was surveyed.
 #' @export
 #' @importFrom n2khelper check_single_strictly_positive_integer odbc_connect
 #' @importFrom RODBC sqlQuery odbcClose
+#' @importFrom assertthat assert_that is.count
 #' @examples
 #' \dontrun{
 #' observation <- read_observation(
-#'   species.id = 4860, 
-#'   first.winter = 1992, 
+#'   species.id = 4860,
+#'   first.winter = 1992,
 #'   species.covered = c("w", "weg", "wegm", "wem", "st")
 #' )
 #' head(observation)
 #' }
-read_observation <- function(species.id, first.winter, last.winter, species.covered, flemish.channel){
-  species.id <- check_single_strictly_positive_integer(species.id, name = "species.id")
-  first.winter <- check_single_strictly_positive_integer(first.winter, name = "first.winter")
-  last.winter <- check_single_strictly_positive_integer(last.winter, name = "last.winter")
-  
-  species.covered.sql <- paste0(
+read_observation <- function(
+  species.id,
+  first.winter,
+  last.winter,
+  species.covered,
+  flemish.channel
+){
+  assert_that(is.count(species.id))
+  assert_that(is.count(first.winter))
+  assert_that(is.count(last.winter))
+  species.id <- as.integer(species.id)
+  first.winter <- as.integer(first.winter)
+  last.winter <- as.integer(last.winter)
+
+  speciescovered.sql <- paste0(
     "SoortenTellingCode IN (",
     paste0(
       paste0("'", species.covered, "'"),
@@ -48,12 +58,12 @@ read_observation <- function(species.id, first.winter, last.winter, species.cove
       Count
     FROM
         (
-          SELECT 
-            WaarnemingID AS SpeciesObservationID, 
+          SELECT
+            WaarnemingID AS SpeciesObservationID,
             Aantal AS Count
-          FROM 
-            tblWaarnemingSoort 
-          WHERE 
+          FROM
+            tblWaarnemingSoort
+          WHERE
             EuringNummer = ", species.id, "
         ) AS counts
       RIGHT JOIN
@@ -61,8 +71,8 @@ read_observation <- function(species.id, first.winter, last.winter, species.cove
           SELECT
             ID AS ObservationID,
             TelDatum AS Date,
-            CASE 
-              WHEN UPPER(TelvolledigheidCode) = 'O' 
+            CASE
+              WHEN UPPER(TelvolledigheidCode) = 'O'
               THEN 0
               ELSE 1
             END AS Complete,
@@ -84,7 +94,7 @@ read_observation <- function(species.id, first.winter, last.winter, species.cove
               tblWaarneming.GebiedCode = location.LocationID
           WHERE
             MidmaandelijkseTelling = 1 AND
-            Gevalideerd = 1 AND 
+            Gevalideerd = 1 AND
             ( -- use all observations except those which are not observed
               NOT TelvolledigheidCode = 'N' OR
               TelvolledigheidCode IS NULL
@@ -93,10 +103,10 @@ read_observation <- function(species.id, first.winter, last.winter, species.cove
               datepart(m, TelDatum) <= 3 OR
               datepart(m, TelDatum) >= 10
             ) AND ",
-            species.covered.sql, " AND
-            TelDatum >= '", first.winter - 1, "/10/01' AND
-            TelDatum <= '", last.winter, "/03/31' AND
-            (
+            speciescovered.sql, " AND
+            TelDatum >= '", first.winter - 1, "/10/01' AND\n", #nolint
+"            TelDatum <= '", last.winter, "/03/31' AND\n", #nolint
+"            (
               TelDatum >= StartDate OR
               StartDate IS NULL
             ) AND (
@@ -108,10 +118,14 @@ read_observation <- function(species.id, first.winter, last.winter, species.cove
         counts.SpeciesObservationID = observation.ObservationID
   "
   )
-  observation <- sqlQuery(channel = flemish.channel, query = sql, stringsAsFactors = FALSE)
-  
+  observation <- sqlQuery(
+    channel = flemish.channel,
+    query = sql,
+    stringsAsFactors = FALSE
+  )
+
   observation$Count[is.na(observation$Count)] <- 0
-  
+
   observation <- observation[order(observation$ObservationID), ]
   return(observation)
 }

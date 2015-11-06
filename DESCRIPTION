@@ -12,6 +12,7 @@ Imports:
   plyr,
   reshape2,
   digest,
+  assertthat,
   RODBC
 Suggests:
   testthat

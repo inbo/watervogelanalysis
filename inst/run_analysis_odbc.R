@@ -11,6 +11,6 @@ prepare_dataset(
   flemish.channel = connect_flemish_source(result.channel = result.channel)
 )
 prepare_analysis(
-  analysis.path = "~/analysis", 
+  analysis.path = "~/analysis", #nolint
   raw.connection = raw.connection
 )
