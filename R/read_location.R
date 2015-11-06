@@ -6,6 +6,7 @@
 #' @importFrom n2khelper odbc_get_id odbc_connect git_connect read_delim_git
 #' @importFrom RODBC sqlQuery
 #' @examples
+#' \dontrun{
 #' result.channel <- n2khelper::connect_result()
 #' flemish.channel <- connect_flemish_source(result.channel = result.channel)
 #' walloon.connection <- connect_walloon_source(
@@ -21,6 +22,7 @@
 #'   walloon.connection = walloon.connection
 #' )
 #' head(location)
+#' }
 read_location <- function(result.channel, flemish.channel, walloon.connection){
 
   # read Flemisch data from the database

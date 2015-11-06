@@ -8,6 +8,7 @@
 #' @importFrom RODBC sqlQuery odbcClose
 #' @importFrom assertthat assert_that is.flag noNA
 #' @examples
+#' \dontrun{
 #' result.channel <- n2khelper::connect_result()
 #' flemish.channel <- connect_flemish_source(result.channel = result.channel)
 #' attribute.connection <- connect_attribute(
@@ -24,6 +25,7 @@
 #' )
 #' head(species.list$species)
 #' head(species.list$species.constraint)
+#' }
 read_specieslist <- function(
   result.channel,
   flemish.channel,
