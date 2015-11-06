@@ -1,6 +1,6 @@
 #' Prepare all datasets and a to do list of models
 #' @export
-#' @importFrom n2khelper check_single_character read_delim_git list_files_git git_sha
+#' @importFrom n2khelper read_delim_git list_files_git git_sha
 #' @importFrom lubridate ymd year round_date
 #' @inheritParams prepare_analysis_dataset
 #' @inheritParams prepare_dataset

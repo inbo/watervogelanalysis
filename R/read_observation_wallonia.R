@@ -4,7 +4,7 @@
 #' @inheritParams read_observation
 #' @inheritParams prepare_dataset
 #' @export
-#' @importFrom n2khelper check_single_strictly_positive_integer read_delim_git
+#' @importFrom n2khelper read_delim_git
 #' @importFrom lubridate round_date year
 #' @importFrom assertthat assert_that is.count
 read_observation_wallonia <- function(

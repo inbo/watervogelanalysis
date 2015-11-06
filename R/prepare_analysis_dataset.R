@@ -6,7 +6,7 @@
 #' @param analysis.path Path to store the analysis files
 #' @inheritParams prepare_dataset
 #' @return A data.frame with the species id number of rows in the analysis dataset, number of precenses in the analysis datset and SHA-1 of the analysis dataset or NULL if not enough data.
-#' @importFrom n2khelper check_single_character check_dataframe_variable read_delim_git git_recent check_single_strictly_positive_integer
+#' @importFrom n2khelper check_path check_dataframe_variable read_delim_git git_recent
 #' @importFrom n2kanalysis select_factor_threshold n2k_inla_nbinomial get_file_fingerprint
 #' @importFrom plyr d_ply
 #' @importFrom digest digest

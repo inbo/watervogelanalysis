@@ -8,7 +8,7 @@
 #' @inheritParams connect_flemish_source
 #' @inheritParams read_specieslist
 #' @export
-#' @importFrom n2khelper check_single_logical check_single_strictly_positive_integer remove_files_git write_delim_git auto_commit odbc_get_id
+#' @importFrom n2khelper remove_files_git write_delim_git auto_commit odbc_get_id
 #' @importFrom RODBC odbcClose
 #' @importFrom plyr d_ply
 #' @importFrom assertthat assert_that is.count is.flag noNA

@@ -4,7 +4,7 @@
 #' @inheritParams connect_flemish_source
 #' @inheritParams prepare_dataset
 #' @export
-#' @importFrom n2khelper odbc_get_multi_id get_nbn_key_multi get_nbn_name read_delim_git check_single_strictly_positive_integer
+#' @importFrom n2khelper odbc_get_multi_id get_nbn_key_multi get_nbn_name read_delim_git
 #' @importFrom RODBC odbcClose
 #' @importFrom reshape2 dcast
 #' @importFrom assertthat assert_that is.count

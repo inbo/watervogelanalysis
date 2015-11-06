@@ -15,8 +15,7 @@
 #' @inheritParams read_specieslist
 #' @return A \code{data.frame} with observations. \code{Complete= 1} indicates that the entire location was surveyed.
 #' @export
-#' @importFrom n2khelper check_single_strictly_positive_integer odbc_connect
-#' @importFrom RODBC sqlQuery odbcClose
+#' @importFrom RODBC sqlQuery
 #' @importFrom assertthat assert_that is.count
 #' @examples
 #' \dontrun{

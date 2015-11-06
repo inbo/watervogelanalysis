@@ -4,8 +4,8 @@
 #' @param attribute.connection a git-connection object to the attributes
 #' @inheritParams connect_flemish_source
 #' @export
-#' @importFrom n2khelper check_single_logical odbc_connect read_delim_git
-#' @importFrom RODBC sqlQuery odbcClose
+#' @importFrom n2khelper read_delim_git
+#' @importFrom RODBC sqlQuery
 #' @importFrom assertthat assert_that is.flag noNA
 #' @examples
 #' \dontrun{

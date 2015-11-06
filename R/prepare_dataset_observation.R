@@ -5,7 +5,7 @@
 #' @inheritParams prepare_dataset
 #' @inheritParams connect_flemish_source
 #' @export
-#' @importFrom n2khelper check_dataframe_variable odbc_get_id odbc_get_multi_id check_id read_delim_git check_single_strictly_positive_integer
+#' @importFrom n2khelper check_dataframe_variable odbc_get_id odbc_get_multi_id check_id read_delim_git
 #' @importFrom lubridate round_date year month
 #' @importFrom n2kanalysis mark_obsolete_dataset
 #' @importFrom digest digest

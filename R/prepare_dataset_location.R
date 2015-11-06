@@ -3,7 +3,7 @@
 #' @inheritParams connect_flemish_source
 #' @inheritParams prepare_dataset
 #' @export
-#' @importFrom n2khelper odbc_get_multi_id write_delim_git connect_result read_delim_git check_single_strictly_positive_integer
+#' @importFrom n2khelper odbc_get_multi_id write_delim_git read_delim_git
 #' @importFrom n2kanalysis mark_obsolete_dataset
 #' @importFrom RODBC odbcClose
 #' @importFrom assertthat assert_that is.count
