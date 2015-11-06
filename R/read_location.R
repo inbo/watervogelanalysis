@@ -11,11 +11,13 @@
 #' walloon.connection <- connect_walloon_source(
 #'   result.channel = result.channel,
 #'   username = "Someone",
-#'   password = "xxxx"
+#'   password = "xxxx",
+#'   commit.user = "Someone",
+#'   commit.email = "some\\u0040one.com"
 #' )
 #' location <- read_location(
-#'   result.channel = result.channel, 
-#'   flemish.channel = flemish.channel, 
+#'   result.channel = result.channel,
+#'   flemish.channel = flemish.channel,
 #'   walloon.connection = walloon.connection
 #' )
 #' head(location)
