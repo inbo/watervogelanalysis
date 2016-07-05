@@ -18,8 +18,8 @@ connect_walloon_source <- function(
   result.channel,
   username,
   password,
-  commit.user,
-  commit.email
+  commit.user = "watervogelanalysis",
+  commit.email = "bmk@inbo.be"
 ){
   git_connect(
     data.source.name = "Source data watervogels Wallonia",
@@ -40,8 +40,8 @@ connect_attribute <- function(
   result.channel,
   username,
   password,
-  commit.user,
-  commit.email
+  commit.user = "watervogelanalysis",
+  commit.email = "bmk@inbo.be"
 ){
   git_connect(
     data.source.name = "Attributes watervogels",
@@ -62,8 +62,8 @@ connect_raw <- function(
   result.channel,
   username,
   password,
-  commit.user,
-  commit.email
+  commit.user = "watervogelanalysis",
+  commit.email = "bmk@inbo.be"
 ){
   git_connect(
     data.source.name = "Raw data watervogel",
