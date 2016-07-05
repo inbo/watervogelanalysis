@@ -4,8 +4,8 @@
 #' @export
 scheme_id <- function(result.channel){
   odbc_get_id(
-    table = "Scheme",
-    variable = "Description",
+    table = "scheme",
+    variable = "description",
     value = "Watervogels",
     channel = result.channel
   )
