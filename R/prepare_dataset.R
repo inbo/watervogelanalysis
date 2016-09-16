@@ -11,7 +11,7 @@
 #' @importFrom n2khelper remove_files_git write_delim_git auto_commit odbc_get_id
 #' @importFrom RODBC odbcClose
 #' @importFrom plyr d_ply
-#' @importFrom assertthat assert_that is.count is.flag noNA
+#' @importFrom assertthat assert_that is.string is.flag noNA
 #' @examples
 #' \dontrun{
 #'  prepare_dataset()
@@ -27,7 +27,7 @@ prepare_dataset <- function(
 ){
   assert_that(is.flag(verbose))
   assert_that(noNA(verbose))
-  assert_that(is.count(scheme.id))
+  assert_that(is.string(scheme.id))
 
   remove_files_git(connection = raw.connection, pattern = "\\.txt$")
 
@@ -41,6 +41,8 @@ prepare_dataset <- function(
     raw.connection = raw.connection,
     scheme.id = scheme.id
   )
+  dataset <- location$Dataset
+  location <- locations$Location
 
   if (verbose) {
     message("Reading and saving species")

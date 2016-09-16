@@ -7,6 +7,7 @@ datasource_id_wallonia <- function(result.channel){
     table = "datasource",
     variable = "description",
     value = "Source data watervogels Wallonia",
+    id_variable = "fingerprint",
     channel = result.channel
   )
 }
@@ -20,6 +21,7 @@ datasource_id_flanders <- function(result.channel){
     table = "datasource",
     variable = "description",
     value = "Source data watervogels Flanders",
+    id_variable = "fingerprint",
     channel = result.channel
   )
 }
@@ -35,6 +37,7 @@ datasource_id_raw <- function(result.channel){
     table = "datasource",
     variable = "description",
     value = "Raw data watervogels",
+    id_variable = "fingerprint",
     channel = result.channel
   )
 }

@@ -7,6 +7,7 @@ scheme_id <- function(result.channel){
     table = "scheme",
     variable = "description",
     value = "Watervogels",
+    id_variable = "fingerprint",
     channel = result.channel
   )
 }
