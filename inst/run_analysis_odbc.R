@@ -1,6 +1,11 @@
 library(watervogelanalysis)
-result.channel <- n2khelper::connect_result()
-raw.connection <- connect_raw(result.channel = result.channel)
+result.channel <- n2khelper::connect_result(
+  username = Sys.getenv("N2KRESULT_USERNAME"),
+  password = Sys.getenv("N2KRESULT_PASSWORD")
+)
+raw.connection <- connect_raw(
+  result.channel = result.channel
+)
 
 prepare_dataset(
   scheme.id = scheme_id(result.channel = result.channel),
