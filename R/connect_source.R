@@ -9,6 +9,17 @@ connect_flemish_source <- function(result.channel){
   )
 }
 
+#' Make an ODBC connection to the NBN database
+#' @export
+#' @inheritParams connect_flemish_source
+#' @importFrom n2khelper odbc_connect
+connect_nbn <- function(result.channel){
+  odbc_connect(
+    data.source.name = "NBN data",
+    channel = result.channel
+  )
+}
+
 #' Make a git connection to the Walloon source data
 #' @export
 #' @inheritParams connect_flemish_source

@@ -2,19 +2,24 @@ Package: watervogelanalysis
 Title: Analysis of the Wintering Birds
 Version: 0.1
 Authors@R: c(person("Thierry", "Onkelinx", email = "thierry.onkelinx@inbo.be", role = c("aut", "cre")))
-Description: Imports the data from the Flemish and Walloon monitoring schemes of the wintering birds. Prepares analysis datasets and runs the analysis.
+Description: Imports the data from the Flemish and Walloon monitoring schemes of
+    the wintering birds. Prepares analysis datasets and runs the analysis.
 Depends:
-  R (>= 3.1.2)
+    R (>= 3.1.2)
 Imports:
-  n2khelper (>= 0.4),
-  n2kanalysis,
-  lubridate,
-  plyr,
-  reshape2,
-  digest,
-  assertthat,
-  RODBC
+    assertthat,
+    digest,
+    dplyr,
+    lubridate,
+    n2kanalysis,
+    n2khelper (>= 0.4),
+    n2kupdate,
+    plyr,
+    reshape2,
+    RODBC,
+    tidyr
 Suggests:
-  testthat
+    testthat
 License: GPL-3
 LazyData: true
+RoxygenNote: 5.0.1

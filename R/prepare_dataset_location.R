@@ -7,7 +7,7 @@
 #' @importFrom dplyr %>% rowwise mutate_ data_frame select_ arrange_
 #' @importFrom digest sha1
 #' @importFrom tidyr gather_
-#' @importFrom n25kupdate store_location_group_location
+#' @importFrom n2kupdate store_location_group_location
 prepare_dataset_location <- function(
   result.channel,
   flemish.channel,

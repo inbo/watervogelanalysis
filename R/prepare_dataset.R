@@ -4,6 +4,7 @@
 #' @param scheme.id the id of the scheme
 #' @param raw.connection a git-connection object to write the output to
 #' @param walloon.connection a git-connection object to the Walloon source data
+#' @param nbn.channel an RODBC connection to the NBN database
 #' @param verbose Display a progress bar when TRUE (default)
 #' @inheritParams connect_flemish_source
 #' @inheritParams read_specieslist
@@ -23,6 +24,7 @@ prepare_dataset <- function(
   attribute.connection,
   walloon.connection,
   flemish.channel,
+  nbn.channel,
   verbose = TRUE
 ){
   assert_that(is.flag(verbose))
@@ -42,7 +44,7 @@ prepare_dataset <- function(
     scheme.id = scheme.id
   )
   dataset <- location$Dataset
-  location <- locations$Location
+  location <- location$Location
 
   if (verbose) {
     message("Reading and saving species")
@@ -53,27 +55,28 @@ prepare_dataset <- function(
     walloon.connection = walloon.connection,
     result.channel = result.channel,
     attribute.connection = attribute.connection,
+    nbn.channel = nbn.channel,
     scheme.id = scheme.id
   )
-  species.constraint$ExternalCode <- levels(species.constraint$ExternalCode)[
-    species.constraint$ExternalCode
-  ]
   latest.year <- as.integer(format(Sys.time(), "%Y"))
   if (Sys.time() < as.POSIXct(format(Sys.time(), "%Y-05-15"))) {
     latest.year <- latest.year - 1
   }
   species.constraint$Lastyear <- latest.year
 
-  metadata <- unique(
-    species.constraint[, c("SpeciesGroupID", "Firstyear", "Lastyear")]
-  )
-  colnames(metadata) <- c(
-    "SpeciesGroupID", "FirstImportedYear", "LastImportedYear"
-  )
-  metadata$Duration <- metadata$LastImportedYear -
-    metadata$FirstImportedYear + 1
-  metadata$SchemeID <- scheme.id
-  metadata <- metadata[order(metadata$SpeciesGroupID), ]
+  metadata <- species.constraint %>%
+    select_(
+      ~SpeciesGroupID,
+      FirstImportedYear = ~Firstyear,
+      LastImportedYear = ~Lastyear
+    ) %>%
+    distinct_() %>%
+    mutate_(
+      Duration = ~LastImportedYear - FirstImportedYear + 1,
+      SchemeID = ~scheme.id
+    ) %>%
+    arrange_(~SpeciesGroupID)
+
   metadata.sha <- write_delim_git(
     x = metadata,
     file = "metadata.txt",

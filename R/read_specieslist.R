@@ -55,6 +55,7 @@ read_specieslist <- function(
   )
   species$TableName <- "tblSoort"
   species$ColumnName <- "EuringCode"
+  species$Datatype <- "integer"
 
   # restrict the species list to the species with constraints
   species.constraint <- read_delim_git(
