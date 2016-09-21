@@ -6,6 +6,7 @@
 #' @export
 #' @importFrom n2khelper check_dataframe_variable
 #' @importFrom plyr ddply
+#' @importFrom stats aggregate
 remove_duplicate_observation <- function(observation){
   check_dataframe_variable(
     df = observation,

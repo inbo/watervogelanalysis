@@ -35,6 +35,8 @@
 #' @export
 #' @importFrom n2khelper check_path git_connect check_dataframe_variable write_delim_git get_nbn_key_multi auto_commit
 #' @importFrom digest digest
+#' @importFrom stats median aggregate
+#' @importFrom utils read.csv2
 import_walloon_source_data <- function(
   location.file, visit.file, data.file, path = ".", walloon.connection
 ){

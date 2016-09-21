@@ -11,6 +11,7 @@
 #' @importFrom plyr d_ply
 #' @importFrom digest digest
 #' @importFrom assertthat assert_that is.count
+#' @importFrom stats na.omit
 #' @export
 prepare_analysis_dataset <- function(
   rawdata.file,

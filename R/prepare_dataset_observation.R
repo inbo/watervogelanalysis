@@ -10,6 +10,7 @@
 #' @importFrom n2kanalysis mark_obsolete_dataset
 #' @importFrom digest digest
 #' @importFrom assertthat assert_that is.count
+#' @importFrom utils sessionInfo
 prepare_dataset_observation <- function(
   this.constraint,
   location,
