@@ -13,7 +13,8 @@ prepare_dataset(
   result.channel = result.channel,
   attribute.connection = connect_attribute(result.channel = result.channel),
   walloon.connection = connect_walloon_source(result.channel = result.channel),
-  flemish.channel = connect_flemish_source(result.channel = result.channel)
+  flemish.channel = connect_flemish_source(result.channel = result.channel),
+  nbn.channel = watervogelanalysis::connect_nbn(result.channel = result.channel)
 )
 prepare_analysis(
   analysis.path = "~/analysis", #nolint

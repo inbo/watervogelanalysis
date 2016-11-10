@@ -45,7 +45,7 @@ prepare_dataset_species <- function(
     select_(~-ExternalCode)
 
   # read Walloon species list
-  source.species <- walloon.species <- read_delim_git(
+  source.species <- read_delim_git(
     file = "species.txt",
     connection = walloon.connection
   ) %>%
@@ -163,7 +163,7 @@ prepare_dataset_species <- function(
       connection = raw.connection
     )
 
-  species.constraint <- species %>%
+  species.constraint <- source.species %>%
     select_(~NBNKey, ~ExternalCode, ~DatasourceID) %>%
     inner_join(
       stored$species %>%

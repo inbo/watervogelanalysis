@@ -1,23 +1,28 @@
 #' Read the observations for the raw datasource, save them to the git repository and the results database
 #' @param this.constraint the constraints for this species group
 #' @param location a data frame with the full list of locations
+#' @param location_group_id the ID of the location group
+#' @param dataset a data frame with a
 #' @inheritParams read_specieslist
 #' @inheritParams prepare_dataset
 #' @inheritParams connect_flemish_source
 #' @export
 #' @importFrom n2khelper check_dataframe_variable odbc_get_id odbc_get_multi_id check_id read_delim_git
 #' @importFrom lubridate round_date year month
-#' @importFrom n2kanalysis mark_obsolete_dataset
-#' @importFrom digest digest
-#' @importFrom assertthat assert_that is.count
+#' @importFrom assertthat assert_that is.string
 #' @importFrom utils sessionInfo
+#' @importFrom dplyr %>% distinct_ count_ filter_ mutate_ bind_rows select_ inner_join arrange_ transmute_ bind_rows
+#' @importFrom n2kupdate store_analysis_dataset get_analysis_version store_anomaly
 prepare_dataset_observation <- function(
   this.constraint,
   location,
+  location_group_id,
   flemish.channel,
   walloon.connection,
   result.channel,
-  raw.connection, scheme.id
+  raw.connection,
+  scheme.id,
+  dataset
 ){
   check_dataframe_variable(
     df = this.constraint,
@@ -29,43 +34,50 @@ prepare_dataset_observation <- function(
   )
   check_dataframe_variable(
     df = location,
-    variable = c("ID", "ExternalCode", "DatasourceID"),
+    variable = c("fingerprint", "external_code", "datafield"),
     name = "location"
   )
-  external <- unique(this.constraint[, c("ExternalCode", "DatasourceID")])
-  if (any(table(external$ExternalCode, external$DatasourceID) > 1)) {
+  external <- this.constraint %>%
+    distinct_(~DatasourceID, ~ExternalCode) %>%
+    count_(~DatasourceID) %>%
+    filter_(~n > 1)
+  if (nrow(external)) {
     stop("Each datasource must use just one ExternalCode")
   }
-  if (nrow(unique(this.constraint[, c("SpeciesGroupID", "Firstyear")])) != 1) {
+  external <- this.constraint %>%
+    distinct_(~SpeciesGroupID, ~Firstyear)
+  if (nrow(external) != 1) {
     stop(
       "this.constraint must contain just one SpeciesGroupID and one Firstyear"
     )
   }
-  assert_that(is.count(scheme.id))
+  assert_that(is.string(scheme.id))
+  assert_that(is.string(location_group_id))
 
-  import.date <- Sys.time()
+  import.date <- as.POSIXct(Sys.time())
   flanders.id <- datasource_id_flanders(result.channel = result.channel)
   observation.flemish <- read_observation(
-    species.id = as.integer(
-      this.constraint$ExternalCode[
-        this.constraint$DatasourceID == flanders.id
-      ][1]
-    ),
-    first.winter = this.constraint$Firstyear[1],
-    last.winter = this.constraint$Lastyear[1],
+    species.id = this.constraint %>%
+      filter_(~DatasourceID == flanders.id) %>%
+      distinct_(~ExternalCode) %>%
+      mutate_(ExternalCode = ~as.integer(ExternalCode)) %>%
+      unlist(),
+    first.winter = unique(this.constraint$Firstyear),
+    last.winter = unique(this.constraint$Lastyear),
     species.covered = unique(this.constraint$SpeciesCovered),
     flemish.channel = flemish.channel
-  )
-  observation.flemish$DatasourceID <- flanders.id
+  ) %>%
+    mutate_(DatasourceID = ~flanders.id)
 
   wallonia.id <- datasource_id_wallonia(result.channel = result.channel)
   if (any(this.constraint$DatasourceID == wallonia.id)) {
     observation.walloon <- read_observation_wallonia(
-      species.id = this.constraint$ExternalCode[
-        this.constraint$DatasourceID == wallonia.id
-      ][1],
-      first.winter = this.constraint$Firstyear[1],
-      last.winter = this.constraint$Lastyear[1],
+      species.id = this.constraint %>%
+        filter_(~DatasourceID == wallonia.id) %>%
+        distinct_(~ExternalCode) %>%
+        unlist(),
+      first.winter = unique(this.constraint$Firstyear),
+      last.winter = unique(this.constraint$Lastyear),
       walloon.connection = walloon.connection
     )
   } else {
@@ -74,195 +86,198 @@ prepare_dataset_observation <- function(
   if (is.null(observation.walloon)) {
     observation <- observation.flemish
   } else {
-    observation.walloon$DatasourceID <- wallonia.id
-    observation <- rbind(observation.flemish, observation.walloon)
+    observation <- bind_rows(
+      observation.flemish %>%
+        mutate_(
+          ObservationID = ~as.character(ObservationID),
+          LocationID = ~as.character(LocationID)
+        ),
+      observation.walloon %>%
+        mutate_(DatasourceID = ~wallonia.id)
+    )
   }
 
-  observation$Year <- year(round_date(observation$Date, unit = "year"))
-  observation$fMonth <- factor(month(observation$Date))
-  observation$Date <- NULL
+  result <- observation %>%
+    mutate_(
+      LocationID = ~as.character(LocationID),
+      Year = ~round_date(Date, unit = "year") %>%
+        year(),
+      fMonth = ~ month(Date) %>%
+        as.factor()
+    ) %>%
+    select_(~-Date) %>%
+    inner_join(
+      location %>%
+        select_(~external_code, ~fingerprint, ~datasource),
+      by = c(
+        "LocationID" = "external_code",
+        "DatasourceID" = "datasource"
+      )
+    ) %>%
+    select_(
+      ~DatasourceID,
+      ~ObservationID,
+      LocationID = ~fingerprint,
+      ~Year,
+      ~fMonth,
+      ~Count,
+      ~Complete
+    ) %>%
+    select_relevant_import() %>%
+    remove_duplicate_observation()
 
-  observation <- merge(
-    observation,
-    location[, c("ID", "ExternalCode", "DatasourceID")],
-    by.x = c("LocationID", "DatasourceID"),
-    by.y = c("ExternalCode", "DatasourceID")
-  )
-  observation$LocationID <- observation$ID
-
-  observation <- select_relevant_import(observation)
-
-  result <- remove_duplicate_observation(observation)
-
-  observation <- result$Observation[
-    order(
-      result$Observation$LocationID,
-      result$Observation$Year,
-      result$Observation$fMonth
-    ),
-    c("LocationID", "Year", "fMonth", "ObservationID", "Complete", "Count")
-  ]
-
-  filename <- paste0(this.constraint$SpeciesGroupID[1], ".txt")
-  if(is.null(observation)){
+  if (is.null(result$Observation)) {
     observation.sha <- NA
-    status.id <- odbc_get_id(
-      table = "AnalysisStatus",
-      variable = "Description",
-      value = "No data",
-      channel = result.channel
-    )
+    analysis.status <- "No data"
   } else {
+    observation <- result$Observation %>%
+      select_(
+        ~LocationID, ~Year, ~fMonth, ~ObservationID, ~Complete, ~Count
+      ) %>%
+      arrange_(~LocationID, ~Year, ~fMonth)
+
+    filename <- paste0(this.constraint$SpeciesGroupID[1], ".txt")
     observation.sha <- write_delim_git(
       x = observation,
       file = filename,
       connection = raw.connection
     )
-    status.id <- odbc_get_id(
-      table = "AnalysisStatus",
-      variable = "Description",
-      value = "Working",
-      channel = result.channel
-    )
+    analysis.status <- "Working"
+    dataset <- data.frame(
+      filename = filename,
+      fingerprint = observation.sha,
+      import_date = import.date,
+      datasource = dataset$datasource[1],
+      stringsAsFactors = FALSE
+    ) %>%
+      bind_rows(dataset)
   }
 
-  import.id <- odbc_get_id(
-    table = "ModelType",
-    variable = "Description",
-    value = "import",
-    channel = result.channel
-  )
-  model.set <- data.frame(
-    ModelTypeID = import.id,
-    FirstYear = this.constraint$Firstyear[1],
-    LastYear = this.constraint$Lastyear[1],
-    Duration = this.constraint$Lastyear[1] - this.constraint$Firstyear[1] + 1
-  )
-
-  modelset.id <- odbc_get_multi_id(
-    data = model.set,
-    id.field = "ID",
-    merge.field = c("ModelTypeID", "FirstYear", "LastYear", "Duration"),
-    table = "ModelSet",
-    channel = result.channel, create = TRUE
-  )$ID
-
-  version <- data.frame(
-    Description = paste(
-      "watervogelanalyis version",
-      sessionInfo()$otherPkgs$watervogelanalysis$Version
-    ),
-    Obsolete = FALSE
-  )
-  version.id <- odbc_get_multi_id(
-    data = version,
-    id.field = "ID",
-    merge.field = "Description",
-    table = "AnalysisVersion",
-    channel = result.channel,
-    create = TRUE
-  )$ID
-
-  sql <- paste0("
-    SELECT
-      ID, FileName, PathName, Fingerprint
-    FROM
-      Dataset
-    WHERE
-      PathName = '", raw.connection@LocalPath, "' AND
-      Filename IN
-        ('location.txt', 'locationgroup.txt', 'locationgrouplocation.txt') AND
-      Obsolete = 0
-  ")
-  location.ds <- sqlQuery(
-    channel = result.channel,
-    query = sql,
+  model_set <- data.frame(
+    local_id = "import",
+    description = "import",
+    first_year = this.constraint$Firstyear[1],
+    last_year = this.constraint$Lastyear[1],
+    duration = this.constraint$Lastyear[1] - this.constraint$Firstyear[1] + 1,
     stringsAsFactors = FALSE
   )
-  sha <- sort(c(location.ds$Fingerprint, observation.sha))
-
+  analysis_version <- get_analysis_version(sessionInfo())
   analysis <- data.frame(
-    ModelSetID = modelset.id,
-    LocationGroupID = odbc_get_id(
-      table = "LocationGroup",
-      variable = c("Description", "SchemeID"),
-      value = c("Belgi\\u0137", scheme.id),
-      channel = result.channel
-    ),
-    SpeciesGroupID = this.constraint$SpeciesGroupID[1],
-    AnalysisVersionID = version.id,
-    AnalysisDate = import.date,
-    StatusID = status.id,
-    Fingerprint = digest(sha, algo = "sha1")
-  )
-  analysis.id <- odbc_get_multi_id(
-    data = analysis,
-    id.field = "ID",
-    merge.field = c(
-      "ModelSetID", "LocationGroupID", "SpeciesGroupID", "AnalysisVersionID",
-      "Fingerprint"
-    ),
-    table = "Analysis",
-    channel = result.channel,
-    create = TRUE
-  )$ID
-
-  if (!is.na(observation.sha)) {
-    dataset <- data.frame(
-      FileName = filename,
-      PathName = raw.connection@LocalPath,
-      Fingerprint = observation.sha,
-      ImportDate = import.date,
-      Obsolete = FALSE
+    model_set_local_id = "import",
+    location_group = location_group_id,
+    species_group = this.constraint$SpeciesGroupID[1],
+    last_year = this.constraint$Lastyear[1],
+    seed = sample(.Machine$integer.max, 1),
+    analysis_version = attr(analysis_version, "AnalysisVersion") %>%
+      unname(),
+    analysis_date = import.date,
+    status = analysis.status,
+    stringsAsFactors = FALSE
+  ) %>%
+    mutate_(
+      file_fingerprint = ~sha1(list(
+        dataset = arrange_(dataset, ~fingerprint) %>%
+          select_(~fingerprint, ~datasource, ~filename, ~import_date),
+        model_set = select_(
+          model_set,
+          ~description, ~first_year, ~last_year, ~duration
+        ),
+        location_group = location_group,
+        species_group = species_group,
+        last_year = last_year,
+        seed = seed,
+        analysis_date = analysis_date
+      )),
+      status_fingerprint = ~sha1(list(
+        file_fingerprint = file_fingerprint,
+        status = status,
+        analysis_version = analysis_version
+      ))
     )
-    location.ds <- rbind(
-      location.ds,
-      odbc_get_multi_id(
-        data = dataset,
-        id.field = "ID", merge.field = c("FileName", "PathName", "Fingerprint"),
-        table = "Dataset",
-        channel = result.channel, create = TRUE
-      )
-    )
-  }
-  analysis.dataset <- data.frame(
-    AnalysisID = analysis.id,
-    DatasetID = location.ds$ID
+  analysis_dataset <- data.frame(
+    analysis = analysis$file_fingerprint,
+    dataset = dataset$fingerprint,
+    stringsAsFactors = FALSE
   )
-  database.id <- odbc_get_multi_id(
-    data = analysis.dataset,
-    id.field = "ID", merge.field = c("AnalysisID", "DatasetID"),
-    table = "AnalysisDataset",
-    channel = result.channel, create = TRUE
+  store_analysis_dataset(
+    analysis = analysis,
+    model_set = model_set,
+    analysis_version = analysis_version,
+    dataset = dataset,
+    analysis_dataset = analysis_dataset,
+    conn = result.channel$con
   )
 
   if (nrow(result$Duplicate) > 0) {
-    duplicate <- result$Duplicate
-    duplicate$TableName <- ifelse(
-      duplicate$DatasourceID == flanders.id, "tblWaarneming", "visit.txt"
+    anomaly_type <- data.frame(
+      local_id = 1,
+      description = "multiple observations for a single location time combination",
+      stringsAsFactors = FALSE
     )
-    duplicate$Column1Name <- ifelse(
-      duplicate$DatasourceID == flanders.id, "ID", "ObservationID"
-    )
-    duplicate$Column1Value <- duplicate$ObservationID
-    duplicate$ObservationID <- NULL
-    duplicate$Column2Name <- NA
-    duplicate$Column2Value <- NA
 
-    duplicate$TypeID <- odbc_get_id(
-      table = "AnomalyType",
-      variable = "Description",
-      value = "Duplicate record",
-      channel = result.channel
+    parameter <- data.frame(
+      description = "ObservationID",
+      local_id = 1,
+      stringsAsFactors = FALSE
     )
-    duplicate$AnalysisID <- analysis.id
-    database.id <- odbc_get_multi_id(
-      data = duplicate,
-      id.field = "ID",
-      merge.field = colnames(duplicate),
-      table = "Anomaly",
-      channel = result.channel,
-      create = TRUE
+    parameter <- result$Duplicate %>%
+      distinct_(~DatasourceID) %>%
+      transmute_(
+        description = ~DatasourceID,
+        local_id = ~row_number(DatasourceID) + max(parameter$local_id),
+        parent_parameter_local_id = 1
+      ) %>%
+      bind_rows(parameter)
+    parameter <- parameter %>%
+      select_(DatasourceID = ~description, parent_parameter_local_id = ~local_id) %>%
+      inner_join(result$Duplicate, by = "DatasourceID") %>%
+      transmute_(
+        description = ~as.character(ObservationID),
+        local_id = ~row_number(DatasourceID) + max(parameter$local_id),
+        ~parent_parameter_local_id
+      ) %>%
+      bind_rows(parameter)
+
+    datafield <- result$Duplicate %>%
+      distinct_(~DatasourceID) %>%
+      transmute_(
+        local_id = ~DatasourceID,
+        datasource = ~DatasourceID,
+        table_name = ~ifelse(
+          DatasourceID == flanders.id,
+          "tblWaarneming",
+          "visit.txt"
+        ),
+        primary_key = ~ifelse(
+          DatasourceID == flanders.id,
+          "ID",
+          "ObservationID"
+        ),
+        datafield_type = ~ifelse(
+          DatasourceID == flanders.id,
+          "integer",
+          "character"
+        )
+      )
+    anomaly <- result$Duplicate %>%
+      transmute_(
+        anomaly_type_local_id = ~1,
+        datafield_local_id = ~DatasourceID,
+        analysis = ~analysis$file_fingerprint,
+        description = ~as.character(ObservationID)
+      ) %>%
+      inner_join(
+        parameter %>%
+          select_(~description, parameter_local_id = ~local_id),
+        by = "description"
+      )
+    store_anomaly(
+      anomaly = anomaly,
+      anomaly_type = anomaly_type,
+      datafield = datafield,
+      parameter = parameter,
+      conn = result.channel$con
     )
   }
+  return(TRUE)
 }

@@ -17,7 +17,7 @@ prepare_dataset_location <- function(
 ){
   assert_that(is.string(scheme.id))
 
-  import.date <- Sys.time()
+  import.date <- as.POSIXct(Sys.time())
 
   # read the locations
   location <- read_location(
@@ -101,8 +101,7 @@ prepare_dataset_location <- function(
     )
   location <- datafield %>%
     select_(datafield = ~fingerprint, ~datasource) %>%
-    inner_join(location, by = "datasource") %>%
-    select_(~-datasource)
+    inner_join(location, by = "datasource")
 
   store_location_group_location(
     location_group_location = location.group.location %>%
@@ -168,13 +167,18 @@ prepare_dataset_location <- function(
   )
 
   dataset <- data.frame(
-    FileName = c(
+    filename = c(
       "location.txt", "locationgroup.txt", "locationgrouplocation.txt"
     ),
-    Fingerprint = c(location.sha, locationgroup.sha, locationgrouplocation.sha),
-    ImportDate = import.date,
+    fingerprint = c(location.sha, locationgroup.sha, locationgrouplocation.sha),
+    import_date = import.date,
+    datasource = datasource_id_raw(result.channel = result.channel),
     stringsAsFactors = FALSE
   )
 
-  return(list(Location = location, Dataset = dataset))
+  return(list(
+    Location = location,
+    LocationGroup = location.group,
+    Dataset = dataset
+  ))
 }

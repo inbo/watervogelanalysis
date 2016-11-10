@@ -11,7 +11,7 @@
 #' @export
 #' @importFrom n2khelper remove_files_git write_delim_git auto_commit odbc_get_id
 #' @importFrom RODBC odbcClose
-#' @importFrom plyr d_ply
+#' @importFrom dplyr %>% bind_rows select_ distinct_ mutate_ arrange_ group_by_ do_
 #' @importFrom assertthat assert_that is.string is.flag noNA
 #' @examples
 #' \dontrun{
@@ -44,6 +44,9 @@ prepare_dataset <- function(
     scheme.id = scheme.id
   )
   dataset <- location$Dataset
+  location_group_id <- location$LocationGroup %>%
+    filter_(~description == "Belgi\\u0137") %>%
+    '[['("fingerprint")
   location <- location$Location
 
   if (verbose) {
@@ -66,7 +69,7 @@ prepare_dataset <- function(
 
   metadata <- species.constraint %>%
     select_(
-      ~SpeciesGroupID,
+      ~SpeciesID,
       FirstImportedYear = ~Firstyear,
       LastImportedYear = ~Lastyear
     ) %>%
@@ -75,7 +78,7 @@ prepare_dataset <- function(
       Duration = ~LastImportedYear - FirstImportedYear + 1,
       SchemeID = ~scheme.id
     ) %>%
-    arrange_(~SpeciesGroupID)
+    arrange_(~SpeciesID)
 
   metadata.sha <- write_delim_git(
     x = metadata,
@@ -83,25 +86,37 @@ prepare_dataset <- function(
     connection = raw.connection
   )
 
+  dataset <- data.frame(
+    filename = c("metadata.txt", "speciesgroupspecies.txt"),
+    fingerprint = c(
+      metadata.sha,
+      attr(species.constraint, "speciesgroupspecies.hash")
+    ),
+    import_date = dataset$import_date[1],
+    datasource = dataset$datasource[1],
+    stringsAsFactors = FALSE
+  ) %>%
+    bind_rows(dataset)
+
   # read and save observations
   if (verbose) {
     message("Reading and saving observations")
-    progress <- "time"
-  } else {
-    progress <- "none"
   }
-  junk <- d_ply(
-    .data = species.constraint,
-    .variables = "SpeciesGroupID",
-    .progress = progress,
-    .fun = prepare_dataset_observation,
-    location = location,
-    result.channel = result.channel,
-    flemish.channel = flemish.channel,
-    walloon.connection = walloon.connection,
-    raw.connection = raw.connection,
-    scheme.id = scheme.id
-  )
+  species.constraint %>%
+    group_by_(~SpeciesGroupID) %>%
+    do_(
+      stored = ~prepare_dataset_observation(
+        .,
+        location = location,
+        location_group_id = location_group_id,
+        flemish.channel = flemish.channel,
+        walloon.connection = walloon.connection,
+        result.channel = result.channel,
+        raw.connection = raw.connection,
+        scheme.id = scheme.id,
+        dataset = dataset
+      )
+    )
 
   auto_commit(
     package = environmentName(parent.env(environment())),

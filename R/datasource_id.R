@@ -31,13 +31,15 @@ datasource_id_flanders <- function(result.channel){
 #' The raw data is the combination of the Flemish and Walloon source data
 #' @inheritParams connect_flemish_source
 #' @importFrom n2khelper odbc_get_id
+#' @importFrom dplyr %>%
 #' @export
 datasource_id_raw <- function(result.channel){
   odbc_get_id(
     table = "datasource",
     variable = "description",
-    value = "Raw data watervogels",
+    value = "Raw data watervogel",
     id_variable = "fingerprint",
     channel = result.channel
-  )
+  ) %>%
+    unname()
 }
