@@ -6,7 +6,7 @@
 #'  \item Only locations where the species was present during at least 3 winters
 #'  \item No winters without any presences at the beginning or end of the dataset
 #' }
-#' @inheritParams n2kanalysis::select_factor_threshold
+#' @inheritParams n2kanalysis::select_factor_treshold
 #' @export
 #' @importFrom n2khelper check_dataframe_variable
 #' @importFrom n2kanalysis select_factor_count_strictly_positive select_observed_range
