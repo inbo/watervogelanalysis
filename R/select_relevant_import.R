@@ -25,7 +25,7 @@ select_relevant_import <- function(observation){
   observation <- select_factor_count_strictly_positive( #nolint
     observation = observation,
     variable = "LocationID",
-    threshold = 4
+    treshold = 4
   )
   if (nrow(observation) == 0) {
     return(NULL)
@@ -35,10 +35,10 @@ select_relevant_import <- function(observation){
   observation <- select_factor_count_strictly_positive( #nolint
     observation = observation,
     variable = c("LocationID", "Year"),
-    threshold = 3,
+    treshold = 3,
     dimension = 1
   )
-  if(nrow(observation) == 0){
+  if (nrow(observation) == 0) {
     return(NULL)
   }
 
@@ -47,7 +47,7 @@ select_relevant_import <- function(observation){
     observation = observation,
     variable = "Year"
   )
-  if(nrow(observation) == 0){
+  if (nrow(observation) == 0) {
     return(NULL)
   }
 
