@@ -4,12 +4,14 @@
 \alias{prepare_analysis}
 \title{Prepare all datasets and a to do list of models}
 \usage{
-prepare_analysis(analysis.path = ".", raw.connection)
+prepare_analysis(analysis.path = ".", raw.connection, verbose = TRUE)
 }
 \arguments{
-\item{analysis.path}{Path to store the analysis files}
+\item{analysis.path}{Path to store the analysis files. Must be either an existing local file path or an object of the \code{s3_bucket} class.}
 
 \item{raw.connection}{a git-connection object to write the output to}
+
+\item{verbose}{Display a progress bar when TRUE (default)}
 }
 \description{
 Prepare all datasets and a to do list of models

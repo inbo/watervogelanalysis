@@ -4,16 +4,19 @@
 \alias{prepare_analysis_dataset}
 \title{Create the analysis dataset based on the available raw data}
 \usage{
-prepare_analysis_dataset(rawdata.file, location, analysis.path, raw.connection)
+prepare_analysis_dataset(speciesgroupspecies, location, analysis.path,
+  raw.connection, verbose = TRUE)
 }
 \arguments{
-\item{rawdata.file}{Name of the rawdata file}
+\item{speciesgroupspecies}{a data.frame with the current species group and the associates species}
 
-\item{location}{a data.frame with the locations}
+\item{location}{a data.frame with the locations and location groups}
 
-\item{analysis.path}{Path to store the analysis files}
+\item{analysis.path}{Path to store the analysis files. Must be either an existing local file path or an object of the \code{s3_bucket} class.}
 
 \item{raw.connection}{a git-connection object to write the output to}
+
+\item{verbose}{Display a progress bar when TRUE (default)}
 }
 \value{
 A data.frame with the species id number of rows in the analysis dataset, number of precenses in the analysis datset and SHA-1 of the analysis dataset or NULL if not enough data.

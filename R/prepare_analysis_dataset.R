@@ -1,189 +1,174 @@
 #' Create the analysis dataset based on the available raw data
 #'
 #' The analysis dataset is saved to a rda file with the SHA-1 as name.
-#' @param rawdata.file Name of the rawdata file
-#' @param location a data.frame with the locations
-#' @param analysis.path Path to store the analysis files
+#' @param speciesgroupspecies a data.frame with the current species group and the associates species
+#' @param location a data.frame with the locations and location groups
+#' @param analysis.path Path to store the analysis files. Must be either an existing local file path or an object of the \code{s3_bucket} class.
 #' @inheritParams prepare_dataset
 #' @return A data.frame with the species id number of rows in the analysis dataset, number of precenses in the analysis datset and SHA-1 of the analysis dataset or NULL if not enough data.
-#' @importFrom n2khelper check_path check_dataframe_variable read_delim_git git_recent
-#' @importFrom n2kanalysis select_factor_threshold n2k_inla_nbinomial get_file_fingerprint
-#' @importFrom plyr d_ply
-#' @importFrom digest digest
-#' @importFrom assertthat assert_that is.count
+#' @importFrom n2khelper read_delim_git git_recent
+#' @importFrom n2kanalysis select_factor_treshold n2k_inla_nbinomial get_file_fingerprint store_model
+#' @importFrom assertthat assert_that has_name noNA is.flag
+#' @importFrom dplyr %>% inner_join left_join mutate_ select_ filter_ ungroup
 #' @importFrom stats na.omit
 #' @export
 prepare_analysis_dataset <- function(
-  rawdata.file,
+  speciesgroupspecies,
   location,
   analysis.path,
-  raw.connection
+  raw.connection,
+  verbose = TRUE
 ){
-  analysis.path <- check_path(paste0(analysis.path, "/"), type = "directory")
-  check_dataframe_variable(
-    df = location,
-    variable = c(
-      "LocationID", "LocationGroupID", "SubsetMonths", "StartYear", "EndYear"
-    ),
-    name = "location"
-  )
+  assert_that(inherits(location, "data.frame"))
+  assert_that(has_name(location, "LocationID"))
+  assert_that(has_name(location, "LocationGroupID"))
+  assert_that(has_name(location, "SubsetMonths"))
+  assert_that(has_name(location, "StartYear"))
+  assert_that(has_name(location, "EndYear"))
+  assert_that(noNA(location$LocationID))
+  assert_that(noNA(location$LocationGroupID))
+  assert_that(noNA(location$SubsetMonths))
 
-  speciesgroup.id <- as.integer(gsub("\\.txt", "", rawdata.file))
-  metadata <- read_delim_git(file = "metadata.txt", connection = raw.connection)
-  metadata <- metadata[metadata$SpeciesGroupID == speciesgroup.id, ]
+  assert_that(inherits(speciesgroupspecies, "data.frame"))
+  assert_that(has_name(speciesgroupspecies, "SpeciesGroup"))
+  assert_that(has_name(speciesgroupspecies, "Species"))
+  assert_that(noNA(speciesgroupspecies))
+  assert_that(anyDuplicated(speciesgroupspecies$SpeciesGroup) == 0)
 
-  assert_that(is.count(metadata$SchemeID))
-  scheme.id <- as.integer(metadata$SchemeID)
-  assert_that(is.count(first.year))
-  first.year <- as.integer(first.year)
-  assert_that(is.count(last.year))
-  last.year <- as.integer(last.year)
-
-  rawdata <- read_delim_git(file = rawdata.file, connection = raw.connection)
-  if (class(rawdata) != "data.frame") {
-    stop(rawdata.file, " not available")
+  assert_that(is.flag(verbose))
+  assert_that(noNA(verbose))
+  if (verbose) {
+    message(unique(speciesgroupspecies[["SpeciesGroup"]]), "\n")
   }
+
+  if (nrow(speciesgroupspecies) > 1) {
+    stop("Speciesgroups with multiple species not yet handled")
+  }
+
+  metadata <- read_delim_git(
+    file = "metadata.txt",
+    connection = raw.connection
+  ) %>%
+    inner_join(speciesgroupspecies, by = c("SpeciesID" = "Species"))
+  assert_that(has_name(metadata, "FirstImportedYear"))
+  assert_that(has_name(metadata, "LastImportedYear"))
+
+  rawdata.file <- paste0(metadata$SpeciesGroup, ".txt")
+  rawdata <- read_delim_git(rawdata.file, connection = raw.connection)
+  assert_that(has_name(rawdata, "LocationID"))
+  assert_that(has_name(rawdata, "Year"))
+  assert_that(has_name(rawdata, "fMonth"))
+  assert_that(has_name(rawdata, "DatasourceID"))
+  assert_that(has_name(rawdata, "ObservationID"))
+  assert_that(has_name(rawdata, "Complete"))
+  assert_that(has_name(rawdata, "Count"))
+
   analysis.date <- git_recent(
     file = rawdata.file,
     connection = raw.connection
   )$Date
+  model.type <- "inla nbinomial: Year * (Month + Location)"
 
-  rawdata$Complete <- rawdata$Complete == 1
-
-  full.combination <- expand.grid(
+  rawdata <- expand.grid(
     Year = unique(rawdata$Year),
     fMonth = unique(rawdata$fMonth),
-    LocationID = unique(rawdata$LocationID)
-  )
-  full.combination <- merge(
-    full.combination,
-    location[
-      ,
-      c("LocationID", "LocationGroupID", "SubsetMonths", "StartYear", "EndYear")
-    ]
-  )
-  rm(location)
+    LocationID = unique(rawdata$LocationID),
+    stringsAsFactors = FALSE
+  ) %>%
+    inner_join(
+      location %>%
+        select_(
+          ~LocationID, ~LocationGroupID, ~SubsetMonths, ~StartYear, ~EndYear
+        ),
+      by = "LocationID"
+    ) %>%
+    filter_(~!SubsetMonths | fMonth %in% c("11", "12", "1", "2")) %>%
+    filter_(
+      ~is.na(StartYear) | StartYear <= Year,
+      ~is.na(EndYear) | Year <= EndYear
+    ) %>%
+    select_(~LocationGroupID, ~LocationID, ~Year, ~fMonth) %>%
+    left_join(rawdata, by = c("LocationID", "Year", "fMonth")) %>%
+    mutate_(
+      Minimum = ~pmax(0, Count),
+      Count = ~ifelse(Complete == 1, Minimum, NA)
+    ) %>%
+    group_by_(~LocationGroupID)
 
-  remove.month <- full.combination$SubsetMonths &
-    full.combination$fMonth %in% c("3", "10")
-  full.combination <- full.combination[!remove.month, ]
-
-  relevant.start <- is.na(full.combination$StartYear) |
-    full.combination$StartYear <= full.combination$Year
-  relevant.end <- is.na(full.combination$EndYear) |
-    full.combination$EndYear >= full.combination$Year
-  full.combination <- full.combination[relevant.start & relevant.end, ]
-  rm(relevant.start, relevant.end)
-
-  rawdata <- merge(
-    full.combination[, c("LocationGroupID", "LocationID", "Year", "fMonth")],
-    rawdata,
-    all.x = TRUE
-  )
-  rawdata$Minimum <- ifelse(is.na(rawdata$Count), 0, rawdata$Count)
-  rawdata$Count[!is.na(rawdata$Complete) & !rawdata$Complete] <- 0
-  rawdata$Complete <- NULL
-
-  model.type <- "inla nbinomial: Year * (Month + Location)"
-  d_ply(rawdata, "LocationGroupID", function(dataset){
-    locationgroup.id <- dataset$LocationGroupID[1]
-    dataset$LocationGroupID <- NULL
-    dataset$fMonth <- factor(dataset$fMonth)
-    dataset <- select_relevant_analysis(dataset)
-
-    if (is.null(dataset)) {
-      analysis <- n2k_inla_nbinomial(
-        data = rawdata,
-        scheme.id = scheme.id,
-        speciesgroup.id = speciesgroup.id,
-        locationgroup.id = locationgroup.id,
-        model.type = model.type,
-        covariate = "fYear + fMonth + fLocation",
-        first.imported.year = first.year,
-        last.imported.year = last.year,
-        analysis.date = analysis.date,
-        status = "insufficient data"
-      )
-      filename <- paste0(
-        analysis.path,
-        "/",
-        get_file_fingerprint(analysis),
-        ".rda"
-      )
-      if (!file.exists(filename)) {
-        save(analysis, file = filename)
-      }
-      return(invisible(NULL))
-    }
-    if (length(unique(dataset$Year)) > 1) {
-      dataset$fYear <- factor(dataset$Year)
-      covariate <- "0 + fYear"
-    } else {
-      covariate <- "1"
-    }
-    dataset$Year <- NULL
-
-    if (length(levels(dataset$fMonth)) == 1) {
-      dataset$fMonth <- NULL
-    } else {
-      covariate <- c(covariate, "fMonth")
-      if ("fYear" %in% colnames(dataset)) {
-        dataset$fYearMonth <- interaction(
-          dataset$fYear,
-          dataset$fMonth,
-          drop = TRUE
+  selected <- rawdata %>%
+    arrange_(~LocationID, ~Year, ~fMonth) %>%
+    do_(
+      Dataset = ~ungroup(.) %>%
+        select_(~-LocationGroupID),
+      Relevant = ~select_relevant_analysis(.) %>%
+        ungroup() %>%
+        mutate_(
+          fMonth = ~factor(fMonth),
+          fYear = ~factor(Year),
+          cYear = ~Year - max(Year),
+          fYearMonth = ~interaction(fYear, fMonth, drop = TRUE),
+          LocationID = ~factor(LocationID),
+          fYearLocation = ~interaction(fYear, LocationID, drop = TRUE)
+        ) %>%
+        select_(~-LocationGroupID)
+    )
+  sapply(
+    seq_along(selected$LocationGroupID),
+    function(i) {
+      dataset <- selected$Relevant[[i]]
+      if (nrow(dataset) == 0) {
+        filename <- n2k_inla_nbinomial(
+          data = selected$Dataset[[i]],
+          scheme.id = metadata$SchemeID,
+          species.group.id = metadata$SpeciesGroup,
+          location.group.id = selected$LocationGroupID[i],
+          model.type = model.type,
+          formula = "Count ~ 1",
+          first.imported.year = metadata$FirstImportedYear,
+          last.imported.year = metadata$LastImportedYear,
+          analysis.date = analysis.date,
+          status = "insufficient_data"
+        ) %>%
+          store_model(base = analysis.path, project = "watervogels")
+        return(
+          filename
         )
-        covariate <- c(covariate, "f(fYearMonth, model = 'iid')")
       }
-    }
-
-    if (length(unique(dataset$LocationID)) > 1) {
-      dataset$fLocation <- factor(dataset$LocationID)
-      covariate <- c(covariate, "f(fLocation, model = 'iid')")
-      if ("fYear" %in% colnames(dataset)) {
-        dataset$fYearLocation <- interaction(
-          dataset$fYear,
-          dataset$fLocation,
-          drop = TRUE
+      if (length(levels(dataset$fYear)) < 2) {
+        stop("Single year datasets not handled")
+      }
+      covariate <- "fYear"
+      form <- "0 + fYear"
+      if (length(levels(dataset$fMonth)) > 1) {
+        covariate <- c(covariate, "fMonth", "fYearMonth")
+        form <- c(form, "fMonth + f(fYearMonth, model = 'iid')")
+      }
+      if (length(levels(dataset$LocationID)) > 1) {
+        form <- c(
+          form,
+          "f(LocationID, model = 'iid') + f(fYearLocation, model = 'iid')"
         )
-        covariate <- c(covariate, "f(fYearLocation, model = 'iid')")
+        covariate <- c(covariate, "LocationID", "fYearLocation")
       }
-    }
-    dataset$LocationID <- NULL
-    sort.column <- na.omit(
-      match(c("fLocation", "fYear", "fMonth"), colnames(dataset))
-    )
-    dataset <- dataset[do.call(order, dataset[, sort.column]), ]
+      relevant <- c(
+        covariate, "DatasourceID", "ObservationID", "Count", "Minimum"
+      )
 
-    order.column <- c(
-      "fLocation", "fYear", "fMonth", "Count", "Minimum", "ObservationID",
-      "fYearLocation", "fYearMonth"
-    )
-    order.column <- order.column[order.column %in% colnames(dataset)]
-    data <- dataset[, order.column]
-
-    covariate <- paste(covariate, collapse = " + ")
-    analysis <- n2k_inla_nbinomial(
-      data = data,
-      scheme.id = scheme.id,
-      speciesgroup.id = speciesgroup.id,
-      locationgroup.id = locationgroup.id,
-      model.type = model.type,
-      covariate = covariate,
-      first.imported.year = first.year,
-      last.imported.year = last.year,
-      analysis.date = analysis.date
-    )
-    filename <- paste0(
-      analysis.path,
-      "/",
-      get_file_fingerprint(analysis),
-      ".rda"
-    )
-    if (!file.exists(filename)) {
-      save(analysis, file = filename)
+      dataset %>%
+        select_(.dots = relevant) %>%
+        arrange_(.dots = relevant) %>%
+        n2k_inla_nbinomial(
+          scheme.id = metadata$SchemeID,
+          species.group.id = metadata$SpeciesGroup,
+          location.group.id = selected$LocationGroupID[i],
+          model.type = model.type,
+          formula = paste(form, collapse = "+") %>%
+            sprintf(fmt = "Count~%s"),
+          first.imported.year = metadata$FirstImportedYear,
+          last.imported.year = metadata$LastImportedYear,
+          analysis.date = analysis.date
+        ) %>%
+        store_model(base = analysis.path, project = "watervogels")
     }
-    return(invisible(NULL))
-  })
-  return(invisible(NULL))
+  )
 }
