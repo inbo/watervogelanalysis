@@ -132,7 +132,7 @@ prepare_dataset_observation <- function(
   } else {
     observation <- result$Observation %>%
       select_(
-        ~LocationID, ~Year, ~fMonth, ~ObservationID, ~Complete, ~Count
+        ~LocationID, ~Year, ~fMonth, ~DatasourceID, ~ObservationID, ~Complete, ~Count
       ) %>%
       arrange_(~LocationID, ~Year, ~fMonth)
 
