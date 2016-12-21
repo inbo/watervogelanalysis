@@ -2,7 +2,7 @@
 #' @export
 #' @importFrom n2khelper read_delim_git list_files_git
 #' @importFrom lubridate ymd year round_date
-#' @inheritParams prepare_analysis_dataset
+#' @inheritParams prepare_analysis_imputation
 #' @inheritParams prepare_dataset
 #' @importFrom dplyr %>% mutate_ select_ distinct_
 #' @importFrom lubridate ymd year round_date
@@ -45,7 +45,7 @@ prepare_analysis <- function(
   ) %>%
     group_by_(~SpeciesGroup) %>%
     do_(
-      Files = ~prepare_analysis_dataset(
+      Files = ~prepare_analysis_imputation(
         speciesgroupspecies = .,
         location = location,
         analysis.path = analysis.path,

@@ -12,7 +12,7 @@
 #' @importFrom dplyr %>% inner_join left_join mutate_ select_ filter_ ungroup
 #' @importFrom stats na.omit
 #' @export
-prepare_analysis_dataset <- function(
+prepare_analysis_imputation <- function(
   speciesgroupspecies,
   location,
   analysis.path,
@@ -166,6 +166,8 @@ prepare_analysis_dataset <- function(
             sprintf(fmt = "Count~%s"),
           first.imported.year = metadata$FirstImportedYear,
           last.imported.year = metadata$LastImportedYear,
+          imputation.size = 100,
+          minimum = "Minimum",
           analysis.date = analysis.date
         ) %>%
         store_model(base = analysis.path, project = "watervogels")
