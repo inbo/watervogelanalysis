@@ -112,7 +112,7 @@ prepare_analysis_imputation <- function(
         ) %>%
         select_(~-LocationGroupID)
     )
-  sapply(
+  lapply(
     seq_along(selected$LocationGroupID),
     function(i) {
       dataset <- selected$Relevant[[i]]
@@ -131,7 +131,12 @@ prepare_analysis_imputation <- function(
         ) %>%
           store_model(base = analysis.path, project = "watervogels")
         return(
-          filename
+          data.frame(
+            Impute = selected$LocationGroupID[i],
+            Filename = filename,
+            Status = "insufficient_data",
+            stringsAsFactors = FALSE
+          )
         )
       }
       if (length(levels(dataset$fYear)) < 2) {
@@ -154,7 +159,7 @@ prepare_analysis_imputation <- function(
         covariate, "DatasourceID", "ObservationID", "Count", "Minimum"
       )
 
-      dataset %>%
+      filename <- dataset %>%
         select_(.dots = relevant) %>%
         arrange_(.dots = relevant) %>%
         n2k_inla_nbinomial(
@@ -171,6 +176,15 @@ prepare_analysis_imputation <- function(
           analysis.date = analysis.date
         ) %>%
         store_model(base = analysis.path, project = "watervogels")
+      return(
+        data.frame(
+          Impute = selected$LocationGroupID[i],
+          Filename = filename,
+          Status = "new",
+          stringsAsFactors = FALSE
+        )
+      )
     }
-  )
+  ) %>%
+    bind_rows()
 }

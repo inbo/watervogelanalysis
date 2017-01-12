@@ -16,7 +16,9 @@ prepare_dataset(
   flemish.channel = connect_flemish_source(result.channel = result.channel),
   nbn.channel = watervogelanalysis::connect_nbn(result.channel = result.channel)
 )
+
+library(aws.s3)
 prepare_analysis(
-  analysis.path = "~/analysis", #nolint
+  analysis.path = get_bucket("n2kmonitoring"),
   raw.connection = raw.connection
 )

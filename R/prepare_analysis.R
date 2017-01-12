@@ -39,7 +39,7 @@ prepare_analysis <- function(
     ) %>%
     inner_join(location, by = c("LocationID" = "ID"))
 
-  read_delim_git(
+  imputations <- read_delim_git(
     file = "speciesgroupspecies.txt",
     connection = raw.connection
   ) %>%
@@ -52,6 +52,20 @@ prepare_analysis <- function(
         raw.connection = raw.connection,
         verbose = verbose
       )
-    )
+    ) %>%
+    unnest_("Files")
+  aggregation <- imputations %>%
+    filter_(~Status != "insufficient_data") %>%
+    inner_join(
+      read_delim_git(
+        file = "locationgroup.txt",
+        connection = raw.connection
+      ) %>%
+        select_(LocationGroup = ~ID, ~Impute),
+      by = "Impute"
+    ) %>%
+    select_(~SpeciesGroup, ~LocationGroup, ~Filename) %>%
+    prepare_analysis_aggregate(analysis.path = analysis.path, verbose = verbose)
+
   return(invisible(NULL))
 }
