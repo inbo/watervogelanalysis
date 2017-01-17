@@ -64,7 +64,6 @@ prepare_analysis <- function(
         select_(LocationGroup = ~ID, ~Impute),
       by = "Impute"
     ) %>%
-    select_(~SpeciesGroup, ~LocationGroup, ~Filename) %>%
     prepare_analysis_aggregate(analysis.path = analysis.path, verbose = verbose)
 
   return(invisible(NULL))

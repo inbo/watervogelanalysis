@@ -18,6 +18,10 @@ prepare_analysis_aggregate <- function(
   assert_that(has_name(imputations, "SpeciesGroup"))
   assert_that(has_name(imputations, "Filename"))
   assert_that(has_name(imputations, "LocationGroup"))
+  assert_that(has_name(imputations, "Scheme"))
+  assert_that(has_name(imputations, "Fingerprint"))
+  imputations <- imputations %>%
+    arrange_(~Fingerprint, ~LocationGroup)
 
   location <- read_delim_git(
     file = "locationgrouplocation.txt",
@@ -28,39 +32,38 @@ prepare_analysis_aggregate <- function(
   assert_that(has_name(location, "LocationID"))
 
   lapply(
-    unique(imputations$Filename),
-    function(filename) {
+    unique(imputations$Fingerprint),
+    function(fingerprint) {
       if (verbose) {
-        message("imputation: ", filename)
+        message("imputation: ", fingerprint)
       }
       locationgroups <- imputations %>%
-        filter_(~Filename == filename) %>%
+        filter_(~Fingerprint == fingerprint) %>%
         "[["("LocationGroup")
-      x <- s3readRDS(analysis.path, filename)
       lapply(
         locationgroups,
         function(lg) {
           if (verbose) {
             message("  locationgroup: ", lg)
           }
+          metadata <- imputations %>%
+            filter_(~Fingerprint == fingerprint, ~LocationGroup == lg)
           analysis <- n2k_aggregate(
             minimum = "Minimum",
-            scheme.id = x@AnalysisMetadata$SchemeID,
-            species.group.id = x@AnalysisMetadata$SpeciesGroupID,
+            scheme.id = metadata$Scheme,
+            species.group.id = metadata$SpeciesGroup,
             location.group.id = lg,
             model.type = "aggregate imputed: sum ~ fYear + fMonth",
             formula = "~fYear + fMonth",
-            first.imported.year = x@AnalysisMetadata$FirstImportedYear,
-            last.imported.year = x@AnalysisMetadata$LastImportedYear,
-            duration = x@AnalysisMetadata$Duration,
-            last.analysed.year = x@AnalysisMetadata$LastImportedYear,
-            analysis.date = x@AnalysisMetadata$AnalysisDate,
+            first.imported.year = metadata$FirstImportedYear,
+            last.imported.year = metadata$LastImportedYear,
+            analysis.date = metadata$AnalysisDate,
             join = location %>%
               filter_(~LocationGroupID == lg) %>%
               select_(~LocationID) %>%
               as.data.frame(),
             fun = sum,
-            parent = get_file_fingerprint(x)
+            parent = fingerprint
           )
           store_model(
             x = analysis,

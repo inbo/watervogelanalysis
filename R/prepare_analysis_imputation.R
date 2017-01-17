@@ -117,7 +117,7 @@ prepare_analysis_imputation <- function(
     function(i) {
       dataset <- selected$Relevant[[i]]
       if (nrow(dataset) == 0) {
-        filename <- n2k_inla_nbinomial(
+        model <- n2k_inla_nbinomial(
           data = selected$Dataset[[i]],
           scheme.id = metadata$SchemeID,
           species.group.id = metadata$SpeciesGroup,
@@ -128,11 +128,16 @@ prepare_analysis_imputation <- function(
           last.imported.year = metadata$LastImportedYear,
           analysis.date = analysis.date,
           status = "insufficient_data"
-        ) %>%
-          store_model(base = analysis.path, project = "watervogels")
+        )
+        filename <- store_model(model, base = analysis.path, project = "watervogels")
         return(
           data.frame(
+            Scheme = metadata$SchemeID,
             Impute = selected$LocationGroupID[i],
+            Fingerprint = get_file_fingerprint(model),
+            FirstImportedYear = metadata$FirstImportedYear,
+            LastImportedYear = metadata$LastImportedYear,
+            AnalysisDate = analysis.date,
             Filename = filename,
             Status = "insufficient_data",
             stringsAsFactors = FALSE
@@ -159,7 +164,7 @@ prepare_analysis_imputation <- function(
         covariate, "DatasourceID", "ObservationID", "Count", "Minimum"
       )
 
-      filename <- dataset %>%
+      model <- dataset %>%
         select_(.dots = relevant) %>%
         arrange_(.dots = relevant) %>%
         n2k_inla_nbinomial(
@@ -174,11 +179,16 @@ prepare_analysis_imputation <- function(
           imputation.size = 100,
           minimum = "Minimum",
           analysis.date = analysis.date
-        ) %>%
-        store_model(base = analysis.path, project = "watervogels")
+        )
+      filename <- store_model(model, base = analysis.path, project = "watervogels")
       return(
         data.frame(
+          Scheme = metadata$SchemeID,
           Impute = selected$LocationGroupID[i],
+          Fingerprint = get_file_fingerprint(model),
+          FirstImportedYear = metadata$FirstImportedYear,
+          LastImportedYear = metadata$LastImportedYear,
+          AnalysisDate = analysis.date,
           Filename = filename,
           Status = "new",
           stringsAsFactors = FALSE
