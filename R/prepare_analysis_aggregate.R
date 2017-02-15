@@ -49,7 +49,9 @@ prepare_analysis_aggregate <- function(
           metadata <- imputations %>%
             filter_(~Fingerprint == fingerprint, ~LocationGroup == lg)
           analysis <- n2k_aggregate(
+            status = "waiting",
             minimum = "Minimum",
+            result.datasource.id = metadata$ResultDatasourceID,
             scheme.id = metadata$Scheme,
             species.group.id = metadata$SpeciesGroup,
             location.group.id = lg,
@@ -74,7 +76,7 @@ prepare_analysis_aggregate <- function(
             select_(
               ~SchemeID, ~SpeciesGroupID, ~LocationGroupID, ~FirstImportedYear,
               ~LastImportedYear, ~Duration, ~LastAnalysedYear, ~AnalysisDate,
-              ~Status, ~StatusFingerprint, ~FileFingerprint
+              ~Status, ~StatusFingerprint, ~FileFingerprint, ~ResultDatasourceID
             )
         }
       ) %>%

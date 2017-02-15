@@ -119,6 +119,7 @@ prepare_analysis_imputation <- function(
       if (nrow(dataset) == 0) {
         model <- n2k_inla_nbinomial(
           data = selected$Dataset[[i]],
+          result.datasource.id = metadata$ResultDatasourceID,
           scheme.id = metadata$SchemeID,
           species.group.id = metadata$SpeciesGroup,
           location.group.id = selected$LocationGroupID[i],
@@ -168,6 +169,7 @@ prepare_analysis_imputation <- function(
         select_(.dots = relevant) %>%
         arrange_(.dots = relevant) %>%
         n2k_inla_nbinomial(
+          result.datasource.id = metadata$ResultDatasourceID,
           scheme.id = metadata$SchemeID,
           species.group.id = metadata$SpeciesGroup,
           location.group.id = selected$LocationGroupID[i],
@@ -183,6 +185,7 @@ prepare_analysis_imputation <- function(
       filename <- store_model(model, base = analysis.path, project = "watervogels")
       return(
         data.frame(
+          ResultDatasourceID = metadata$ResultDatasourceID,
           Scheme = metadata$SchemeID,
           Impute = selected$LocationGroupID[i],
           Fingerprint = get_file_fingerprint(model),

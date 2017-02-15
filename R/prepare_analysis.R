@@ -43,6 +43,7 @@ prepare_analysis <- function(
     file = "speciesgroupspecies.txt",
     connection = raw.connection
   ) %>%
+    semi_join(species_id, by = c("Species" = "fingerprint")) %>%
     group_by_(~SpeciesGroup) %>%
     do_(
       Files = ~prepare_analysis_imputation(
@@ -64,7 +65,15 @@ prepare_analysis <- function(
         select_(LocationGroup = ~ID, ~Impute),
       by = "Impute"
     ) %>%
-    prepare_analysis_aggregate(analysis.path = analysis.path, verbose = verbose)
+    prepare_analysis_aggregate(
+      analysis.path = analysis.path,
+      verbose = verbose
+    )
+  prepare_analysis_model(
+    aggregation = aggregation,
+    analysis.path = analysis.path,
+    verbose = verbose
+  )
 
   return(invisible(NULL))
 }
