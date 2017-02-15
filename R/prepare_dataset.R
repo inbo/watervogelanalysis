@@ -127,7 +127,7 @@ prepare_dataset <- function(
     )
 
   auto_commit(
-    package = environmentName(parent.env(environment())),
+    package = "watervogels",
     connection = raw.connection
   )
 
