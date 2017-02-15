@@ -8,6 +8,7 @@
 #' @param verbose Display a progress bar when TRUE (default)
 #' @inheritParams connect_flemish_source
 #' @inheritParams read_specieslist
+#' @inheritParams datasource_id_result
 #' @export
 #' @importFrom n2khelper remove_files_git write_delim_git auto_commit odbc_get_id
 #' @importFrom RODBC odbcClose
@@ -25,10 +26,13 @@ prepare_dataset <- function(
   walloon.connection,
   flemish.channel,
   nbn.channel,
+  develop = FALSE,
   verbose = TRUE
 ){
   assert_that(is.flag(verbose))
   assert_that(noNA(verbose))
+  assert_that(is.flag(develop))
+  assert_that(noNA(develop))
   assert_that(is.string(scheme.id))
 
   remove_files_git(connection = raw.connection, pattern = "\\.txt$")
@@ -76,7 +80,11 @@ prepare_dataset <- function(
     distinct_() %>%
     mutate_(
       Duration = ~LastImportedYear - FirstImportedYear + 1,
-      SchemeID = ~scheme.id
+      SchemeID = ~scheme.id,
+      ResultDatasourceID = ~datasource_id_result(
+        result.channel = result.channel,
+        develop = develop
+      )
     ) %>%
     arrange_(~SpeciesID)
 

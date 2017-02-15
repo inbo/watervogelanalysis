@@ -5,7 +5,8 @@
 \title{Prepare the raw datasets and save them to the git repository}
 \usage{
 prepare_dataset(scheme.id, raw.connection, result.channel, attribute.connection,
-  walloon.connection, flemish.channel, nbn.channel, verbose = TRUE)
+  walloon.connection, flemish.channel, nbn.channel, develop = FALSE,
+  verbose = TRUE)
 }
 \arguments{
 \item{scheme.id}{the id of the scheme}
@@ -21,6 +22,8 @@ prepare_dataset(scheme.id, raw.connection, result.channel, attribute.connection,
 \item{flemish.channel}{An open ODBC connection to the source database}
 
 \item{nbn.channel}{an RODBC connection to the NBN database}
+
+\item{develop}{logical. Indicate whether the use the development database TRUE or the production database}
 
 \item{verbose}{Display a progress bar when TRUE (default)}
 }

@@ -14,7 +14,8 @@ prepare_dataset(
   attribute.connection = connect_attribute(result.channel = result.channel),
   walloon.connection = connect_walloon_source(result.channel = result.channel),
   flemish.channel = connect_flemish_source(result.channel = result.channel),
-  nbn.channel = watervogelanalysis::connect_nbn(result.channel = result.channel)
+  nbn.channel = watervogelanalysis::connect_nbn(result.channel = result.channel),
+  develop = as.logical(Sys.getenv("N2KRESULT_DEVELOP", unset = FALSE))
 )
 
 library(aws.s3)
