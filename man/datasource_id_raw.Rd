@@ -12,4 +12,3 @@ datasource_id_raw(result.channel)
 \description{
 The raw data is the combination of the Flemish and Walloon source data
 }
-

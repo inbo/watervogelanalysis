@@ -24,4 +24,3 @@ A data.frame with the species id number of rows in the analysis dataset, number 
 \description{
 The analysis dataset is saved to a rda file with the SHA-1 as name.
 }
-

@@ -48,4 +48,3 @@ All files must textfile with ';' separated fields and '.' to indicate decimal po
   \item{\code{SommeDeN} The observed number of animals}
 }
 }
-

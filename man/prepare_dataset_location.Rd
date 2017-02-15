@@ -24,4 +24,3 @@ a data.frame with the locations
 \description{
 Read the locations for the raw datasource, save them to the git repository and the results database
 }
-

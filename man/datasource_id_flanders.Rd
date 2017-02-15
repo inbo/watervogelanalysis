@@ -12,4 +12,3 @@ datasource_id_flanders(result.channel)
 \description{
 Get the id of the data source for the Flemish source data
 }
-

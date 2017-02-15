@@ -12,4 +12,3 @@ connect_nbn(result.channel)
 \description{
 Make an ODBC connection to the NBN database
 }
-

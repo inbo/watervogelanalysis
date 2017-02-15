@@ -23,4 +23,3 @@ be missing when the ssh-key doesn't require a password.}
 \description{
 Make a git connection to the attribute
 }
-

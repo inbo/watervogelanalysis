@@ -19,4 +19,3 @@ read_observation_wallonia(species.id, first.winter, last.winter,
 \description{
 All available imported data is used. The only constraint is that the observation are not older than \code{first.winter} and originate form november up to februari.
 }
-

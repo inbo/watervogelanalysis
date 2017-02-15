@@ -16,4 +16,3 @@ prepare_analysis_aggregate(analysis.path, imputations, verbose = TRUE)
 \description{
 Create aggregation objects for imputed counts
 }
-

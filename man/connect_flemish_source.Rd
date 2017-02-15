@@ -12,4 +12,3 @@ connect_flemish_source(result.channel)
 \description{
 Make an ODBC connection to the Flemish source data
 }
-

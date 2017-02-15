@@ -12,4 +12,3 @@ scheme_id(result.channel)
 \description{
 Get the id of the scheme
 }
-

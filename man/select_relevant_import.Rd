@@ -17,4 +17,3 @@ Relevant observations have
  \item No winters without any presences at the beginning or end of the dataset
 }
 }
-

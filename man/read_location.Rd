@@ -35,4 +35,3 @@ location <- read_location(
 head(location)
 }
 }
-

@@ -30,4 +30,3 @@ prepare_dataset_observation(this.constraint, location, location_group_id,
 \description{
 Read the observations for the raw datasource, save them to the git repository and the results database
 }
-

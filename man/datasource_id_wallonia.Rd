@@ -12,4 +12,3 @@ datasource_id_wallonia(result.channel)
 \description{
 Get the id of the data source for the Walloon source data
 }
-

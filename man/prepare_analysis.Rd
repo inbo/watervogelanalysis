@@ -16,4 +16,3 @@ prepare_analysis(analysis.path = ".", raw.connection, verbose = TRUE)
 \description{
 Prepare all datasets and a to do list of models
 }
-

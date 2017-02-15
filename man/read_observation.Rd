@@ -41,4 +41,3 @@ observation <- read_observation(
 head(observation)
 }
 }
-
