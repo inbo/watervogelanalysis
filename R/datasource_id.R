@@ -43,3 +43,34 @@ datasource_id_raw <- function(result.channel){
   ) %>%
     unname()
 }
+
+
+#' Get the id of the data source for the raw data
+#'
+#' The raw data is the combination of the Flemish and Walloon source data
+#' @inheritParams connect_flemish_source
+#' @param develop logical. Indicate whether the use the development database TRUE or the production database
+#' @importFrom n2khelper odbc_get_id
+#' @importFrom dplyr %>%
+#' @export
+datasource_id_result <- function(result.channel, develop = FALSE){
+  if (develop) {
+    odbc_get_id(
+      table = "datasource",
+      variable = "description",
+      value = "n2kresult_develop",
+      id_variable = "fingerprint",
+      channel = result.channel
+    ) %>%
+      unname()
+  } else {
+    odbc_get_id(
+      table = "datasource",
+      variable = "description",
+      value = "n2kresult",
+      id_variable = "fingerprint",
+      channel = result.channel
+    ) %>%
+      unname()
+  }
+}
