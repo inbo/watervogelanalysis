@@ -12,8 +12,6 @@ prepare_analysis_aggregate <- function(
   imputations,
   verbose = TRUE
 ){
-  assert_that(inherits(analysis.path, "s3_bucket"))
-
   assert_that(inherits(imputations, "data.frame"))
   assert_that(has_name(imputations, "SpeciesGroup"))
   assert_that(has_name(imputations, "Filename"))

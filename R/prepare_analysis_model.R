@@ -8,7 +8,6 @@ prepare_analysis_model <- function(
   verbose = TRUE
 ) {
   assert_that(inherits(aggregation, "data.frame"))
-  assert_that(inherits(analysis.path, "s3_bucket"))
   assert_that(is.flag(verbose))
   assert_that(noNA(verbose))
 
