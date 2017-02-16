@@ -1,6 +1,6 @@
 library(watervogelanalysis)
 prepare_analysis(
-  analysis.path = aws.s3::get_bucket("n2kmonitoring"),  #nolint
+  analysis.path = aws.s3::get_bucket("n2kmonitoring"),
   raw.connection = n2khelper::git_connection(
     repo.path = "~/n2k/ssh/rawdata", #nolint
     local.path = "watervogel",
