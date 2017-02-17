@@ -91,7 +91,30 @@ prepare_analysis_imputation <- function(
     left_join(rawdata, by = c("LocationID", "Year", "fMonth")) %>%
     mutate_(
       Minimum = ~pmax(0, Count),
-      Count = ~ifelse(Complete == 1, Minimum, NA)
+      Count = ~ifelse(Complete == 1, Minimum, NA),
+      DatasourceID = ~ifelse(
+        is.na(DatasourceID),
+        metadata$ResultDatasourceID,
+        DatasourceID
+      )
+    ) %>%
+    rowwise() %>%
+    mutate_(
+      ObservationID = ~ifelse(
+        is.na(ObservationID),
+        sha1(
+          c(
+            SchemeID = metadata$SchemeID,
+            SpeciesGroupID = metadata$SpeciesGroup,
+            LocationGroupID = LocationGroupID,
+            DatasourceID = DatasourceID,
+            Year = Year,
+            fMonth = fMonth,
+            LocationID = LocationID
+          )
+        ),
+        as.character(ObservationID)
+      )
     ) %>%
     group_by_(~LocationGroupID)
 
@@ -112,6 +135,7 @@ prepare_analysis_imputation <- function(
         ) %>%
         select_(~-LocationGroupID)
     )
+  summary(is.na(selected$Relevant[[2]]))
   lapply(
     seq_along(selected$LocationGroupID),
     function(i) {
