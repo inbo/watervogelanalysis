@@ -148,8 +148,13 @@ prepare_analysis_imputation <- function(
       if (length(levels(dataset$fYear)) < 2) {
         stop("Single year datasets not handled")
       }
-      covariate <- "fYear"
-      form <- "0 + fYear"
+      covariate <- "Year"
+      form <- "f(
+  Year,
+  model = \"rw1\",
+  scale.model = TRUE,
+  hyper = list(theta = list(prior = \"pc.prec\", param = c(1, 0.01)))
+)"
       if (length(levels(dataset$fMonth)) > 1) {
         covariate <- c(covariate, "fMonth", "fYearMonth")
         form <- c(form, "fMonth + f(fYearMonth, model = 'iid')")
