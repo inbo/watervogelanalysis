@@ -21,7 +21,7 @@ prepare_analysis_model <- function(
         scheme.id = aggregation[i, "SchemeID"],
         species.group.id = aggregation[i, "SpeciesGroupID"],
         location.group.id = aggregation[i, "LocationGroupID"],
-        model.type = "yearly imputed index: Total ~ fYear + fMonth",
+        model.type = "yearly imputed index: Total ~ Year + fMonth",
         formula = "~ 0 + fYear + f(fMonth, model = \"iid\")",
         first.imported.year = aggregation[i, "FirstImportedYear"],
         last.imported.year = aggregation[i, "LastImportedYear"],
@@ -39,6 +39,7 @@ prepare_analysis_model <- function(
           log.index[, "mean"] <- log.index[, "mean"] - log.index[1, "mean"]
           log.index
         },
+        mutate = list(fYear = "factor(Year)"),
         model.args = list(family = "nbinomial")
       )
     }
