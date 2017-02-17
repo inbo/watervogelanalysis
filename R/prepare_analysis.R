@@ -43,7 +43,6 @@ prepare_analysis <- function(
     file = "speciesgroupspecies.txt",
     connection = raw.connection
   ) %>%
-    semi_join(species_id, by = c("Species" = "fingerprint")) %>%
     group_by_(~SpeciesGroup) %>%
     do_(
       Files = ~prepare_analysis_imputation(
