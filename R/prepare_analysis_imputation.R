@@ -154,7 +154,11 @@ prepare_analysis_imputation <- function(
           analysis.date = analysis.date,
           status = "insufficient_data"
         )
-        filename <- store_model(model, base = analysis.path, project = "watervogels")
+        filename <- store_model(
+          model,
+          base = analysis.path,
+          project = "watervogels"
+        )
         return(
           data.frame(
             Scheme = metadata$SchemeID,
@@ -211,7 +215,11 @@ prepare_analysis_imputation <- function(
           minimum = "Minimum",
           analysis.date = analysis.date
         )
-      filename <- store_model(model, base = analysis.path, project = "watervogels")
+      filename <- store_model(
+        model,
+        base = analysis.path,
+        project = "watervogels"
+      )
       return(
         data.frame(
           ResultDatasourceID = metadata$ResultDatasourceID,
