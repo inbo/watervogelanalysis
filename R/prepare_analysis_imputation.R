@@ -49,9 +49,14 @@ prepare_analysis_imputation <- function(
     file = "metadata.txt",
     connection = raw.connection
   ) %>%
-    inner_join(speciesgroupspecies, by = c("SpeciesID" = "Species"))
+    inner_join(speciesgroupspecies, by = c("SpeciesID" = "Species")) %>%
+    inner_join(
+      read_delim_git(file = "import.txt", connection = raw.connection),
+      by = c("SpeciesGroup" = "SpeciesGroupID")
+    )
   assert_that(has_name(metadata, "FirstImportedYear"))
   assert_that(has_name(metadata, "LastImportedYear"))
+  assert_that(has_name(metadata, "ImportAnalysis"))
 
   rawdata.file <- paste0(metadata$SpeciesGroup, ".txt")
   rawdata <- read_delim_git(rawdata.file, connection = raw.connection)
@@ -135,7 +140,6 @@ prepare_analysis_imputation <- function(
         ) %>%
         select_(~-LocationGroupID)
     )
-  summary(is.na(selected$Relevant[[2]]))
   lapply(
     seq_along(selected$LocationGroupID),
     function(i) {
@@ -152,6 +156,7 @@ prepare_analysis_imputation <- function(
           first.imported.year = metadata$FirstImportedYear,
           last.imported.year = metadata$LastImportedYear,
           analysis.date = analysis.date,
+          parent = metadata$ImportAnalysis,
           status = "insufficient_data"
         )
         filename <- store_model(
@@ -213,6 +218,7 @@ prepare_analysis_imputation <- function(
           last.imported.year = metadata$LastImportedYear,
           imputation.size = 100,
           minimum = "Minimum",
+          parent = metadata$ImportAnalysis,
           analysis.date = analysis.date
         )
       filename <- store_model(
