@@ -14,6 +14,7 @@
 #' @importFrom RODBC odbcClose
 #' @importFrom dplyr %>% bind_rows select_ distinct_ mutate_ arrange_ group_by_ do_
 #' @importFrom assertthat assert_that is.string is.flag noNA
+#' @importFrom tidyr unnest_
 #' @examples
 #' \dontrun{
 #'  prepare_dataset()
@@ -113,7 +114,7 @@ prepare_dataset <- function(
   species.constraint %>%
     group_by_(~SpeciesGroupID) %>%
     do_(
-      stored = ~prepare_dataset_observation(
+      ImportAnalysis = ~prepare_dataset_observation(
         .,
         location = location,
         location_group_id = location_group_id,
@@ -124,6 +125,11 @@ prepare_dataset <- function(
         scheme.id = scheme.id,
         dataset = dataset
       )
+    ) %>%
+    unnest_(~ImportAnalysis) %>%
+    write_delim_git(
+      file = "import.txt",
+      connection = raw.connection
     )
 
   auto_commit(

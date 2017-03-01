@@ -279,5 +279,5 @@ prepare_dataset_observation <- function(
       conn = result.channel$con
     )
   }
-  return(TRUE)
+  return(analysis$file_fingerprint)
 }
