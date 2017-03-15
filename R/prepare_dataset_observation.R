@@ -12,7 +12,7 @@
 #' @importFrom assertthat assert_that is.string
 #' @importFrom utils sessionInfo
 #' @importFrom dplyr %>% distinct_ count_ filter_ mutate_ bind_rows select_ inner_join arrange_ transmute_ bind_rows
-#' @importFrom n2kupdate store_analysis_dataset get_analysis_version store_anomaly
+#' @importFrom n2kupdate store_analysis_dataset get_analysis_version store_anomaly store_observation
 prepare_dataset_observation <- function(
   this.constraint,
   location,
@@ -124,7 +124,79 @@ prepare_dataset_observation <- function(
       ~Complete
     ) %>%
     select_relevant_import() %>%
-    remove_duplicate_observation()
+    mutate_(local_id = ~paste(DatasourceID, ObservationID))
+  datafield <- result %>%
+    distinct_(~DatasourceID) %>%
+    transmute_(
+      local_id = ~DatasourceID,
+      datasource = ~DatasourceID,
+      table_name = ~ifelse(
+        DatasourceID == flanders.id,
+        "tblWaarneming",
+        "visit.txt"
+      ),
+      primary_key = ~ifelse(
+        DatasourceID == flanders.id,
+        "ID",
+        "ObservationID"
+      ),
+      datafield_type = ~ifelse(
+        DatasourceID == flanders.id,
+        "integer",
+        "character"
+      )
+    )
+  parameter <- result %>%
+    distinct_(~fMonth) %>%
+    transmute_(
+      local_id = ~as.character(fMonth),
+      description = ~as.character(fMonth),
+      parent_parameter_local_id = ~"fMonth"
+    ) %>%
+    bind_rows(
+      data.frame(
+        local_id = c("observation parameter", "fMonth"),
+        description = c("observation parameter", "fMonth"),
+        parent_parameter_local_id = c(NA, "observation parameter"),
+        stringsAsFactors = FALSE
+      )
+    )
+  result <- store_observation(
+    datafield = datafield,
+    observation = result %>%
+      transmute_(
+        ~local_id,
+        external_code = ~ObservationID,
+        datafield_local_id = ~DatasourceID,
+        location_local_id = ~LocationID,
+        year = ~Year,
+        parameter_local_id = ~as.character(fMonth)
+      ),
+    location = location %>%
+      semi_join(datafield, by = c("datasource" = "local_id")) %>%
+      transmute_(
+        local_id = ~fingerprint,
+        parent_local_id = ~NA_character_,
+        ~description,
+        datafield_local_id = ~datasource,
+        ~external_code
+      ),
+    parameter = parameter,
+    conn = result.channel$con
+  ) %>%
+  inner_join(
+    result,
+    by = "local_id"
+  ) %>%
+  select_(
+    ObservationID = ~fingerprint,
+    ~LocationID,
+    ~Year,
+    ~fMonth,
+    ~Count,
+    ~Complete
+  ) %>%
+  remove_duplicate_observation()
 
   if (is.null(result$Observation)) {
     observation.sha <- NA
@@ -132,7 +204,8 @@ prepare_dataset_observation <- function(
   } else {
     observation <- result$Observation %>%
       select_(
-        ~LocationID, ~Year, ~fMonth, ~DatasourceID, ~ObservationID, ~Complete, ~Count
+        ~LocationID, ~Year, ~fMonth, ~ObservationID, ~Complete,
+        ~Count
       ) %>%
       arrange_(~LocationID, ~Year, ~fMonth)
 
@@ -142,7 +215,7 @@ prepare_dataset_observation <- function(
       file = filename,
       connection = raw.connection
     )
-    analysis.status <- "Working"
+    analysis.status <- "converged"
     dataset <- data.frame(
       filename = filename,
       fingerprint = observation.sha,
@@ -214,68 +287,16 @@ prepare_dataset_observation <- function(
       description = "multiple observations for a single location time combination",
       stringsAsFactors = FALSE
     )
-
-    parameter <- data.frame(
-      description = "ObservationID",
-      local_id = 1,
-      stringsAsFactors = FALSE
-    )
-    parameter <- result$Duplicate %>%
-      distinct_(~DatasourceID) %>%
-      transmute_(
-        description = ~DatasourceID,
-        local_id = ~row_number(DatasourceID) + max(parameter$local_id),
-        parent_parameter_local_id = 1
-      ) %>%
-      bind_rows(parameter)
-    parameter <- parameter %>%
-      select_(DatasourceID = ~description, parent_parameter_local_id = ~local_id) %>%
-      inner_join(result$Duplicate, by = "DatasourceID") %>%
-      transmute_(
-        description = ~as.character(ObservationID),
-        local_id = ~row_number(DatasourceID) + max(parameter$local_id),
-        ~parent_parameter_local_id
-      ) %>%
-      bind_rows(parameter)
-
-    datafield <- result$Duplicate %>%
-      distinct_(~DatasourceID) %>%
-      transmute_(
-        local_id = ~DatasourceID,
-        datasource = ~DatasourceID,
-        table_name = ~ifelse(
-          DatasourceID == flanders.id,
-          "tblWaarneming",
-          "visit.txt"
-        ),
-        primary_key = ~ifelse(
-          DatasourceID == flanders.id,
-          "ID",
-          "ObservationID"
-        ),
-        datafield_type = ~ifelse(
-          DatasourceID == flanders.id,
-          "integer",
-          "character"
-        )
-      )
     anomaly <- result$Duplicate %>%
       transmute_(
         anomaly_type_local_id = ~1,
-        datafield_local_id = ~DatasourceID,
         analysis = ~analysis$file_fingerprint,
-        description = ~as.character(ObservationID)
-      ) %>%
-      inner_join(
-        parameter %>%
-          select_(~description, parameter_local_id = ~local_id),
-        by = "description"
+        observation = ~as.character(ObservationID),
+        parameter_local_id = ~NA_character_
       )
     store_anomaly(
       anomaly = anomaly,
       anomaly_type = anomaly_type,
-      datafield = datafield,
-      parameter = parameter,
       conn = result.channel$con
     )
   }

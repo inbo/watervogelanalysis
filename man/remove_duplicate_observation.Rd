@@ -10,7 +10,7 @@ remove_duplicate_observation(observation)
 \item{observation}{a data.frame with observations}
 }
 \value{
-a list with components \code{Observation} and \code{Duplicate}. \code{Observation} holds the cleaned observations. \code{Duplicate} is a data.frame with the ObservationID and DatasourceID of duplicated records.
+a list with components \code{Observation} and \code{Duplicate}. \code{Observation} holds the cleaned observations. \code{Duplicate} is a data.frame with the ObservationID  of duplicated records.
 }
 \description{
 Duplicate observations are combinations of LocationID, Year and fMonth for which multiple rows exist.
