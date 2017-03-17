@@ -11,7 +11,7 @@
 #' @importFrom lubridate round_date year month
 #' @importFrom assertthat assert_that is.string
 #' @importFrom utils sessionInfo
-#' @importFrom dplyr %>% distinct_ count_ filter_ mutate_ bind_rows select_ inner_join arrange_ transmute_ bind_rows
+#' @importFrom dplyr %>% distinct_ count_ filter_ mutate_ bind_rows select_ inner_join arrange_ transmute_ bind_rows semi_join
 #' @importFrom n2kupdate store_analysis_dataset get_analysis_version store_anomaly store_observation
 prepare_dataset_observation <- function(
   this.constraint,
@@ -21,7 +21,6 @@ prepare_dataset_observation <- function(
   walloon.connection,
   result.channel,
   raw.connection,
-  scheme.id,
   dataset
 ){
   check_dataframe_variable(
@@ -51,8 +50,12 @@ prepare_dataset_observation <- function(
       "this.constraint must contain just one SpeciesGroupID and one Firstyear"
     )
   }
-  assert_that(is.string(scheme.id))
   assert_that(is.string(location_group_id))
+
+  metadata <- read_delim_git(
+    file = "metadata.txt",
+    connection = raw.connection
+  )
 
   import.date <- as.POSIXct(Sys.time())
   flanders.id <- datasource_id_flanders(result.channel = result.channel)
@@ -123,29 +126,59 @@ prepare_dataset_observation <- function(
       ~Count,
       ~Complete
     ) %>%
-    select_relevant_import() %>%
-    mutate_(local_id = ~paste(DatasourceID, ObservationID))
+    select_relevant_import()
+  result <- expand.grid(
+    LocationID = unique(result$LocationID),
+    Year = unique(result$Year),
+    fMonth = unique(result$fMonth),
+    stringsAsFactors = FALSE
+  ) %>%
+    left_join(
+      result,
+      by = c("LocationID", "Year", "fMonth")
+    ) %>%
+    mutate_(
+      DatasourceID = ~ifelse(
+        is.na(DatasourceID),
+        metadata$ResultDatasourceID,
+        DatasourceID
+      ),
+      ObservationID = ~as.character(ObservationID)
+    ) %>%
+    rowwise() %>%
+    mutate_(
+      ObservationID = ~ifelse(
+        is.na(ObservationID),
+        sha1(c(
+          datasource = DatasourceID,
+          location = as.character(LocationID),
+          year = as.character(Year),
+          month = as.character(fMonth)
+        )),
+        ObservationID
+      )
+    ) %>%
+    ungroup() %>%
+    mutate_(
+      local_id = ~paste(DatasourceID, ObservationID)
+    )
   datafield <- result %>%
     distinct_(~DatasourceID) %>%
-    transmute_(
-      local_id = ~DatasourceID,
-      datasource = ~DatasourceID,
-      table_name = ~ifelse(
-        DatasourceID == flanders.id,
-        "tblWaarneming",
-        "visit.txt"
+    inner_join(
+      x = data.frame(
+        datasource = c(
+          flanders.id,
+          wallonia.id,
+          metadata$ResultDatasourceID[1]
+        ),
+        table_name = c("tblWaarneming", "visit.txt", "observation"),
+        primary_key = c("ID", "ObservationID", "id"),
+        datafield_type = c("integer", "character", "integer"),
+        stringsAsFactors = FALSE
       ),
-      primary_key = ~ifelse(
-        DatasourceID == flanders.id,
-        "ID",
-        "ObservationID"
-      ),
-      datafield_type = ~ifelse(
-        DatasourceID == flanders.id,
-        "integer",
-        "character"
-      )
-    )
+      by = c("datasource" = "DatasourceID")
+    ) %>%
+    mutate_(local_id = ~datasource)
   parameter <- result %>%
     distinct_(~fMonth) %>%
     transmute_(
@@ -184,7 +217,7 @@ prepare_dataset_observation <- function(
     parameter = parameter,
     conn = result.channel$con
   ) %>%
-  inner_join(
+  left_join(
     result,
     by = "local_id"
   ) %>%

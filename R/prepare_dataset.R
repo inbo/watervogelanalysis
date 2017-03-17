@@ -122,7 +122,6 @@ prepare_dataset <- function(
         walloon.connection = walloon.connection,
         result.channel = result.channel,
         raw.connection = raw.connection,
-        scheme.id = scheme.id,
         dataset = dataset
       )
     ) %>%
