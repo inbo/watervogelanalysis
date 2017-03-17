@@ -63,10 +63,20 @@ prepare_analysis_imputation <- function(
   assert_that(has_name(rawdata, "LocationID"))
   assert_that(has_name(rawdata, "Year"))
   assert_that(has_name(rawdata, "fMonth"))
-  assert_that(has_name(rawdata, "DatasourceID"))
   assert_that(has_name(rawdata, "ObservationID"))
   assert_that(has_name(rawdata, "Complete"))
   assert_that(has_name(rawdata, "Count"))
+  assert_that(
+    noNA(select_(rawdata, ~LocationID, ~Year, ~fMonth, ~ObservationID))
+  )
+  available_data <- table(rawdata$LocationID, rawdata$Year, rawdata$fMonth) %>%
+    range()
+  if (!all.equal(available_data, c(1, 1))) {
+    stop(
+"Each combination of LocationID, Year and fMonth must have exactly one
+observation"
+    )
+  }
 
   analysis.date <- git_recent(
     file = rawdata.file,
@@ -74,12 +84,7 @@ prepare_analysis_imputation <- function(
   )$Date
   model.type <- "inla nbinomial: Year * (Month + Location)"
 
-  rawdata <- expand.grid(
-    Year = unique(rawdata$Year),
-    fMonth = unique(rawdata$fMonth),
-    LocationID = unique(rawdata$LocationID),
-    stringsAsFactors = FALSE
-  ) %>%
+  rawdata <- rawdata %>%
     inner_join(
       location %>%
         select_(
@@ -92,34 +97,18 @@ prepare_analysis_imputation <- function(
       ~is.na(StartYear) | StartYear <= Year,
       ~is.na(EndYear) | Year <= EndYear
     ) %>%
-    select_(~LocationGroupID, ~LocationID, ~Year, ~fMonth) %>%
-    left_join(rawdata, by = c("LocationID", "Year", "fMonth")) %>%
+    select_(
+      ~LocationGroupID,
+      ~ObservationID,
+      ~LocationID,
+      ~Year,
+      ~fMonth,
+      ~Complete,
+      ~Count
+    ) %>%
     mutate_(
       Minimum = ~pmax(0, Count),
-      Count = ~ifelse(Complete == 1, Minimum, NA),
-      DatasourceID = ~ifelse(
-        is.na(DatasourceID),
-        metadata$ResultDatasourceID,
-        DatasourceID
-      )
-    ) %>%
-    rowwise() %>%
-    mutate_(
-      ObservationID = ~ifelse(
-        is.na(ObservationID),
-        sha1(
-          c(
-            SchemeID = metadata$SchemeID,
-            SpeciesGroupID = metadata$SpeciesGroup,
-            LocationGroupID = LocationGroupID,
-            DatasourceID = DatasourceID,
-            Year = Year,
-            fMonth = fMonth,
-            LocationID = LocationID
-          )
-        ),
-        as.character(ObservationID)
-      )
+      Count = ~ifelse(Complete == 1, Minimum, NA)
     ) %>%
     group_by_(~LocationGroupID)
 
@@ -200,7 +189,7 @@ prepare_analysis_imputation <- function(
         covariate <- c(covariate, "LocationID", "fYearLocation")
       }
       relevant <- c(
-        covariate, "DatasourceID", "ObservationID", "Count", "Minimum"
+        covariate, "ObservationID", "Count", "Minimum"
       )
 
       model <- dataset %>%
