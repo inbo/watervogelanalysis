@@ -51,7 +51,8 @@ prepare_analysis <- function(
         analysis.path = analysis.path,
         raw.connection = raw.connection,
         verbose = verbose
-      )
+      ) %>%
+        list()
     ) %>%
     unnest_("Files")
   aggregation <- imputations %>%
