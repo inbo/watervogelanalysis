@@ -13,10 +13,17 @@ prepare_analysis_model <- function(
 
   requireNamespace("INLA", quietly = TRUE)
   # yearly index
+  if (verbose) {
+    message("Yearly indices")
+    aggregation <- arrange(aggregation, FileFingerprint)
+  }
   yearly <- lapply(
     seq_along(aggregation$FileFingerprint),
     function(i){
-      n2k_model_imputed(
+      if (verbose) {
+        message("  ", aggregation[i, "FileFingerprint"])
+      }
+      object <- n2k_model_imputed(
         result.datasource.id = aggregation[i, "ResultDatasourceID"],
         scheme.id = aggregation[i, "SchemeID"],
         species.group.id = aggregation[i, "SpeciesGroupID"],
@@ -42,7 +49,13 @@ prepare_analysis_model <- function(
         mutate = list(fYear = "factor(Year)"),
         model.args = list(family = "nbinomial")
       )
+      store_model(object, base = analysis.path, project = "watervogels")
+      data.frame(
+        Fingerprint = get_file_fingerprint(object),
+        Parent = aggregation[i, "FileFingerprint"],
+        stringsAsFactors = FALSE
+      )
     }
   )
-  sapply(yearly, store_model, base = analysis.path, project = "watervogels")
+  bind_rows(yearly)
 }

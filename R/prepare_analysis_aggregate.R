@@ -78,7 +78,8 @@ prepare_analysis_aggregate <- function(
             )
         }
       ) %>%
-        bind_rows()
+        bind_rows() %>%
+        mutate(Parent = fingerprint)
     }
   ) %>%
     bind_rows()

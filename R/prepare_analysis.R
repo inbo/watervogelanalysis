@@ -6,6 +6,7 @@
 #' @inheritParams prepare_dataset
 #' @importFrom dplyr %>% mutate_ select_ distinct_
 #' @importFrom lubridate ymd year round_date
+#' @importFrom n2kanalysis n2k_manifest store_manifest
 prepare_analysis <- function(
   analysis.path = ".",
   raw.connection,
@@ -43,6 +44,7 @@ prepare_analysis <- function(
     file = "speciesgroupspecies.txt",
     connection = raw.connection
   ) %>%
+    # semi_join(species_id, by = c("SpeciesGroup" = "fingerprint")) %>%
     group_by_(~SpeciesGroup) %>%
     do_(
       Files = ~prepare_analysis_imputation(
@@ -69,11 +71,20 @@ prepare_analysis <- function(
       analysis.path = analysis.path,
       verbose = verbose
     )
-  prepare_analysis_model(
+  analysis <- prepare_analysis_model(
     aggregation = aggregation,
     analysis.path = analysis.path,
     verbose = verbose
   )
-
-  return(invisible(NULL))
+  manifest <- imputations %>%
+    select_(~Fingerprint) %>%
+    mutate_(Parent = ~NA_character_) %>%
+    bind_rows(
+      aggregation %>%
+        select_(Fingerprint = ~FileFingerprint, ~Parent),
+      analysis
+    ) %>%
+    n2k_manifest()
+  store_manifest(manifest, base = analysis.path, project = "watervogels")
+  return(manifest)
 }
