@@ -12,7 +12,7 @@ Imports:
     digest,
     dplyr,
     lubridate,
-    n2kanalysis,
+    n2kanalysis (>= 0.2.1),
     n2khelper (>= 0.4),
     n2kupdate,
     plyr,
@@ -21,6 +21,10 @@ Imports:
     tidyr
 Suggests:
     testthat
+Remotes:
+  inbo/n2khelper,
+  inbo/n2kanalysis,
+  inbo/n2kupdate
 License: GPL-3
 LazyData: true
 RoxygenNote: 6.0.1
