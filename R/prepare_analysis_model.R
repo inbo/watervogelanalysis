@@ -1,7 +1,10 @@
 #' Generate the models to apply on the aggregated sets
+#' @inheritParams prepare_analysis
+#' @param aggregation the output of \code{prepare_analysis_aggregate}
 #' @export
 #' @importFrom assertthat assert_that has_name is.flag noNA
 #' @importFrom n2kanalysis n2k_model_imputed
+#' @importFrom dplyr arrange_
 prepare_analysis_model <- function(
   aggregation,
   analysis.path,
@@ -15,7 +18,7 @@ prepare_analysis_model <- function(
   # yearly index
   if (verbose) {
     message("Yearly indices")
-    aggregation <- arrange(aggregation, FileFingerprint)
+    aggregation <- arrange_(aggregation, ~FileFingerprint)
   }
   yearly <- lapply(
     seq_along(aggregation$FileFingerprint),

@@ -6,6 +6,13 @@
 \usage{
 prepare_analysis_model(aggregation, analysis.path, verbose = TRUE)
 }
+\arguments{
+\item{aggregation}{the output of \code{prepare_analysis_aggregate}}
+
+\item{analysis.path}{Path to store the analysis files. Must be either an existing local file path or an object of the \code{s3_bucket} class.}
+
+\item{verbose}{Display a progress bar when TRUE (default)}
+}
 \description{
 Generate the models to apply on the aggregated sets
 }

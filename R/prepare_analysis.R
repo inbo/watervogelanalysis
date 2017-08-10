@@ -69,7 +69,8 @@ prepare_analysis <- function(
     ) %>%
     prepare_analysis_aggregate(
       analysis.path = analysis.path,
-      verbose = verbose
+      verbose = verbose,
+      raw.connection = raw.connection
     )
   analysis <- prepare_analysis_model(
     aggregation = aggregation,

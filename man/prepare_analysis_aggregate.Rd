@@ -4,12 +4,15 @@
 \alias{prepare_analysis_aggregate}
 \title{Create aggregation objects for imputed counts}
 \usage{
-prepare_analysis_aggregate(analysis.path, imputations, verbose = TRUE)
+prepare_analysis_aggregate(analysis.path, imputations, raw.connection,
+  verbose = TRUE)
 }
 \arguments{
 \item{analysis.path}{Path to store the analysis files. Must be either an existing local file path or an object of the \code{s3_bucket} class.}
 
 \item{imputations}{a data.frame with the imputations per location group}
+
+\item{raw.connection}{a git-connection object to write the output to}
 
 \item{verbose}{Display a progress bar when TRUE (default)}
 }

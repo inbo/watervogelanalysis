@@ -2,7 +2,7 @@
 #' @export
 #' @importFrom assertthat assert_that has_name
 #' @importFrom aws.s3 s3readRDS
-#' @importFrom dplyr %>% filter_ select_ bind_rows
+#' @importFrom dplyr %>% filter_ select_ bind_rows mutate_
 #' @importFrom n2kanalysis n2k_aggregate
 #' @inheritParams prepare_analysis_imputation
 #' @inheritParams prepare_dataset
@@ -10,6 +10,7 @@
 prepare_analysis_aggregate <- function(
   analysis.path,
   imputations,
+  raw.connection,
   verbose = TRUE
 ){
   assert_that(inherits(imputations, "data.frame"))
@@ -79,7 +80,7 @@ prepare_analysis_aggregate <- function(
         }
       ) %>%
         bind_rows() %>%
-        mutate(Parent = fingerprint)
+        mutate_(Parent = ~fingerprint)
     }
   ) %>%
     bind_rows()
