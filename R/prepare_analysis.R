@@ -6,7 +6,7 @@
 #' @inheritParams prepare_dataset
 #' @importFrom dplyr %>% mutate_ select_ distinct_
 #' @importFrom lubridate ymd year round_date
-#' @importFrom n2kanalysis n2k_manifest store_manifest
+#' @importFrom n2kanalysis n2k_manifest store_manifest_yaml
 prepare_analysis <- function(
   analysis.path = ".",
   raw.connection,
@@ -53,8 +53,7 @@ prepare_analysis <- function(
         analysis.path = analysis.path,
         raw.connection = raw.connection,
         verbose = verbose
-      ) %>%
-        list()
+      )
     ) %>%
     unnest_("Files")
   aggregation <- imputations %>%
@@ -86,6 +85,11 @@ prepare_analysis <- function(
       analysis
     ) %>%
     n2k_manifest()
-  store_manifest(manifest, base = analysis.path, project = "watervogels")
-  return(manifest)
+  store_manifest_yaml(
+    manifest,
+    base = analysis.path,
+    project = "watervogels",
+    docker = "inbobmk/rn2k:0.1",
+    dependencies = c("inbo/n2khelper@v0.4.1", "inbo/n2kanalysis@v0.2.3")
+  )
 }
