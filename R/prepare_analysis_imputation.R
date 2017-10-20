@@ -170,6 +170,12 @@ observation"
       if (length(levels(dataset$fYear)) < 2) {
         stop("Single year datasets not handled")
       }
+      n.eff <- dataset %>%
+        filter(Count > 0) %>%
+        nrow()
+      n.used <- length(table(dataset$Year))
+      n.month <- length(table(dataset$fMonth))
+      n.location <- length(table(dataset$LocationID))
       covariate <- "Year"
       form <- "f(
   Year,
@@ -177,16 +183,34 @@ observation"
   scale.model = TRUE,
   hyper = list(theta = list(prior = \"pc.prec\", param = c(1, 0.01)))
 )"
-      if (length(levels(dataset$fMonth)) > 1) {
-        covariate <- c(covariate, "fMonth", "fYearMonth")
-        form <- c(form, "fMonth + f(fYearMonth, model = 'iid')")
+      if (n.month > 1) {
+        covariate <- c(covariate, "fMonth")
+        form <- c(form, "fMonth")
+        n.used <- n.used + n.month
       }
-      if (length(levels(dataset$LocationID)) > 1) {
+      if (n.location > 1) {
         form <- c(
           form,
-          "f(LocationID, model = 'iid') + f(fYearLocation, model = 'iid')"
+          "f(LocationID, model = 'iid')"
         )
-        covariate <- c(covariate, "LocationID", "fYearLocation")
+        covariate <- c(covariate, "LocationID")
+        n.used <- n.used + n.location
+      }
+      if (n.month > 1) {
+        n.extra <- length(table(dataset$fYearMonth))
+        if (n.used + n.extra <= n.eff / 5) {
+          covariate <- c(covariate, "fYearMonth")
+          form <- c(form, "f(fYearMonth, model = 'iid')")
+          n.used <- n.used + n.extra
+        }
+      }
+      if (n.location > 1) {
+        n.extra <- length(table(dataset$fYearLocation))
+        if (n.used + n.extra <= n.eff / 5) {
+          covariate <- c(covariate, "fYearLocation")
+          form <- c(form, "f(fYearLocation, model = 'iid')")
+          n.used <- n.used + n.extra
+        }
       }
       relevant <- c(
         covariate, "ObservationID", "Count", "Minimum"
