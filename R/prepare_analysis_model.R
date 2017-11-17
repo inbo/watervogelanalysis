@@ -32,7 +32,8 @@ prepare_analysis_model <- function(
         species.group.id = aggregation[i, "SpeciesGroupID"],
         location.group.id = aggregation[i, "LocationGroupID"],
         model.type = "yearly imputed index: Total ~ Year + fMonth",
-        formula = "~ 0 + fYear + f(fMonth, model = \"iid\")",
+        formula =
+          "~ model(cYear, model = \"rw1\") + f(fMonth, model = \"iid\")",
         first.imported.year = aggregation[i, "FirstImportedYear"],
         last.imported.year = aggregation[i, "LastImportedYear"],
         duration = aggregation[i, "Duration"],
@@ -49,7 +50,7 @@ prepare_analysis_model <- function(
           log.index[, "mean"] <- log.index[, "mean"] - log.index[1, "mean"]
           log.index
         },
-        mutate = list(fYear = "factor(Year)"),
+        mutate = list(cYear = "Year - max(Year)"),
         model.args = list(family = "nbinomial")
       )
       store_model(object, base = analysis.path, project = "watervogels")
