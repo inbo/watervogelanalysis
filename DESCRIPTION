@@ -20,6 +20,7 @@ Imports:
     RODBC,
     tidyr
 Suggests:
+    INLA,
     testthat
 Remotes:
   inbo/n2khelper,
