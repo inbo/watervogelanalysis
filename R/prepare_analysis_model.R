@@ -45,10 +45,13 @@ prepare_analysis_model <- function(
         model.fun = INLA::inla,
         package = "INLA",
         extractor =  function(model){
-          fe <- model$summary.fixed[, c("mean", "sd")]
-          log.index <- fe[grepl("fYear", rownames(fe)), ]
-          log.index[, "mean"] <- log.index[, "mean"] - log.index[1, "mean"]
-          log.index
+          re <- model$summary.random$cYear[, c("ID", "mean", "sd")] %>%
+            left_join(
+              unique(model$.args$data[, c("Year", "cYear")]),
+              by = c("ID" = "cYear")
+            )
+          rownames(re) <- paste0("Year", re$Year)
+          re[, c("mean", "sd")]
         },
         mutate = list(cYear = "Year - max(Year)"),
         model.args = list(family = "nbinomial")
@@ -88,10 +91,7 @@ prepare_analysis_model <- function(
         model.fun = INLA::inla,
         package = "INLA",
         extractor =  function(model){
-          fe <- model$summary.fixed[, c("mean", "sd")]
-          log.index <- fe[grepl("fYear", rownames(fe)), ]
-          log.index[, "mean"] <- log.index[, "mean"] - log.index[1, "mean"]
-          log.index
+          model$summary.fixed[, c("mean", "sd")]
         },
         mutate = list(cYear = "Year - max(Year)"),
         model.args = list(family = "nbinomial")
