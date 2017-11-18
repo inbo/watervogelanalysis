@@ -33,7 +33,7 @@ prepare_analysis_model <- function(
         location.group.id = aggregation[i, "LocationGroupID"],
         model.type = "yearly imputed index: Total ~ Year + fMonth",
         formula =
-          "~ model(cYear, model = \"rw1\") + f(fMonth, model = \"iid\")",
+          "~ f(cYear, model = \"rw1\") + f(fMonth, model = \"iid\")",
         first.imported.year = aggregation[i, "FirstImportedYear"],
         last.imported.year = aggregation[i, "LastImportedYear"],
         duration = aggregation[i, "Duration"],

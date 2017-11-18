@@ -171,7 +171,7 @@ observation"
         stop("Single year datasets not handled")
       }
       n.eff <- dataset %>%
-        filter(Count > 0) %>%
+        filter_(~Count > 0) %>%
         nrow()
       n.used <- length(table(dataset$Year))
       n.month <- length(table(dataset$fMonth))
