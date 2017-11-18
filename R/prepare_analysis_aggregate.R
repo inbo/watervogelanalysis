@@ -11,8 +11,10 @@ prepare_analysis_aggregate <- function(
   analysis.path,
   imputations,
   raw.connection,
+  seed = 19790402,
   verbose = TRUE
 ){
+  set.seed(seed)
   assert_that(inherits(imputations, "data.frame"))
   assert_that(has_name(imputations, "SpeciesGroup"))
   assert_that(has_name(imputations, "Filename"))
@@ -54,6 +56,7 @@ prepare_analysis_aggregate <- function(
             scheme.id = metadata$Scheme,
             species.group.id = metadata$SpeciesGroup,
             location.group.id = lg,
+            seed = seed,
             model.type = "aggregate imputed: sum ~ Year + fMonth",
             formula = "~Year + fMonth",
             first.imported.year = metadata$FirstImportedYear,

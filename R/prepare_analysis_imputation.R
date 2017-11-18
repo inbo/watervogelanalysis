@@ -4,6 +4,7 @@
 #' @param speciesgroupspecies a data.frame with the current species group and the associates species
 #' @param location a data.frame with the locations and location groups
 #' @param analysis.path Path to store the analysis files. Must be either an existing local file path or an object of the \code{s3_bucket} class.
+#' @param seed the seed for the random number generator. Defaults to 19790402 which refers to "Council Directive 79/409/EEC of 2 April 1979 on the conservation of wild birds".
 #' @inheritParams prepare_dataset
 #' @return A data.frame with the species id number of rows in the analysis dataset, number of precenses in the analysis datset and SHA-1 of the analysis dataset or NULL if not enough data.
 #' @importFrom n2khelper read_delim_git git_recent
@@ -17,8 +18,10 @@ prepare_analysis_imputation <- function(
   location,
   analysis.path,
   raw.connection,
+  seed = 19790402,
   verbose = TRUE
 ){
+  set.seed(seed)
   assert_that(inherits(location, "data.frame"))
   assert_that(has_name(location, "LocationID"))
   assert_that(has_name(location, "LocationGroupID"))
@@ -146,6 +149,7 @@ observation"
           last.imported.year = metadata$LastImportedYear,
           analysis.date = analysis.date,
           parent = metadata$ImportAnalysis,
+          seed = seed,
           status = "insufficient_data"
         )
         filename <- store_model(
@@ -232,6 +236,7 @@ observation"
           imputation.size = 100,
           minimum = "Minimum",
           parent = metadata$ImportAnalysis,
+          seed = seed,
           analysis.date = analysis.date
         )
       filename <- store_model(

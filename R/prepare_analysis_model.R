@@ -8,8 +8,10 @@
 prepare_analysis_model <- function(
   aggregation,
   analysis.path,
+  seed = 19790402,
   verbose = TRUE
 ) {
+  set.seed(seed)
   assert_that(inherits(aggregation, "data.frame"))
   assert_that(is.flag(verbose))
   assert_that(noNA(verbose))
@@ -39,6 +41,7 @@ prepare_analysis_model <- function(
         duration = aggregation[i, "Duration"],
         last.analysed.year = aggregation[i, "LastAnalysedYear"],
         analysis.date = aggregation[i, "AnalysisDate"],
+        seed = seed,
         parent = aggregation[i, "FileFingerprint"],
         parent.status = aggregation[i, "Status"],
         parent.statusfingerprint = aggregation[i, "StatusFingerprint"],
@@ -85,6 +88,7 @@ prepare_analysis_model <- function(
         duration = aggregation[i, "Duration"],
         last.analysed.year = aggregation[i, "LastAnalysedYear"],
         analysis.date = aggregation[i, "AnalysisDate"],
+        seed = seed,
         parent = aggregation[i, "FileFingerprint"],
         parent.status = aggregation[i, "Status"],
         parent.statusfingerprint = aggregation[i, "StatusFingerprint"],
@@ -125,6 +129,7 @@ prepare_analysis_model <- function(
         duration = 10,
         last.analysed.year = aggregation[i, "LastAnalysedYear"],
         analysis.date = aggregation[i, "AnalysisDate"],
+        seed = seed,
         parent = aggregation[i, "FileFingerprint"],
         parent.status = aggregation[i, "Status"],
         parent.statusfingerprint = aggregation[i, "StatusFingerprint"],

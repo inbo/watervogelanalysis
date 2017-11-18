@@ -10,8 +10,10 @@
 prepare_analysis <- function(
   analysis.path = ".",
   raw.connection,
+  seed = 19790402,
   verbose = TRUE
 ){
+  set.seed(seed)
   location <- read_delim_git(
     file = "location.txt",
     connection = raw.connection
@@ -52,6 +54,7 @@ prepare_analysis <- function(
         location = location,
         analysis.path = analysis.path,
         raw.connection = raw.connection,
+        seed = seed,
         verbose = verbose
       )
     ) %>%
@@ -69,11 +72,13 @@ prepare_analysis <- function(
     prepare_analysis_aggregate(
       analysis.path = analysis.path,
       verbose = verbose,
+      seed = seed,
       raw.connection = raw.connection
     )
   analysis <- prepare_analysis_model(
     aggregation = aggregation,
     analysis.path = analysis.path,
+    seed = seed,
     verbose = verbose
   )
   manifest <- imputations %>%
