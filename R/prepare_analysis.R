@@ -78,15 +78,26 @@ prepare_analysis <- function(
   )
   manifest <- imputations %>%
     select_(~Fingerprint) %>%
-    mutate_(Parent = ~NA_character_) %>%
+    mutate_(
+      Parent = ~NA_character_,
+      Imputation = ~Fingerprint
+    ) %>%
     bind_rows(
       aggregation %>%
-        select_(Fingerprint = ~FileFingerprint, ~Parent),
-      analysis
+        select_(Fingerprint = ~FileFingerprint, ~Parent) %>%
+        mutate_(Imputation = ~Parent),
+      aggregation %>%
+        select_(
+          Imputation = ~Parent,
+          Parent = ~FileFingerprint
+        ) %>%
+        inner_join(analysis, by = "Parent")
     ) %>%
-    n2k_manifest()
-  store_manifest_yaml(
-    manifest,
+    group_by_(~Imputation) %>%
+    do_(Manifest = ~n2k_manifest(.))
+  lapply(
+    manifest$Manifest,
+    store_manifest_yaml,
     base = analysis.path,
     project = "watervogels",
     docker = "inbobmk/rn2k:0.1",
