@@ -4,7 +4,8 @@
 #' @importFrom lubridate ymd year round_date
 #' @inheritParams prepare_analysis_imputation
 #' @inheritParams prepare_dataset
-#' @importFrom dplyr %>% mutate_ select_ distinct_
+#' @importFrom dplyr %>% mutate_ select_ distinct_ select
+#' @importFrom rlang .data
 #' @importFrom lubridate ymd year round_date
 #' @importFrom n2kanalysis n2k_manifest store_manifest_yaml
 prepare_analysis <- function(
@@ -81,6 +82,12 @@ prepare_analysis <- function(
     seed = seed,
     verbose = verbose
   )
+  aggregation_wintermax <- prepare_analysis_aggregate_wintermax(
+    aggregation = aggregation,
+    analysis.path = analysis.path,
+    seed = seed,
+    verbose = verbose
+  )
   manifest <- imputations %>%
     select_(~Fingerprint) %>%
     mutate_(
@@ -88,6 +95,12 @@ prepare_analysis <- function(
       Imputation = ~Fingerprint
     ) %>%
     bind_rows(
+      aggregation_wintermax %>%
+        select(
+          Fingerprint = .data$FileFingerprint,
+          .data$Parent,
+          .data$Imputation
+        ),
       aggregation %>%
         select_(Fingerprint = ~FileFingerprint, ~Parent) %>%
         mutate_(Imputation = ~Parent),
