@@ -6,8 +6,9 @@
 #' @export
 #' @importFrom assertthat assert_that is.string
 #' @importFrom n2khelper get_nbn_key_multi read_delim_git write_delim_git
-#' @importFrom dplyr %>% mutate_ select_ inner_join filter_ bind_rows transmute_ distinct_ arrange_
+#' @importFrom dplyr %>% mutate_ select_ inner_join filter_ bind_rows transmute_ distinct_ arrange_ transmute
 #' @importFrom n2kupdate store_species_group_species
+#' @importFrom rlang .data
 prepare_dataset_species <- function(
   raw.connection,
   result.channel,
@@ -91,13 +92,13 @@ prepare_dataset_species <- function(
     )
 
   export_species <- species %>%
-    transmute_(
-      local_id = ~NBNKey,
-      scientific_name = ~ScientificName,
-      nbn_key = ~NBNKey,
-      nl = ~DutchName,
-      en = ~EnglishName,
-      fr = ~FrenchName
+    transmute(
+      local_id = .data$NBNKey,
+      scientific_name = .data$ScientificName,
+      nbn_key = .data$NBNKey,
+      nl = .data$DutchName,
+      en = .data$EnglishName,
+      fr = .data$FrenchName
     )
 
   # \u00E7 is the UTF-8 code for c with cedilla

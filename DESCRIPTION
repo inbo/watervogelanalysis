@@ -17,6 +17,7 @@ Imports:
     n2kupdate,
     plyr,
     reshape2,
+    rlang,
     RODBC,
     tidyr
 Suggests:
