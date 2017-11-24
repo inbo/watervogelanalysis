@@ -88,6 +88,12 @@ prepare_analysis <- function(
     seed = seed,
     verbose = verbose
   )
+  analysis_wintermax <- prepare_analysis_model_wintermax(
+    aggregation = aggregation_wintermax,
+    analysis.path = analysis.path,
+    seed = seed,
+    verbose = verbose
+  )
   manifest <- imputations %>%
     select_(~Fingerprint) %>%
     mutate_(
@@ -101,6 +107,12 @@ prepare_analysis <- function(
           .data$Parent,
           .data$Imputation
         ),
+      aggregation_wintermax %>%
+        select_(
+          Imputation = ~Parent,
+          Parent = ~FileFingerprint
+        ) %>%
+        inner_join(analysis_wintermax, by = "Parent"),
       aggregation %>%
         select_(Fingerprint = ~FileFingerprint, ~Parent) %>%
         mutate_(Imputation = ~Parent),

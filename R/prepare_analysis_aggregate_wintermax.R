@@ -23,6 +23,7 @@ prepare_analysis_aggregate_wintermax <- function(
   assert_that(has_name(aggregation, "LastImportedYear"))
   assert_that(has_name(aggregation, "AnalysisDate"))
   assert_that(has_name(aggregation, "FileFingerprint"))
+  assert_that(has_name(aggregation, "ResultDatasourceID"))
 
   models <- aggregation %>%
     rowwise() %>%
@@ -49,6 +50,7 @@ prepare_analysis_aggregate_wintermax <- function(
     unlist(recursive = FALSE)
   output <- aggregation %>%
     select(
+      .data$ResultDatasourceID,
       .data$SchemeID,
       .data$SpeciesGroupID,
       .data$LocationGroupID,
@@ -63,7 +65,8 @@ prepare_analysis_aggregate_wintermax <- function(
     )
 
   if (verbose) {
-    message("  wintermaxima: aggregation")
+    message("Wintermaxima:")
+    message("  aggregation")
     stored <- lapply(
       models[order(output$FileFingerprint)],
       function(x) {
