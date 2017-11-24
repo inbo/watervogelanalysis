@@ -50,7 +50,12 @@ prepare_analysis_model_wintermax <- function(
         filter = list("Year > max(Year) - 5"),
         model.args = list(family = "nbinomial")
       )
-      store_model(object, base = analysis.path, project = "watervogels")
+      store_model(
+        object,
+        base = analysis.path,
+        project = "watervogels",
+        overwrite = FALSE
+      )
       data.frame(
         Fingerprint = get_file_fingerprint(object),
         Parent = aggregation[i, "FileFingerprint"],

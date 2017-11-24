@@ -71,7 +71,12 @@ prepare_analysis_aggregate_wintermax <- function(
       models[order(output$FileFingerprint)],
       function(x) {
         message("    ", get_file_fingerprint(x))
-        store_model(x, base = analysis.path, project = "watervogels")
+        store_model(
+          x,
+          base = analysis.path,
+          project = "watervogels",
+          overwrite = FALSE
+        )
       }
     )
   } else {
@@ -79,7 +84,8 @@ prepare_analysis_aggregate_wintermax <- function(
       models,
       store_model,
       base = analysis.path,
-      project = "watervogels"
+      project = "watervogels",
+      overwrite = FALSE
     )
   }
   return(output)

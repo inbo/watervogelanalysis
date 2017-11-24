@@ -72,7 +72,8 @@ prepare_analysis_aggregate <- function(
           store_model(
             x = analysis,
             base = analysis.path,
-            project = "watervogels"
+            project = "watervogels",
+            overwrite = FALSE
           )
           analysis@AnalysisMetadata %>%
             select_(

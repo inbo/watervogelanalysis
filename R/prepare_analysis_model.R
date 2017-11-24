@@ -59,7 +59,12 @@ prepare_analysis_model <- function(
         mutate = list(cYear = "Year - max(Year)"),
         model.args = list(family = "nbinomial")
       )
-      store_model(object, base = analysis.path, project = "watervogels")
+      store_model(
+        object,
+        base = analysis.path,
+        project = "watervogels",
+        overwrite = FALSE
+      )
       data.frame(
         Fingerprint = get_file_fingerprint(object),
         Parent = aggregation[i, "FileFingerprint"],
@@ -100,7 +105,12 @@ prepare_analysis_model <- function(
         mutate = list(cYear = "Year - max(Year)"),
         model.args = list(family = "nbinomial")
       )
-      store_model(object, base = analysis.path, project = "watervogels")
+      store_model(
+        object,
+        base = analysis.path,
+        project = "watervogels",
+        overwrite = FALSE
+      )
       data.frame(
         Fingerprint = get_file_fingerprint(object),
         Parent = aggregation[i, "FileFingerprint"],
@@ -142,7 +152,12 @@ prepare_analysis_model <- function(
         mutate = list(cYear = "Year - max(Year)"),
         model.args = list(family = "nbinomial")
       )
-      store_model(object, base = analysis.path, project = "watervogels")
+      store_model(
+        object,
+        base = analysis.path,
+        project = "watervogels",
+        overwrite = FALSE
+      )
       data.frame(
         Fingerprint = get_file_fingerprint(object),
         Parent = aggregation[i, "FileFingerprint"],

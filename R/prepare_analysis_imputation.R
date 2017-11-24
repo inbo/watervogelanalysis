@@ -155,7 +155,8 @@ observation"
         filename <- store_model(
           model,
           base = analysis.path,
-          project = "watervogels"
+          project = "watervogels",
+          overwrite = FALSE
         )
         return(
           data.frame(
@@ -242,7 +243,8 @@ observation"
       filename <- store_model(
         model,
         base = analysis.path,
-        project = "watervogels"
+        project = "watervogels",
+        overwrite = FALSE
       )
       return(
         data.frame(
