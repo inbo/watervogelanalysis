@@ -22,7 +22,8 @@ remove_duplicate_observation <- function(observation){
     return(list(
       Observation = observation,
       Duplicate = data.frame(
-        ObservationID = character(0)
+        ObservationID = character(0),
+        stringsAsFactors = FALSE
       )
     ))
   }

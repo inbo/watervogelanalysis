@@ -104,7 +104,8 @@ prepare_dataset_species <- function(
   # \u00E7 is the UTF-8 code for c with cedilla
   export_language <- data.frame(
     code = c("nl", "en", "fr"),
-    description = c("Nederland", "English", "Fran\u00E7ais")
+    description = c("Nederland", "English", "Fran\u00E7ais"),
+    stringsAsFactors = FALSE
   )
 
   export_speciesgroup <- species %>%

@@ -151,7 +151,10 @@ import_walloon_source_data <- function(
   } else {
     data.duplicate <- NA
   }
-  species <- data.frame(ScientificName = unique(data$Species))
+  species <- data.frame(
+    ScientificName = unique(data$Species),
+    stringsAsFactors = FALSE
+  )
   species <- get_nbn_key_multi(species, orders = "la")
   if (anyNA(species$NBNKey)) {
     species.nomatch <- species$ScientificName[is.na(species$NBNKey)]

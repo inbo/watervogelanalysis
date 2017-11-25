@@ -65,7 +65,7 @@ prepare_analysis_aggregate_ni <- function(
             join = location %>%
               filter_(~LocationGroupID == lg) %>%
               select_(~LocationID) %>%
-              as.data.frame(),
+              as.data.frame(stringsAsFactors = FALSE),
             filter = list("!Missing"),
             fun = sum,
             parent = fingerprint
