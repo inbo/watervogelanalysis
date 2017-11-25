@@ -165,5 +165,55 @@ prepare_analysis_model <- function(
       )
     }
   )
-  bind_rows(yearly, longterm, shortterm)
+  if (verbose) {
+    message("All-time maximum")
+    aggregation <- arrange_(aggregation, ~FileFingerprint)
+  }
+  tot_max <- lapply(
+    seq_along(aggregation$FileFingerprint),
+    function(i){
+      if (verbose) {
+        message("  ", aggregation[i, "FileFingerprint"])
+      }
+      object <- n2k_model_imputed(
+        result.datasource.id = aggregation[i, "ResultDatasourceID"],
+        scheme.id = aggregation[i, "SchemeID"],
+        species.group.id = aggregation[i, "SpeciesGroupID"],
+        location.group.id = aggregation[i, "LocationGroupID"],
+        model.type = "all-time maximum: Total ~ 1",
+        formula = "~ 1",
+        first.imported.year = aggregation[i, "FirstImportedYear"],
+        last.imported.year = aggregation[i, "LastImportedYear"],
+        duration = aggregation[i, "Duration"],
+        last.analysed.year = aggregation[i, "LastAnalysedYear"],
+        analysis.date = aggregation[i, "AnalysisDate"],
+        seed = seed,
+        parent = aggregation[i, "FileFingerprint"],
+        parent.status = aggregation[i, "Status"],
+        parent.statusfingerprint = aggregation[i, "StatusFingerprint"],
+        model.fun = function(form, data, ...){
+          dplyr::summarise(
+            data,
+            Estimate = max(.data$Imputed),
+            SE = 0
+          )
+        },
+        package = "dplyr",
+        extractor =  function(x){x},
+        model.args = list()
+      )
+      store_model(
+        object,
+        base = analysis.path,
+        project = "watervogels",
+        overwrite = FALSE
+      )
+      data.frame(
+        Fingerprint = get_file_fingerprint(object),
+        Parent = aggregation[i, "FileFingerprint"],
+        stringsAsFactors = FALSE
+      )
+    }
+  )
+  bind_rows(yearly, longterm, shortterm, tot_max)
 }

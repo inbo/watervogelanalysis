@@ -47,7 +47,7 @@ prepare_analysis <- function(
     file = "speciesgroupspecies.txt",
     connection = raw.connection
   ) %>%
-    # semi_join(species_id, by = c("SpeciesGroup" = "fingerprint")) %>%
+    semi_join(species_id, by = c("SpeciesGroup" = "fingerprint")) %>%
     group_by_(~SpeciesGroup) %>%
     do_(
       Files = ~prepare_analysis_imputation(
@@ -60,7 +60,7 @@ prepare_analysis <- function(
       )
     ) %>%
     unnest_("Files")
-  aggregation <- imputations %>%
+  relevant <- imputations %>%
     filter_(~Status != "insufficient_data") %>%
     inner_join(
       read_delim_git(
@@ -69,8 +69,9 @@ prepare_analysis <- function(
       ) %>%
         select_(LocationGroup = ~ID, ~Impute),
       by = "Impute"
-    ) %>%
-    prepare_analysis_aggregate(
+    )
+  aggregation <- prepare_analysis_aggregate(
+      relevant,
       analysis.path = analysis.path,
       verbose = verbose,
       seed = seed,
@@ -94,6 +95,19 @@ prepare_analysis <- function(
     seed = seed,
     verbose = verbose
   )
+  aggregation_ni <- prepare_analysis_aggregate_ni(
+      relevant,
+      analysis.path = analysis.path,
+      verbose = verbose,
+      seed = seed,
+      raw.connection = raw.connection
+    )
+  analysis_ni <- prepare_analysis_model_ni(
+    aggregation = aggregation_ni,
+    analysis.path = analysis.path,
+    seed = seed,
+    verbose = verbose
+  )
   manifest <- imputations %>%
     select_(~Fingerprint) %>%
     mutate_(
@@ -109,10 +123,19 @@ prepare_analysis <- function(
         ),
       aggregation_wintermax %>%
         select_(
-          Imputation = ~Parent,
+          ~Imputation,
           Parent = ~FileFingerprint
         ) %>%
         inner_join(analysis_wintermax, by = "Parent"),
+      aggregation_ni %>%
+        select_(Fingerprint = ~FileFingerprint, ~Parent) %>%
+        mutate_(Imputation = ~Parent),
+      aggregation_ni %>%
+        select_(
+          Imputation = ~Parent,
+          Parent = ~FileFingerprint
+        ) %>%
+        inner_join(analysis_ni, by = "Parent"),
       aggregation %>%
         select_(Fingerprint = ~FileFingerprint, ~Parent) %>%
         mutate_(Imputation = ~Parent),

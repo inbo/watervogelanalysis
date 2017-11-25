@@ -63,5 +63,5 @@ prepare_analysis_model_wintermax <- function(
       )
     }
   )
-  return(shortterm)
+  bind_rows(shortterm)
 }

@@ -123,6 +123,7 @@ observation"
       Relevant = ~select_relevant_analysis(.) %>%
         ungroup() %>%
         mutate_(
+          Missing = ~is.na(Count),
           fMonth = ~factor(fMonth),
           fYear = ~factor(Year),
           cYear = ~Year - max(Year),
@@ -218,7 +219,7 @@ observation"
         }
       }
       relevant <- c(
-        covariate, "ObservationID", "Count", "Minimum"
+        covariate, "ObservationID", "Count", "Minimum", "Missing"
       )
 
       model <- dataset %>%
