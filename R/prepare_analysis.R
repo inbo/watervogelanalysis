@@ -47,7 +47,6 @@ prepare_analysis <- function(
     file = "speciesgroupspecies.txt",
     connection = raw.connection
   ) %>%
-    semi_join(species_id, by = c("SpeciesGroup" = "fingerprint")) %>%
     group_by_(~SpeciesGroup) %>%
     do_(
       Files = ~prepare_analysis_imputation(
@@ -154,6 +153,6 @@ prepare_analysis <- function(
     base = analysis.path,
     project = "watervogels",
     docker = "inbobmk/rn2k:0.1",
-    dependencies = c("inbo/n2khelper@v0.4.1", "inbo/n2kanalysis@v0.2.3")
+    dependencies = c("inbo/n2khelper@v0.4.1.1", "inbo/n2kanalysis@v0.2.4")
   )
 }
