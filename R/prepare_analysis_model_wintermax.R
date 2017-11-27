@@ -4,7 +4,8 @@
 #' @export
 #' @importFrom assertthat assert_that has_name is.flag noNA
 #' @importFrom n2kanalysis n2k_model_imputed
-#' @importFrom dplyr %>% arrange_
+#' @importFrom dplyr %>% arrange
+#' @importFrom rlang .data
 prepare_analysis_model_wintermax <- function(
   aggregation,
   analysis.path,
@@ -19,12 +20,13 @@ prepare_analysis_model_wintermax <- function(
   requireNamespace("INLA", quietly = TRUE)
   if (verbose) {
       message("  Shortterm average")
+    aggregation <- arrange(aggregation, .date$FileFingerprint)
   }
   shortterm <- lapply(
     seq_along(aggregation$FileFingerprint),
     function(i){
       if (verbose) {
-        message("  ", aggregation[i, "FileFingerprint"])
+        message("    ", aggregation[i, "FileFingerprint"])
       }
       object <- n2k_model_imputed(
         result.datasource.id = aggregation[i, "ResultDatasourceID"],
