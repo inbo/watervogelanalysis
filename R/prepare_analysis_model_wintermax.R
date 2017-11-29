@@ -20,7 +20,7 @@ prepare_analysis_model_wintermax <- function(
   requireNamespace("INLA", quietly = TRUE)
   if (verbose) {
       message("  Shortterm average")
-    aggregation <- arrange(aggregation, .date$FileFingerprint)
+    aggregation <- arrange(aggregation, .data$FileFingerprint)
   }
   shortterm <- lapply(
     seq_along(aggregation$FileFingerprint),
