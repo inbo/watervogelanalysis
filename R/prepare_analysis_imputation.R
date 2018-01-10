@@ -257,6 +257,7 @@ observation"
           LastImportedYear = metadata$LastImportedYear,
           AnalysisDate = analysis.date,
           Filename = filename,
+          Formula = paste(form, collapse = "+"),
           Status = "new",
           stringsAsFactors = FALSE
         )

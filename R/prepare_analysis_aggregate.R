@@ -49,6 +49,11 @@ prepare_analysis_aggregate <- function(
           }
           metadata <- imputations %>%
             filter_(~Fingerprint == fingerprint, ~LocationGroup == lg)
+          form <- ifelse(
+            grepl("fMonth", metadata$Formula),
+            "~Year + fMonth",
+            "~Year"
+          )
           analysis <- n2k_aggregate(
             status = "waiting",
             minimum = "Minimum",
@@ -58,7 +63,7 @@ prepare_analysis_aggregate <- function(
             location.group.id = lg,
             seed = seed,
             model.type = "aggregate imputed: sum ~ Year + fMonth",
-            formula = "~Year + fMonth",
+            formula = form,
             first.imported.year = metadata$FirstImportedYear,
             last.imported.year = metadata$LastImportedYear,
             analysis.date = metadata$AnalysisDate,
