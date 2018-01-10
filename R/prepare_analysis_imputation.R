@@ -128,8 +128,7 @@ observation"
           fYear = ~factor(Year),
           cYear = ~Year - max(Year),
           fYearMonth = ~interaction(fYear, fMonth, drop = TRUE),
-          LocationID = ~factor(LocationID),
-          fYearLocation = ~interaction(fYear, LocationID, drop = TRUE)
+          fYearLocation = ~interaction(fYear, factor(LocationID), drop = TRUE)
         ) %>%
         select_(~-LocationGroupID)
     )
