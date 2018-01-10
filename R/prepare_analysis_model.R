@@ -46,7 +46,7 @@ prepare_analysis_model <- function(
         parent.status = aggregation[i, "Status"],
         parent.statusfingerprint = aggregation[i, "StatusFingerprint"],
         model.fun = INLA::inla,
-        package = "INLA",
+        package = c("INLA", "dplyr"),
         extractor =  function(model){
           re <- model$summary.random$cYear[, c("ID", "mean", "sd")] %>%
             left_join(
