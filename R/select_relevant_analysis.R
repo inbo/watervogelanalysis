@@ -35,7 +35,7 @@ select_relevant_analysis <- function(observation){
   observation <- select_factor_count_strictly_positive( #nolint
     observation = observation,
     variable = "LocationID",
-    treshold = 4
+    treshold = 5
   )
   if (nrow(observation) == 0) {
     return(observation)
