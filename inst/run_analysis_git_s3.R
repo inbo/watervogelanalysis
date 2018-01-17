@@ -7,5 +7,6 @@ manifest <- prepare_analysis(
     key = "~/.ssh/id_rsa_n2kreadonly", #nolint
     commit.user = "watervogelanalysis",
     commit.email = "bmk@inbo.be"
-  )
+  ),
+  verbose = TRUE
 )

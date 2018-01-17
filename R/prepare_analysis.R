@@ -153,8 +153,8 @@ prepare_analysis <- function(
     store_manifest_yaml(manifest,
       base = analysis.path,
       project = "watervogels",
-      docker = "inbobmk/rn2k:0.1",
-      dependencies = c("inbo/n2khelper@v0.4.1.1", "inbo/n2kanalysis@v0.2.4")
+      docker = "inbobmk/rn2k:0.2",
+      dependencies = c("inbo/n2khelper@v0.4.1.1", "inbo/n2kanalysis@v0.2.4.3")
     )
   }
 }
