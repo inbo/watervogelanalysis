@@ -7,9 +7,9 @@
 #'  \item Only locations where the species was present during at least 3 winters
 #'  \item No winters without any presences at the beginning or end of the dataset
 #' }
-#' @inheritParams n2kanalysis::select_factor_treshold
+#' @inheritParams n2kanalysis::select_factor_threshold
 #' @export
-#' @importFrom n2kanalysis select_factor_treshold select_factor_count_strictly_positive select_observed_range
+#' @importFrom n2kanalysis select_factor_threshold select_factor_count_strictly_positive select_observed_range
 select_relevant_analysis <- function(observation){
   if (is.null(observation)) {
     return(NULL)
@@ -21,10 +21,10 @@ select_relevant_analysis <- function(observation){
   assert_that(has_name(observation, "Year"))
 
   # select months with have on average at least 5% of the top month
-  observation <- select_factor_treshold(
+  observation <- select_factor_threshold(
     observation = observation,
     variable = "fMonth",
-    treshold = 0.05
+    threshold = 0.05
   )
   if (nrow(observation) == 0) {
     return(observation)
@@ -35,7 +35,7 @@ select_relevant_analysis <- function(observation){
   observation <- select_factor_count_strictly_positive( #nolint
     observation = observation,
     variable = "LocationID",
-    treshold = 5
+    threshold = 5
   )
   if (nrow(observation) == 0) {
     return(observation)
@@ -45,7 +45,7 @@ select_relevant_analysis <- function(observation){
   observation <- select_factor_count_strictly_positive( #nolint
     observation = observation,
     variable = c("LocationID", "Year"),
-    treshold = 3,
+    threshold = 3,
     dimension = 1
   )
   if (nrow(observation) == 0) {

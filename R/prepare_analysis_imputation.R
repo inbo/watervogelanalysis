@@ -7,8 +7,8 @@
 #' @param seed the seed for the random number generator. Defaults to 19790402 which refers to "Council Directive 79/409/EEC of 2 April 1979 on the conservation of wild birds".
 #' @inheritParams prepare_dataset
 #' @return A data.frame with the species id number of rows in the analysis dataset, number of precenses in the analysis datset and SHA-1 of the analysis dataset or NULL if not enough data.
-#' @importFrom n2khelper read_delim_git git_recent
-#' @importFrom n2kanalysis select_factor_treshold n2k_inla_nbinomial get_file_fingerprint store_model
+#' @importFrom git2rdata read_vc recent_commit
+#' @importFrom n2kanalysis n2k_inla get_file_fingerprint store_model
 #' @importFrom assertthat assert_that has_name noNA is.flag
 #' @importFrom dplyr %>% inner_join left_join mutate_ select_ filter_ ungroup
 #' @importFrom stats na.omit
@@ -48,13 +48,13 @@ prepare_analysis_imputation <- function(
     stop("Speciesgroups with multiple species not yet handled")
   }
 
-  metadata <- read_delim_git(
+  metadata <- read_vc(
     file = "metadata.txt",
-    connection = raw.connection
+    root = raw.connection
   ) %>%
     inner_join(speciesgroupspecies, by = c("SpeciesID" = "Species")) %>%
     inner_join(
-      read_delim_git(file = "import.txt", connection = raw.connection),
+      read_vc(file = "import.txt", root = raw.connection),
       by = c("SpeciesGroup" = "SpeciesGroupID")
     )
   assert_that(has_name(metadata, "FirstImportedYear"))
@@ -62,7 +62,7 @@ prepare_analysis_imputation <- function(
   assert_that(has_name(metadata, "ImportAnalysis"))
 
   rawdata.file <- paste0(metadata$SpeciesGroup, ".txt")
-  rawdata <- read_delim_git(rawdata.file, connection = raw.connection)
+  rawdata <- read_vc(rawdata.file, root = raw.connection)
   assert_that(has_name(rawdata, "LocationID"))
   assert_that(has_name(rawdata, "Year"))
   assert_that(has_name(rawdata, "fMonth"))
@@ -81,9 +81,9 @@ observation"
     )
   }
 
-  analysis.date <- git_recent(
+  analysis.date <- recent_commit(
     file = rawdata.file,
-    connection = raw.connection
+    root = raw.connection
   )$Date
   model.type <- "inla nbinomial: Year * (Month + Location)"
 
@@ -137,7 +137,7 @@ observation"
     function(i) {
       dataset <- selected$Relevant[[i]]
       if (nrow(dataset) == 0) {
-        model <- n2k_inla_nbinomial(
+        model <- n2k_inla(
           data = selected$Dataset[[i]],
           result.datasource.id = metadata$ResultDatasourceID,
           scheme.id = metadata$SchemeID,
@@ -145,6 +145,7 @@ observation"
           location.group.id = selected$LocationGroupID[i],
           model.type = model.type,
           formula = "Count ~ 1",
+          family = "nbinomial",
           first.imported.year = metadata$FirstImportedYear,
           last.imported.year = metadata$LastImportedYear,
           analysis.date = analysis.date,
@@ -224,7 +225,7 @@ observation"
       model <- dataset %>%
         select_(.dots = relevant) %>%
         arrange_(.dots = relevant) %>%
-        n2k_inla_nbinomial(
+        n2k_inla(
           result.datasource.id = metadata$ResultDatasourceID,
           scheme.id = metadata$SchemeID,
           species.group.id = metadata$SpeciesGroup,
@@ -232,6 +233,7 @@ observation"
           model.type = model.type,
           formula = paste(form, collapse = "+") %>%
             sprintf(fmt = "Count~%s"),
+          family = "nbinomial",
           first.imported.year = metadata$FirstImportedYear,
           last.imported.year = metadata$LastImportedYear,
           imputation.size = 100,

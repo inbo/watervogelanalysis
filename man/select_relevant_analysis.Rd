@@ -6,12 +6,15 @@
 \usage{
 select_relevant_analysis(observation)
 }
+\arguments{
+\item{observation}{the \code{data.frame} with observations}
+}
 \description{
 Relevant observations have
 \itemize{
- \item
- \item At least 4 presences per location
- \item Only locations where the species was present during at least 3 winters
- \item No winters without any presences at the beginning or end of the dataset
+\item
+\item At least 4 presences per location
+\item Only locations where the species was present during at least 3 winters
+\item No winters without any presences at the beginning or end of the dataset
 }
 }

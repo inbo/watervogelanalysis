@@ -4,6 +4,7 @@
 #' @importFrom aws.s3 s3readRDS
 #' @importFrom dplyr %>% filter_ select_ bind_rows mutate_
 #' @importFrom n2kanalysis n2k_aggregate
+#' @importFrom git2rdata read_vc
 #' @inheritParams prepare_analysis_imputation
 #' @inheritParams prepare_dataset
 #' @param imputations a data.frame with the imputations per location group
@@ -24,10 +25,7 @@ prepare_analysis_aggregate_ni <- function(
   imputations <- imputations %>%
     arrange_(~Fingerprint, ~LocationGroup)
 
-  location <- read_delim_git(
-    file = "locationgrouplocation.txt",
-    connection = raw.connection
-  )
+  location <- read_vc(file = "locationgrouplocation.txt", root = raw.connection)
   assert_that(inherits(location, "data.frame"))
   assert_that(has_name(location, "LocationGroupID"))
   assert_that(has_name(location, "LocationID"))

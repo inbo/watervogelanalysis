@@ -10,7 +10,8 @@
 #' @inheritParams read_specieslist
 #' @inheritParams datasource_id_result
 #' @export
-#' @importFrom n2khelper remove_files_git write_delim_git auto_commit odbc_get_id
+#' @importFrom n2khelper odbc_get_id
+#' @importFrom git2rdata write_vc auto_commit rm_data
 #' @importFrom RODBC odbcClose
 #' @importFrom dplyr %>% bind_rows select_ distinct_ mutate_ arrange_ group_by_ do_
 #' @importFrom assertthat assert_that is.string is.flag noNA
@@ -36,7 +37,7 @@ prepare_dataset <- function(
   assert_that(noNA(develop))
   assert_that(is.string(scheme.id))
 
-  remove_files_git(connection = raw.connection, pattern = "\\.txt$")
+  rm_data(repo = raw.connection, type = "tsv", stage = TRUE)
 
   if (verbose) {
     message("Reading and saving locations")
@@ -89,10 +90,12 @@ prepare_dataset <- function(
     ) %>%
     arrange_(~SpeciesID)
 
-  metadata.sha <- write_delim_git(
+  metadata.sha <- write_vc(
     x = metadata,
     file = "metadata.txt",
-    connection = raw.connection
+    sorting = "SpeciesID",
+    stage = TRUE,
+    root = raw.connection
   )
 
   dataset <- data.frame(
@@ -126,14 +129,17 @@ prepare_dataset <- function(
       )
     ) %>%
     unnest_(~ImportAnalysis) %>%
-    write_delim_git(
+    write_vc(
       file = "import.txt",
-      connection = raw.connection
+      sorting = "SpeciesGroupID",
+      stage = TRUE,
+      root = raw.connection
     )
+  rm_data(root = raw.connection, type = "tsv", stage = TRUE)
 
   auto_commit(
     package = "watervogels",
-    connection = raw.connection
+    repo = raw.connection
   )
 
   return(invisible(NULL))

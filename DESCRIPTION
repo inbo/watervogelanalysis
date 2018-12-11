@@ -12,12 +12,12 @@ Imports:
     aws.s3,
     digest,
     dplyr,
+    git2rdata,
     lubridate,
-    n2kanalysis (>= 0.2.3),
-    n2khelper (>= 0.4.1),
-    n2kupdate,
+    n2kanalysis (>= 0.2.5),
+    n2khelper (>= 0.4.1.1),
+    n2kupdate (>= 0.1),
     plyr,
-    reshape2,
     rlang,
     RODBC,
     tidyr
@@ -25,9 +25,12 @@ Suggests:
     INLA,
     testthat
 Remotes:
+  inbo/git2rdata,
   inbo/n2khelper,
   inbo/n2kanalysis,
   inbo/n2kupdate
 License: GPL-3
+Encoding: UTF-8
 LazyData: true
+Roxygen: list(markdown = TRUE)
 RoxygenNote: 6.1.1

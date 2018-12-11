@@ -4,7 +4,7 @@
 #' @inheritParams read_observation
 #' @inheritParams prepare_dataset
 #' @export
-#' @importFrom n2khelper read_delim_git
+#' @importFrom git2rdata read_vc
 #' @importFrom lubridate round_date year
 #' @importFrom assertthat assert_that is.string is.count
 #' @importFrom dplyr %>% filter_ mutate_ full_join transmute_ arrange_
@@ -20,16 +20,14 @@ read_observation_wallonia <- function(
   first.winter <- as.integer(first.winter)
   last.winter <- as.integer(last.winter)
 
-  data <- read_delim_git(file = "data.txt", connection = walloon.connection) %>%
+  data <- read_vc(file = "data.txt", root = walloon.connection) %>%
     filter_(~NBNKey == species.id)
 
   if (nrow(data) == 0) {
     return(NULL)
   }
 
-  observation <- read_delim_git(
-    file = "visit.txt", connection = walloon.connection
-  ) %>%
+  observation <- read_vc(file = "visit.txt", root = walloon.connection) %>%
     mutate_(
       Date = ~as.Date(Date) %>%
         as.POSIXct(),

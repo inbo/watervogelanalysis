@@ -8,6 +8,7 @@
 #' @importFrom digest sha1
 #' @importFrom tidyr gather_
 #' @importFrom n2kupdate store_location_group_location
+#' @importFrom git2rdata write_vc
 prepare_dataset_location <- function(
   result.channel,
   flemish.channel,
@@ -137,34 +138,37 @@ prepare_dataset_location <- function(
   )
 
   # store the datasets in the git repository
-  location.sha <- write_delim_git(
-    x = location %>%
-      select_(ID = ~fingerprint, ~StartDate, ~EndDate) %>%
-      arrange_(~ID),
+  location %>%
+    select_(ID = ~fingerprint, ~StartDate, ~EndDate) %>%
+  write_vc(
     file = "location.txt",
-    connection = raw.connection
-  )
-  locationgroup.sha <- write_delim_git(
-    x = location.group %>%
-      select_(
-        ID = ~fingerprint,
-        ~Impute,
-        ~SubsetMonths
-      ) %>%
-      arrange_(~ID, ~Impute),
-    file = "locationgroup.txt",
-    connection = raw.connection
-  )
-  locationgrouplocation.sha <- write_delim_git(
-    x = location.group.location %>%
-      select_(
-        LocationGroupID = ~location_group,
-        LocationID = ~location
-      ) %>%
-      arrange_(~LocationGroupID, ~LocationID),
-    file = "locationgrouplocation.txt",
-    connection = raw.connection
-  )
+    sorting = c("ID", "StartDate"),
+    stage = TRUE,
+    root = raw.connection
+  ) -> location.sha
+  location.group %>%
+    select_(
+      ID = ~fingerprint,
+      ~Impute,
+      ~SubsetMonths
+    ) %>%
+    write_vc(
+      file = "locationgroup.txt",
+      sorting = c("ID", "Impute"),
+      stage = TRUE,
+      root = raw.connection
+    ) -> locationgroup.sha
+  location.group.location %>%
+    select_(
+      LocationGroupID = ~location_group,
+      LocationID = ~location
+    ) %>%
+    write_vc(
+      file = "locationgrouplocation.txt",
+      sorting = c("LocationGroupID", "LocationID"),
+      stage = TRUE,
+      root = raw.connection
+    ) -> locationgrouplocation.sha
 
   dataset <- data.frame(
     filename = c(

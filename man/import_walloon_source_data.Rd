@@ -26,25 +26,25 @@ All files must textfile with ';' separated fields and '.' to indicate decimal po
 
 \code{location.file} must have the following fields:
 \itemize{
-  \item{\code{CODE_ULT} The id of the location}
-  \item{\code{Nom_site} The name of the location}
-  \item{\code{ZPS} 1 if the location is a Special Procection Area, otherwise 0}
-  \item{\code{Area} The surface area of the location in square m}
-  \item{\code{Xlamb} The X coordinate of the location, Belgium Lambert 72 system}
-  \item{\code{Ylamb} The Y coordinate of the location, Belgium Lambert 72 system}
+\item{\code{CODE_ULT} The id of the location}
+\item{\code{Nom_site} The name of the location}
+\item{\code{ZPS} 1 if the location is a Special Procection Area, otherwise 0}
+\item{\code{Area} The surface area of the location in square m}
+\item{\code{Xlamb} The X coordinate of the location, Belgium Lambert 72 system}
+\item{\code{Ylamb} The Y coordinate of the location, Belgium Lambert 72 system}
 }
 
 \code{visit.file} must have the following fields:
 \itemize{
-  \item{\code{ID_visit} The is of the visit to the location}
-  \item{\code{CODE_ULT} The id of the location}
-  \item{\code{DATE} The date of the visit to the location}
+\item{\code{ID_visit} The is of the visit to the location}
+\item{\code{CODE_ULT} The id of the location}
+\item{\code{DATE} The date of the visit to the location}
 }
 
 \code{visit.file} must have the following fields:
 \itemize{
-  \item{\code{ID_visit} The is of the visit to the location}
-  \item{\code{TAXPRIO} The scientific name of the species. Only exactly matches from \code{\link{read_specieslist}} with \code{limit = FALSE} are retained. Non-matching values are displayed in a warning.}
-  \item{\code{SommeDeN} The observed number of animals}
+\item{\code{ID_visit} The is of the visit to the location}
+\item{\code{TAXPRIO} The scientific name of the species. Only exactly matches from \code{\link{read_specieslist}} with \code{limit = FALSE} are retained. Non-matching values are displayed in a warning.}
+\item{\code{SommeDeN} The observed number of animals}
 }
 }

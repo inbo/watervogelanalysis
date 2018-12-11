@@ -7,12 +7,14 @@
 #' @inheritParams prepare_dataset
 #' @inheritParams connect_flemish_source
 #' @export
-#' @importFrom n2khelper check_dataframe_variable odbc_get_id odbc_get_multi_id check_id read_delim_git
+#' @importFrom n2khelper check_dataframe_variable odbc_get_id odbc_get_multi_id check_id
+#' @importFrom git2rdata read_vc write_vc
 #' @importFrom lubridate round_date year month
 #' @importFrom assertthat assert_that is.string
 #' @importFrom utils sessionInfo
 #' @importFrom dplyr %>% distinct_ count_ filter_ mutate_ bind_rows select_ inner_join arrange_ transmute_ bind_rows semi_join
-#' @importFrom n2kupdate store_analysis_dataset get_analysis_version store_anomaly store_observation
+#' @importFrom n2kupdate store_analysis_dataset store_anomaly store_observation
+#' @importFrom n2kanalysis get_analysis_version
 prepare_dataset_observation <- function(
   this.constraint,
   location,
@@ -52,9 +54,9 @@ prepare_dataset_observation <- function(
   }
   assert_that(is.string(location_group_id))
 
-  metadata <- read_delim_git(
+  metadata <- read_vc(
     file = "metadata.txt",
-    connection = raw.connection
+    root = raw.connection
   )
 
   import.date <- as.POSIXct(Sys.time())
@@ -239,14 +241,15 @@ prepare_dataset_observation <- function(
       select_(
         ~LocationID, ~Year, ~fMonth, ~ObservationID, ~Complete,
         ~Count
-      ) %>%
-      arrange_(~LocationID, ~Year, ~fMonth)
+      )
 
     filename <- paste0(this.constraint$SpeciesGroupID[1], ".txt")
-    observation.sha <- write_delim_git(
+    observation.sha <- write_vc(
       x = observation,
       file = filename,
-      connection = raw.connection
+      sorting = c("LocationID", "Year", "fMonth"),
+      stage = TRUE,
+      root = raw.connection
     )
     analysis.status <- "converged"
     dataset <- data.frame(

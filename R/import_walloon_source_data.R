@@ -33,7 +33,8 @@
 #' @param path directory were the above files are stored
 #' @inheritParams prepare_dataset
 #' @export
-#' @importFrom n2khelper check_path git_connect check_dataframe_variable write_delim_git get_nbn_key_multi auto_commit
+#' @importFrom n2khelper check_path git_connect check_dataframe_variable get_nbn_key_multi
+#' @importFrom git2rdata write_vc auto_commit
 #' @importFrom digest digest
 #' @importFrom stats median aggregate
 #' @importFrom utils read.csv2
@@ -73,11 +74,12 @@ import_walloon_source_data <- function(
   if (anyDuplicated(location$LocationID)) {
     warning("duplicate id in ", location.file)
   }
-  location <- location[order(location$LocationID), ]
-  write_delim_git(
+  write_vc(
     location,
     file = "location.txt",
-    connection = walloon.connection
+    sorting = "LocationID",
+    stage = TRUE,
+    root = walloon.connection
   )
 
   old.names <- c("ID_visit", "CODE_ULT", "DATE")
@@ -112,11 +114,13 @@ import_walloon_source_data <- function(
     digest,
     algo = "sha1"
   )
-  visit <- visit[
-    order(visit$OriginalObservationID),
-    c("ObservationID", new.names)
-  ]
-  write_delim_git(visit, file = "visit.txt", connection = walloon.connection)
+  write_vc(
+    visit[, c("ObservationID", new.names)],
+    file = "visit.txt",
+    sorting = "ObservationID",
+    stage = TRUE,
+    root = walloon.connection
+  )
 
   old.names <- c("ID_visit", "TAXPRIO", "SommeDeN")
   new.names <- c("OriginalObservationID", "Species", "Count")
@@ -166,26 +170,29 @@ import_walloon_source_data <- function(
   } else {
     species.nomatch <- NA
   }
-  species <- species[order(species$NBNKey), ]
-  write_delim_git(
+  write_vc(
     species,
     file = "species.txt",
-    connection = walloon.connection
+    sorting = "NBNKey",
+    stage = TRUE,
+    root = walloon.connection
   )
 
 
   data <- merge(data, species, by.x = "Species", by.y = "ScientificName")
   data$Species <- NULL
 
-  data <- data[
-    order(data$OriginalObservationID, data$NBNKey),
-    c("OriginalObservationID", "NBNKey", "Count")
-  ]
-  write_delim_git(data, file = "data.txt", connection = walloon.connection)
+  write_vc(
+    data[, c("OriginalObservationID", "NBNKey", "Count")],
+    file = "data.txt",
+    sorting = c("OriginalObservationID", "NBNKey"),
+    stage = TRUE,
+    root = walloon.connection
+  )
 
   auto_commit(
     package = environmentName(parent.env(environment())),
-    connection = walloon.connection
+    repo = walloon.connection
   )
   return(list(
     DuplicateVisit = visit.duplicate,

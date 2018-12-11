@@ -5,7 +5,9 @@
 #' @inheritParams prepare_dataset
 #' @export
 #' @importFrom assertthat assert_that is.string
-#' @importFrom n2khelper get_nbn_key_multi read_delim_git write_delim_git
+#' @importFrom n2khelper get_nbn_key_multi
+#' @importFrom git2rdata write_vc
+#' @importFrom git2rdata read_vc
 #' @importFrom dplyr %>% mutate_ select_ inner_join filter_ bind_rows transmute_ distinct_ arrange_ transmute
 #' @importFrom n2kupdate store_species_group_species
 #' @importFrom rlang .data
@@ -46,10 +48,7 @@ prepare_dataset_species <- function(
     select_(~-ExternalCode)
 
   # read Walloon species list
-  source.species <- read_delim_git(
-    file = "species.txt",
-    connection = walloon.connection
-  ) %>%
+  source.species <- read_vc(file = "species.txt", root = walloon.connection) %>%
     filter_(~NBNKey %in% species.constraint$NBNKey) %>%
     mutate_(
       ExternalCode = ~NBNKey,
@@ -159,10 +158,11 @@ prepare_dataset_species <- function(
       by = "species_group_local_id"
     ) %>%
     select_(~SpeciesGroup, ~Species) %>%
-    arrange_(~SpeciesGroup, ~Species) %>%
-    write_delim_git(
+    write_vc(
       file = "speciesgroupspecies.txt",
-      connection = raw.connection
+      sorting = c("SpeciesGroup", "Species"),
+      stage = TRUE,
+      root = raw.connection
     )
 
   species.constraint <- source.species %>%

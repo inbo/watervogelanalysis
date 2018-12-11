@@ -3,7 +3,8 @@
 #' @inheritParams connect_flemish_source
 #' @inheritParams prepare_dataset
 #' @export
-#' @importFrom n2khelper odbc_get_id odbc_connect git_connect read_delim_git
+#' @importFrom n2khelper odbc_get_id odbc_connect git_connect
+#' @importFrom git2rdata read_vc
 #' @importFrom RODBC sqlQuery
 #' @examples
 #' \dontrun{
@@ -25,7 +26,7 @@
 #' }
 read_location <- function(result.channel, flemish.channel, walloon.connection){
 
-  # read Flemisch data from the database
+  # read Flemish data from the database
   datasource.id <- datasource_id_flanders(result.channel = result.channel)
   sql <- "
     SELECT
@@ -52,10 +53,7 @@ read_location <- function(result.channel, flemish.channel, walloon.connection){
 
   # Read Walloon data from the git repository
   datasource.id <- datasource_id_wallonia(result.channel = result.channel)
-  walloon.location <- read_delim_git(
-    file = "location.txt",
-    connection = walloon.connection
-  )
+  walloon.location <- read_vc(file = "location.txt", root = walloon.connection)
   if (class(walloon.location) == "logical") {
     Encoding(location$Description) <- "UTF-8"
     return(location)

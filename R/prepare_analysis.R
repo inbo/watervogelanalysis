@@ -1,6 +1,6 @@
 #' Prepare all datasets and a to do list of models
 #' @export
-#' @importFrom n2khelper read_delim_git list_files_git
+#' @importFrom git2rdata read_vc
 #' @importFrom lubridate ymd year round_date
 #' @inheritParams prepare_analysis_imputation
 #' @inheritParams prepare_dataset
@@ -15,10 +15,7 @@ prepare_analysis <- function(
   verbose = TRUE
 ){
   set.seed(seed)
-  location <- read_delim_git(
-    file = "location.txt",
-    connection = raw.connection
-  ) %>%
+  location <- read_vc(file = "location.txt", root = raw.connection) %>%
     mutate_(
       StartDate =  ~ymd(StartDate),
       EndDate = ~ymd(EndDate),
@@ -28,24 +25,21 @@ prepare_analysis <- function(
         year()
     ) %>%
     select_(~ID, ~StartYear, ~EndYear)
-  location <- read_delim_git(
-    file = "locationgroup.txt",
-    connection = raw.connection
-  ) %>%
+  location <- read_vc(file = "locationgroup.txt", root = raw.connection) %>%
     select_(LocationGroupID = ~Impute, ~SubsetMonths) %>%
     distinct_() %>%
     inner_join(
-      read_delim_git(
+      read_vc(
         file = "locationgrouplocation.txt",
-        connection = raw.connection
+        root = raw.connection
       ),
       by = "LocationGroupID"
     ) %>%
     inner_join(location, by = c("LocationID" = "ID"))
 
-  imputations <- read_delim_git(
+  imputations <- read_vc(
     file = "speciesgroupspecies.txt",
-    connection = raw.connection
+    root = raw.connection
   ) %>%
     group_by_(~SpeciesGroup) %>%
     do_(
@@ -62,10 +56,7 @@ prepare_analysis <- function(
   relevant <- imputations %>%
     filter_(~Status != "insufficient_data") %>%
     inner_join(
-      read_delim_git(
-        file = "locationgroup.txt",
-        connection = raw.connection
-      ) %>%
+      read_vc(file = "locationgroup.txt", root = raw.connection) %>%
         select_(LocationGroup = ~ID, ~Impute),
       by = "Impute"
     )

@@ -4,7 +4,7 @@
 #' @param attribute.connection a git-connection object to the attributes
 #' @inheritParams connect_flemish_source
 #' @export
-#' @importFrom n2khelper read_delim_git
+#' @importFrom git2rdata read_vc
 #' @importFrom RODBC sqlQuery
 #' @importFrom assertthat assert_that is.flag noNA
 #' @examples
@@ -58,9 +58,9 @@ read_specieslist <- function(
   species$Datatype <- "integer"
 
   # restrict the species list to the species with constraints
-  species.constraint <- read_delim_git(
+  species.constraint <- read_vc(
     file = "soorttelling.txt",
-    connection = attribute.connection
+    root = attribute.connection
   )
   colnames(species.constraint)[1] <- "DutchName"
 
