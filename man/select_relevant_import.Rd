@@ -6,9 +6,6 @@
 \usage{
 select_relevant_import(observation)
 }
-\arguments{
-\item{observation}{the \code{data.frame} with observations}
-}
 \description{
 Relevant observations have
 \itemize{

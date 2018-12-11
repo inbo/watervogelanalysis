@@ -5,7 +5,8 @@
 \title{Read the observations for the raw datasource, save them to the git repository and the results database}
 \usage{
 prepare_dataset_observation(this.constraint, location, location_group_id,
-  flemish.channel, walloon.connection, result.channel, raw.connection, dataset)
+  flemish.channel, walloon.connection, result.channel, raw.connection,
+  dataset)
 }
 \arguments{
 \item{this.constraint}{the constraints for this species group}

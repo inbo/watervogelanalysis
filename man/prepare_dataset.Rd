@@ -4,9 +4,9 @@
 \alias{prepare_dataset}
 \title{Prepare the raw datasets and save them to the git repository}
 \usage{
-prepare_dataset(scheme.id, raw.connection, result.channel, attribute.connection,
-  walloon.connection, flemish.channel, nbn.channel, develop = FALSE,
-  verbose = TRUE)
+prepare_dataset(scheme.id, raw.connection, result.channel,
+  attribute.connection, walloon.connection, flemish.channel, nbn.channel,
+  develop = FALSE, verbose = TRUE)
 }
 \arguments{
 \item{scheme.id}{the id of the scheme}

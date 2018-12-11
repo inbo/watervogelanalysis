@@ -4,8 +4,8 @@
 \alias{import_walloon_source_data}
 \title{Add the raw data from Wallonia to the git repository}
 \usage{
-import_walloon_source_data(location.file, visit.file, data.file, path = ".",
-  walloon.connection)
+import_walloon_source_data(location.file, visit.file, data.file,
+  path = ".", walloon.connection)
 }
 \arguments{
 \item{location.file}{file with details on the location}

@@ -4,8 +4,8 @@
 \alias{prepare_dataset_location}
 \title{Read the locations for the raw datasource, save them to the git repository and the results database}
 \usage{
-prepare_dataset_location(result.channel, flemish.channel, walloon.connection,
-  raw.connection, scheme.id)
+prepare_dataset_location(result.channel, flemish.channel,
+  walloon.connection, raw.connection, scheme.id)
 }
 \arguments{
 \item{result.channel}{An open RODBC connection to the results database}
