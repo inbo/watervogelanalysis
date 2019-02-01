@@ -4,7 +4,7 @@
 #' @importFrom n2khelper odbc_connect
 connect_flemish_source <- function(result.channel){
   odbc_connect(
-    data.source.name = "Source data watervogels Flanders",
+    data.source.name = "Datawarehouse watervogels Flanders",
     channel = result.channel
   )
 }
