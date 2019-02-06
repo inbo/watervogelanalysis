@@ -4,14 +4,7 @@
 \alias{read_location}
 \title{read the dataset of locations from the database}
 \usage{
-read_location(result.channel, flemish.channel, walloon.connection)
-}
-\arguments{
-\item{result.channel}{An open RODBC connection to the results database}
-
-\item{flemish.channel}{An open ODBC connection to the source database}
-
-\item{walloon.connection}{a git-connection object to the Walloon source data}
+read_location(result_channel, flemish_channel, walloon_repo, import_date)
 }
 \description{
 read the dataset of locations from the database
