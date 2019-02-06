@@ -4,19 +4,17 @@
 \alias{import_walloon_source_data}
 \title{Add the raw data from Wallonia to the git repository}
 \usage{
-import_walloon_source_data(location.file, visit.file, data.file,
-  path = ".", walloon.connection)
+import_walloon_source_data(location_file, visit_file, data_file,
+  path = ".", walloon_repo, nbn_channel)
 }
 \arguments{
-\item{location.file}{file with details on the location}
+\item{location_file}{file with details on the location}
 
-\item{visit.file}{file with details on the visits to each location}
+\item{visit_file}{file with details on the visits to each location}
 
-\item{data.file}{file with observed species at each visit}
+\item{data_file}{file with observed species at each visit}
 
 \item{path}{directory were the above files are stored}
-
-\item{walloon.connection}{a git-connection object to the Walloon source data}
 }
 \description{
 This functions reads the files and performs some basic checks on them. See the details section for the required format of the files. The median date is used in case of multiple dates per visit id. The maximum is used in case of multiple observations per visit id.
@@ -41,7 +39,7 @@ All files must textfile with ';' separated fields and '.' to indicate decimal po
 \item{\code{DATE} The date of the visit to the location}
 }
 
-\code{visit.file} must have the following fields:
+\code{visit_file} must have the following fields:
 \itemize{
 \item{\code{ID_visit} The is of the visit to the location}
 \item{\code{TAXPRIO} The scientific name of the species. Only exactly matches from \code{\link{read_specieslist}} with \code{limit = FALSE} are retained. Non-matching values are displayed in a warning.}

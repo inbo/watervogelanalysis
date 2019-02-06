@@ -21,182 +21,147 @@
 #'   \item{\code{DATE} The date of the visit to the location}
 #' }
 #'
-#' \code{visit.file} must have the following fields:
+#' \code{visit_file} must have the following fields:
 #' \itemize{
 #'   \item{\code{ID_visit} The is of the visit to the location}
 #'   \item{\code{TAXPRIO} The scientific name of the species. Only exactly matches from \code{\link{read_specieslist}} with \code{limit = FALSE} are retained. Non-matching values are displayed in a warning.}
 #'   \item{\code{SommeDeN} The observed number of animals}
 #' }
-#' @param location.file file with details on the location
-#' @param visit.file file with details on the visits to each location
-#' @param data.file file with observed species at each visit
+#' @param location_file file with details on the location
+#' @param visit_file file with details on the visits to each location
+#' @param data_file file with observed species at each visit
 #' @param path directory were the above files are stored
 #' @inheritParams prepare_dataset
 #' @export
-#' @importFrom n2khelper check_path git_connect check_dataframe_variable get_nbn_key_multi
+#' @importFrom assertthat assert_that
+#' @importFrom utils file_test read.csv
+#' @importFrom dplyr select distinct %>% inner_join
+#' @importFrom rlang !! .data
 #' @importFrom git2rdata write_vc auto_commit
 #' @importFrom digest digest
 #' @importFrom stats median aggregate
-#' @importFrom utils read.csv2
 import_walloon_source_data <- function(
-  location.file, visit.file, data.file, path = ".", walloon.connection
+  location_file, visit_file, data_file, path = ".", walloon_repo, nbn_channel
 ){
-  path <- check_path(path, type = "directory")
-  location.file <- check_path(
-    paste(path, location.file, sep = "/"),
-    type = "file"
+  assert_that(
+    is.string(location_file),
+    is.string(visit_file),
+    is.string(data_file),
+    is.string(path),
+    file_test("-d", path)
   )
-  visit.file <- check_path(
-    paste(path, visit.file, sep = "/"),
-    type = "file"
-  )
-  data.file <- check_path(
-    paste(path, data.file, sep = "/"),
-    type = "file"
+  location_file <- file.path(path, location_file)
+  visit_file <- file.path(path, visit_file)
+  data_file <- file.path(path, data_file)
+  assert_that(
+    file_test("-f", location_file),
+    file_test("-f", visit_file),
+    file_test("-f", data_file)
   )
 
-  old.names <- c("CODE_ULT", "Nom_site", "ZPS", "Area", "Xlamb", "Ylamb")
-  new.names <- c(
-    "LocationID", "LocationName", "SPA", "Area",
-    "XBelgiumLambert72", "YBelgiumLambert72"
+  location <- read.csv(location_file, stringsAsFactors = FALSE)
+  old_names <- c(
+    LocationID = "CODE_ULT", LocationName = "Nom_site", SPA = "ZPS",
+    Area = "Area", XBelgiumLambert72 = "Xlamb", YBelgiumLambert72 = "Ylamb"
   )
-  location <- read.csv2(
-    location.file,
-    dec = "."
-  )
-  check_dataframe_variable(
-    df = location,
-    variable = old.names,
-    name = location.file
-  )
-  location <- location[, old.names]
-  colnames(location) <- new.names
+  assert_that(all(old_names %in% colnames(location)))
+  location <- select(location, !!old_names)
   if (anyDuplicated(location$LocationID)) {
     warning("duplicate id in ", location.file)
   }
   write_vc(
-    location,
-    file = "location.txt",
-    sorting = "LocationID",
-    stage = TRUE,
-    root = walloon.connection
+    location, file = "location.txt", sorting = "LocationID", stage = TRUE,
+    root = walloon_repo
   )
 
-  old.names <- c("ID_visit", "CODE_ULT", "DATE")
-  new.names <- c("OriginalObservationID", "LocationID", "Date")
-  visit <- read.csv2(
-    visit.file,
-    dec = "."
+  old_names <- c(
+    ObservationID = "ID_visit", LocationID = "CODE_ULT", Date = "DATE"
   )
-  check_dataframe_variable(df = visit, variable = old.names, name = visit.file)
-  visit <- visit[, old.names]
-  colnames(visit) <- new.names
+  visit <- read.csv(visit_file, stringsAsFactors = FALSE)
+  assert_that(all(old_names %in% colnames(visit)))
+  visit <- select(visit, !!old_names)
   visit$Date <- as.Date(visit$Date, format = "%d/%m/%Y")
-  if (anyDuplicated(visit$OriginalObservationID)) {
-    warning("duplicate id in ", visit.file)
-    duplicate.id <- names(which(table(visit$OriginalObservationID) > 1))
-    visit.duplicate <- visit[visit$OriginalObservationID %in% duplicate.id, ]
+
+  if (anyDuplicated(visit$ObservationID)) {
+    warning("duplicate id in ", visit_file)
+    duplicate_id <- names(which(table(visit$ObservationID) > 1))
+    visit_duplicate <- visit[visit$ObservationID %in% duplicate_id, ]
     visit <- aggregate(
       visit[, "Date", drop = FALSE],
-      visit[, c("OriginalObservationID", "LocationID")],
+      visit[, c("ObservationID", "LocationID")],
       FUN = median
     )
   } else {
-    visit.duplicate <- FALSE
+    visit_duplicate <- FALSE
   }
   if (!all(visit$LocationID %in% location$LocationID)) {
-    stop(visit.file, " contains id which is not in ", location.file)
+    stop(visit_file, " contains id which is not in ", location_file)
   }
-
-  visit$ObservationID <- apply(
-    visit[, c("OriginalObservationID", "LocationID")],
-    1,
-    digest,
-    algo = "sha1"
-  )
   write_vc(
-    visit[, c("ObservationID", new.names)],
-    file = "visit.txt",
-    sorting = "ObservationID",
-    stage = TRUE,
-    root = walloon.connection
+    visit, file = "visit.txt", sorting = "ObservationID", stage = TRUE,
+    root = walloon_repo
   )
 
-  old.names <- c("ID_visit", "TAXPRIO", "SommeDeN")
-  new.names <- c("OriginalObservationID", "Species", "Count")
-  data <- read.csv2(
-    data.file,
-    dec = "."
+  old_names <- c(
+    ObservationID = "ID_visit", Species = "TAXPRIO", Count = "SommeDeN"
   )
-  check_dataframe_variable(df = data, variable = old.names, name = data.file)
-  data <- data[, old.names]
-  colnames(data) <- new.names
-  if (!all(data$OriginalObservationID %in% visit$OriginalObservationID)) {
-    stop(data.file, " contains id which is not in ", visit.file)
+  data <- read.csv(data_file, stringsAsFactors = FALSE)
+  assert_that(all(old_names %in% colnames(data)))
+  data <- select(data, !!old_names)
+  if (!all(data$ObservationID %in% visit$ObservationID)) {
+    stop(data_file, " contains id which is not in ", visit_file)
   }
-  if (any(table(data$OriginalObservationID, data$Species) > 1)) {
+  if (any(table(data$ObservationID, data$Species) > 1)) {
     warning(
 "Species with multiple counts per visit. Only the highest values is retained"
     )
-    n.obs <- aggregate(
+    n_obs <- aggregate(
       data[, "Count"],
-      data[, c("OriginalObservationID", "Species")],
+      data[, c("ObservationID", "Species")],
       FUN = length
     )
-    data.duplicate <- merge(
-      n.obs[n.obs$x > 1, c("OriginalObservationID", "Species")],
+    data_duplicate <- merge(
+      n_obs[n_obs$x > 1, c("ObservationID", "Species")],
       data
     )
     data <- aggregate(
       data[, "Count", drop = FALSE],
-      data[, c("OriginalObservationID", "Species")],
+      data[, c("ObservationID", "Species")],
       FUN = max
     )
   } else {
-    data.duplicate <- NA
+    data_duplicate <- NA
   }
-  species <- data.frame(
-    ScientificName = unique(data$Species),
-    stringsAsFactors = FALSE
-  )
-  species <- get_nbn_key_multi(species, orders = "la")
+  data %>%
+    distinct(ScientificName = .data$Species) %>%
+    get_nbn_key_multi(orders = "la", nbn_channel) -> species
   if (anyNA(species$NBNKey)) {
-    species.nomatch <- species$ScientificName[is.na(species$NBNKey)]
+    species_nomatch <- species$ScientificName[is.na(species$NBNKey)]
     warning(
       "Unmatched species will be ignored:\n",
-      paste(species.nomatch, collapse = "\n")
+      paste(species_nomatch, collapse = "\n")
     )
     species <- species[!is.na(species$NBNKey), ]
   } else {
-    species.nomatch <- NA
+    species_nomatch <- NA
   }
   write_vc(
-    species,
-    file = "species.txt",
-    sorting = "NBNKey",
-    stage = TRUE,
-    root = walloon.connection
+    species, file = "species.txt", sorting = "NBNKey", stage = TRUE,
+    root = walloon_repo
   )
 
+  data %>%
+    inner_join(species, by = c("Species" = "ScientificName")) %>%
+    select("ObservationID", "NBNKey", "Count") %>%
+    write_vc(
+      file = "data.txt", sorting = c("ObservationID", "NBNKey"), stage = TRUE,
+      root = walloon_repo
+    )
 
-  data <- merge(data, species, by.x = "Species", by.y = "ScientificName")
-  data$Species <- NULL
-
-  write_vc(
-    data[, c("OriginalObservationID", "NBNKey", "Count")],
-    file = "data.txt",
-    sorting = c("OriginalObservationID", "NBNKey"),
-    stage = TRUE,
-    root = walloon.connection
-  )
-
-  auto_commit(
-    package = environmentName(parent.env(environment())),
-    repo = walloon.connection
-  )
+  auto_commit(package = "watervogelanalysis", repo = walloon_repo)
   return(list(
-    DuplicateVisit = visit.duplicate,
-    DuplicateData = data.duplicate,
-    UnmatchedSpecies = species.nomatch
+    DuplicateVisit = visit_duplicate,
+    DuplicateData = data_duplicate,
+    UnmatchedSpecies = species_nomatch
   ))
 }
