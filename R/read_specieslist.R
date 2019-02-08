@@ -1,94 +1,48 @@
-#' Read the species list and their constraints
-#' @param limit Return only species with explicit constraints (default = TRUE). Otherwise return all species in the database
-#' @param flemish.channel An open ODBC connection to the source database
-#' @param attribute.connection a git-connection object to the attributes
+#' Read the relevant species list
 #' @inheritParams connect_flemish_source
+#' @inheritParams prepare_dataset
 #' @export
+#' @importFrom dplyr %>% filter semi_join count group_by summarise
+#' @importFrom DBI dbQuoteString dbGetQuery
+#' @importFrom n2khelper get_nbn_key_multi
 #' @importFrom git2rdata read_vc
-#' @importFrom RODBC sqlQuery
-#' @importFrom assertthat assert_that is.flag noNA
-#' @examples
-#' \dontrun{
-#' result.channel <- n2khelper::connect_result()
-#' flemish.channel <- connect_flemish_source(result.channel = result.channel)
-#' attribute.connection <- connect_attribute(
-#'   result.channel = result.channel,
-#'   username = "Someone",
-#'   password = "xxxx",
-#'   commit.user = "Someone",
-#'   commit.email = "some\\u0040one.com"
-#' )
-#' species.list <- read_specieslist(
-#'   result.channel = result.channel,
-#'   flemish.channel = flemish.channel,
-#'   attribute.connection = attribute.connection
-#' )
-#' head(species.list$species)
-#' head(species.list$species.constraint)
-#' }
+#' @importFrom rlang .data
 read_specieslist <- function(
-  result.channel,
-  flemish.channel,
-  attribute.connection,
-  limit = TRUE
+  result_channel,
+  flemish_channel,
+  walloon_repo,
+  import_date
 ){
-  assert_that(is.flag(limit))
-  assert_that(noNA(limit))
-
-  sql <- "
-    SELECT
-      EuringCode AS ExternalCode,
-      NaamWetenschappelijk AS ScientificName,
-      NaamNederlands AS DutchName,
-      NaamEngels AS EnglishName,
-      NaamFrans AS FrenchName
-    FROM
-      tblSoort
-  "
-  species <- sqlQuery(
-    channel = flemish.channel,
-    query = sql,
-    stringsAsFactors = FALSE
-  )
-  species$DatasourceID <- datasource_id_flanders(
-    result.channel = result.channel
-  )
-  species$TableName <- "tblSoort"
-  species$ColumnName <- "EuringCode"
-  species$Datatype <- "integer"
-
-  # restrict the species list to the species with constraints
-  species.constraint <- read_vc(
-    file = "soorttelling.txt",
-    root = attribute.connection
-  )
-  colnames(species.constraint)[1] <- "DutchName"
-
-  species.constraint <- merge(
-    species[, c("DutchName", "ExternalCode")],
-    species.constraint
-  )
-  species.constraint$DutchName <- NULL
-
-  species.constraint <- merge(
-    species.constraint,
-    species[, c("ExternalCode", "DutchName")]
-  )
-  species.constraint$DutchName <- NULL
-
-  if (limit) {
-    species <- species[
-      species$ExternalCode %in% species.constraint$ExternalCode,
-    ]
-  }
-
+  format(import_date, "%Y-%m-%d") %>%
+    dbQuoteString(conn = flemish_channel) %>%
+    sprintf(
+      fmt = "WITH cte_survey AS (
+        SELECT TaxonWVKey, COUNT(TaxonCount) AS N
+        FROM FactAnalyseSetOccurrence
+        WHERE SampleDate <= %s AND TaxonCount > 0
+        GROUP BY TaxonWVKey
+      )
+      SELECT
+        t.TaxonWVKey,
+        t.scientificname AS ScientificName,
+        c.n
+      FROM cte_survey AS c
+      INNER JOIN DimTaxonWV AS t ON c.TaxonWVKey = t.TaxonWVKey"
+    ) %>%
+    dbGetQuery(conn = flemish_channel) %>%
+    get_nbn_key_multi(orders = "la", nbn_channel) -> species_flanders
+  read_vc("visit", walloon_repo) %>%
+    filter(.data$Date <= import_date) %>%
+    semi_join(x = read_vc("data", walloon_repo), by = "ObservationID") %>%
+    count(.data$NBNKey) -> species_wallonia
+  bind_rows(species_wallonia, species_flanders) %>%
+    group_by(.data$NBNKey) %>%
+    summarise(n = sum(.data$n)) %>%
+    filter(.data$n >= 100) -> relevant
   return(
     list(
-      species = species,
-      species.constraint = species.constraint[
-        ,
-        c("ExternalCode", "Firstyear", "SpeciesCovered")
-      ]
+      flanders = semi_join(species_flanders, relevant, by = "NBNKey"),
+      wallonia = semi_join(species_wallonia, relevant, by = "NBNKey")
     )
   )
 }

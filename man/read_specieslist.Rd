@@ -2,40 +2,18 @@
 % Please edit documentation in R/read_specieslist.R
 \name{read_specieslist}
 \alias{read_specieslist}
-\title{Read the species list and their constraints}
+\title{Read the relevant species list}
 \usage{
-read_specieslist(result.channel, flemish.channel, attribute.connection,
-  limit = TRUE)
+read_specieslist(result_channel, flemish_channel, walloon_repo,
+  import_date)
 }
 \arguments{
-\item{result.channel}{An open RODBC connection to the results database}
+\item{flemish_channel}{a DBI connection to the Flemish database}
 
-\item{flemish.channel}{An open ODBC connection to the source database}
+\item{walloon_repo}{a git_repository object to the Walloon source data}
 
-\item{attribute.connection}{a git-connection object to the attributes}
-
-\item{limit}{Return only species with explicit constraints (default = TRUE). Otherwise return all species in the database}
+\item{import_date}{The last date of the import}
 }
 \description{
-Read the species list and their constraints
-}
-\examples{
-\dontrun{
-result.channel <- n2khelper::connect_result()
-flemish.channel <- connect_flemish_source(result.channel = result.channel)
-attribute.connection <- connect_attribute(
-  result.channel = result.channel,
-  username = "Someone",
-  password = "xxxx",
-  commit.user = "Someone",
-  commit.email = "some\\\\u0040one.com"
-)
-species.list <- read_specieslist(
-  result.channel = result.channel,
-  flemish.channel = flemish.channel,
-  attribute.connection = attribute.connection
-)
-head(species.list$species)
-head(species.list$species.constraint)
-}
+Read the relevant species list
 }
