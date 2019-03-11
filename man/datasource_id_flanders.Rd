@@ -4,10 +4,10 @@
 \alias{datasource_id_flanders}
 \title{Get the id of the data source for the Flemish source data}
 \usage{
-datasource_id_flanders(result.channel)
+datasource_id_flanders(result_channel)
 }
 \arguments{
-\item{result.channel}{An open RODBC connection to the results database}
+\item{result_channel}{An open RODBC connection to the results database}
 }
 \description{
 Get the id of the data source for the Flemish source data

@@ -1,9 +1,8 @@
 #' Create aggregation objects for imputed counts while ignoring the missing data
 #' @export
 #' @importFrom assertthat assert_that has_name
-#' @importFrom aws.s3 s3readRDS
-#' @importFrom dplyr %>% filter_ select_ bind_rows mutate_
-#' @importFrom n2kanalysis n2k_aggregate
+#' @importFrom dplyr %>% filter_ select_ bind_rows mutate_ arrange_
+#' @importFrom n2kanalysis n2k_aggregate store_model
 #' @importFrom git2rdata read_vc
 #' @inheritParams prepare_analysis_imputation
 #' @inheritParams prepare_dataset
@@ -11,7 +10,7 @@
 prepare_analysis_aggregate_ni <- function(
   analysis.path,
   imputations,
-  raw.connection,
+  raw_repo,
   seed = 19790402,
   verbose = TRUE
 ){
@@ -25,7 +24,7 @@ prepare_analysis_aggregate_ni <- function(
   imputations <- imputations %>%
     arrange_(~Fingerprint, ~LocationGroup)
 
-  location <- read_vc(file = "locationgrouplocation.txt", root = raw.connection)
+  location <- read_vc(file = "locationgrouplocation.txt", root = raw_repo)
   assert_that(inherits(location, "data.frame"))
   assert_that(has_name(location, "LocationGroupID"))
   assert_that(has_name(location, "LocationID"))

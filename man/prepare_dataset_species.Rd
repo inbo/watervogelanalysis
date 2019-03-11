@@ -4,23 +4,21 @@
 \alias{prepare_dataset_species}
 \title{Read the species for the raw datasource, save them to the results database}
 \usage{
-prepare_dataset_species(raw.connection, result.channel, flemish.channel,
-  attribute.connection, walloon.connection, nbn.channel, scheme.id)
+prepare_dataset_species(raw_repo, result_channel, flemish_channel,
+  walloon_repo, scheme_id, latest_date)
 }
 \arguments{
-\item{raw.connection}{a git-connection object to write the output to}
+\item{raw_repo}{a git_repository object to write the output to}
 
-\item{result.channel}{An open RODBC connection to the results database}
+\item{result_channel}{An open RODBC connection to the results database}
 
-\item{flemish.channel}{An open ODBC connection to the source database}
+\item{flemish_channel}{a DBI connection to the Flemish database}
 
-\item{attribute.connection}{a git-connection object to the attributes}
+\item{walloon_repo}{a git_repository object to the Walloon source data}
 
-\item{walloon.connection}{a git-connection object to the Walloon source data}
+\item{scheme_id}{the id of the scheme}
 
-\item{nbn.channel}{an RODBC connection to the NBN database}
-
-\item{scheme.id}{the id of the scheme}
+\item{latest_date}{until which date should we import the species list}
 }
 \value{
 the species group constraint information

@@ -4,27 +4,17 @@
 \alias{read_location}
 \title{read the dataset of locations from the database}
 \usage{
-read_location(result_channel, flemish_channel, walloon_repo, import_date)
+read_location(result_channel, flemish_channel, walloon_repo, latest_date)
+}
+\arguments{
+\item{result_channel}{An open RODBC connection to the results database}
+
+\item{flemish_channel}{a DBI connection to the Flemish database}
+
+\item{walloon_repo}{a git_repository object to the Walloon source data}
+
+\item{latest_date}{until which date should we import the species list}
 }
 \description{
 read the dataset of locations from the database
-}
-\examples{
-\dontrun{
-result.channel <- n2khelper::connect_result()
-flemish.channel <- connect_flemish_source(result.channel = result.channel)
-walloon.connection <- connect_walloon_source(
-  result.channel = result.channel,
-  username = "Someone",
-  password = "xxxx",
-  commit.user = "Someone",
-  commit.email = "some\\\\u0040one.com"
-)
-location <- read_location(
-  result.channel = result.channel,
-  flemish.channel = flemish.channel,
-  walloon.connection = walloon.connection
-)
-head(location)
-}
 }

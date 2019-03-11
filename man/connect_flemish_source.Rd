@@ -4,10 +4,10 @@
 \alias{connect_flemish_source}
 \title{Make an ODBC connection to the Flemish source data}
 \usage{
-connect_flemish_source(result.channel)
+connect_flemish_source(result_channel)
 }
 \arguments{
-\item{result.channel}{An open RODBC connection to the results database}
+\item{result_channel}{An open RODBC connection to the results database}
 }
 \description{
 Make an ODBC connection to the Flemish source data

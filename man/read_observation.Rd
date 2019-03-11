@@ -4,19 +4,14 @@
 \alias{read_observation}
 \title{Read the Flemish observations from a species}
 \usage{
-read_observation(species.id, first.winter, last.winter, species.covered,
-  flemish.channel)
+read_observation(species_id, latest_year, flemish_channel)
 }
 \arguments{
-\item{species.id}{The id of the species}
+\item{species_id}{The id of the species}
 
-\item{first.winter}{The oldest winter from which the observation are relevant. Observation prior to \code{first.winter} are ignored}
+\item{latest_year}{latest winter to import. Winter 2019 is defined as 2018-10-01 until 2019-03-31}
 
-\item{last.winter}{The most recent winter from which the observation are relevant. Observation after \code{last.winter} are ignored}
-
-\item{species.covered}{A vector with codes of relevant methodes}
-
-\item{flemish.channel}{An open ODBC connection to the source database}
+\item{flemish_channel}{a DBI connection to the Flemish database}
 }
 \value{
 A \code{data.frame} with observations. \code{Complete= 1} indicates that the entire location was surveyed.
@@ -29,15 +24,5 @@ The selection uses several constraints. The user defined constraints are \code{f
 \item The observation is not 'unobserved'
 \item The location is 'active' and the observation date is within the 'active' period of the location
 \item The observation is between october and march
-}
-}
-\examples{
-\dontrun{
-observation <- read_observation(
-  species.id = 4860,
-  first.winter = 1992,
-  species.covered = c("w", "weg", "wegm", "wem", "st")
-)
-head(observation)
 }
 }

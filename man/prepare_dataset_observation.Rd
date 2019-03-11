@@ -4,24 +4,23 @@
 \alias{prepare_dataset_observation}
 \title{Read the observations for the raw datasource, save them to the git repository and the results database}
 \usage{
-prepare_dataset_observation(this.constraint, location, location_group_id,
-  flemish.channel, walloon.connection, result.channel, raw.connection,
-  dataset)
+prepare_dataset_observation(this_species, location, location_group_id,
+  flemish_channel, walloon_repo, result_channel, raw_repo, dataset)
 }
 \arguments{
-\item{this.constraint}{the constraints for this species group}
+\item{this_species}{the species in this species group}
 
 \item{location}{a data frame with the full list of locations}
 
 \item{location_group_id}{the ID of the location group}
 
-\item{flemish.channel}{An open ODBC connection to the source database}
+\item{flemish_channel}{a DBI connection to the Flemish database}
 
-\item{walloon.connection}{a git-connection object to the Walloon source data}
+\item{walloon_repo}{a git_repository object to the Walloon source data}
 
-\item{result.channel}{An open RODBC connection to the results database}
+\item{result_channel}{An open RODBC connection to the results database}
 
-\item{raw.connection}{a git-connection object to write the output to}
+\item{raw_repo}{a git_repository object to write the output to}
 
 \item{dataset}{a data frame with a}
 }

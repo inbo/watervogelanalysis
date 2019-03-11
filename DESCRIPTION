@@ -15,7 +15,7 @@ Depends:
     R (>= 3.1.2)
 Imports:
     assertthat,
-    aws.s3,
+    DBI,
     digest,
     dplyr,
     git2rdata,
@@ -24,8 +24,10 @@ Imports:
     n2khelper (>= 0.4.1.1),
     n2kupdate (>= 0.1),
     plyr,
+    purrr,
     rlang,
     RODBC,
+    tibble,
     tidyr
 Suggests:
     INLA,

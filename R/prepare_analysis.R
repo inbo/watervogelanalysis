@@ -1,21 +1,21 @@
 #' Prepare all datasets and a to do list of models
-#' @export
-#' @importFrom git2rdata read_vc
-#' @importFrom lubridate ymd year round_date
 #' @inheritParams prepare_analysis_imputation
 #' @inheritParams prepare_dataset
-#' @importFrom dplyr %>% mutate_ select_ distinct_ select filter
+#' @export
+#' @importFrom git2rdata read_vc
+#' @importFrom dplyr %>% mutate_ select_ distinct_ filter group_by_ do_ bind_rows inner_join
+#' @importFrom tidyr unnest_
 #' @importFrom rlang .data
 #' @importFrom lubridate ymd year round_date
 #' @importFrom n2kanalysis n2k_manifest store_manifest_yaml
 prepare_analysis <- function(
   analysis.path = ".",
-  raw.connection,
+  raw_repo,
   seed = 19790402,
   verbose = TRUE
 ){
   set.seed(seed)
-  location <- read_vc(file = "location.txt", root = raw.connection) %>%
+  location <- read_vc(file = "location.txt", root = raw_repo) %>%
     mutate_(
       StartDate =  ~ymd(StartDate),
       EndDate = ~ymd(EndDate),
@@ -25,13 +25,13 @@ prepare_analysis <- function(
         year()
     ) %>%
     select_(~ID, ~StartYear, ~EndYear)
-  location <- read_vc(file = "locationgroup.txt", root = raw.connection) %>%
+  location <- read_vc(file = "locationgroup.txt", root = raw_repo) %>%
     select_(LocationGroupID = ~Impute, ~SubsetMonths) %>%
     distinct_() %>%
     inner_join(
       read_vc(
         file = "locationgrouplocation.txt",
-        root = raw.connection
+        root = raw_repo
       ),
       by = "LocationGroupID"
     ) %>%
@@ -39,7 +39,7 @@ prepare_analysis <- function(
 
   imputations <- read_vc(
     file = "speciesgroupspecies.txt",
-    root = raw.connection
+    root = raw_repo
   ) %>%
     group_by_(~SpeciesGroup) %>%
     do_(
@@ -47,16 +47,16 @@ prepare_analysis <- function(
         speciesgroupspecies = .,
         location = location,
         analysis.path = analysis.path,
-        raw.connection = raw.connection,
+        raw_repo = raw_repo,
         seed = seed,
         verbose = verbose
       )
     ) %>%
     unnest_("Files")
   relevant <- imputations %>%
-    filter_(~Status != "insufficient_data") %>%
+    filter(.data$Status != "insufficient_data") %>%
     inner_join(
-      read_vc(file = "locationgroup.txt", root = raw.connection) %>%
+      read_vc(file = "locationgroup.txt", root = raw_repo) %>%
         select_(LocationGroup = ~ID, ~Impute),
       by = "Impute"
     )
@@ -67,7 +67,7 @@ prepare_analysis <- function(
         analysis.path = analysis.path,
         verbose = verbose,
         seed = seed,
-        raw.connection = raw.connection
+        raw_repo = raw_repo
       )
     analysis <- prepare_analysis_model(
       aggregation = aggregation,
@@ -93,7 +93,7 @@ prepare_analysis <- function(
         analysis.path = analysis.path,
         verbose = verbose,
         seed = seed,
-        raw.connection = raw.connection
+        raw_repo = raw_repo
       )
     analysis_ni <- prepare_analysis_model_ni(
       aggregation = aggregation_ni,

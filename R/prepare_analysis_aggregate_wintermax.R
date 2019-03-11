@@ -1,9 +1,9 @@
 #' Create aggregation objects for imputed counts
 #' @export
 #' @importFrom assertthat assert_that has_name
-#' @importFrom aws.s3 s3readRDS
 #' @importFrom dplyr %>% rowwise do pull select mutate
-#' @importFrom n2kanalysis n2k_aggregate store_model
+#' @importFrom n2kanalysis n2k_aggregate store_model get_file_fingerprint
+#' @importFrom rlang .data
 #' @inheritParams prepare_analysis_imputation
 #' @inheritParams prepare_analysis_model
 #' @inheritParams prepare_dataset
@@ -46,7 +46,7 @@ prepare_analysis_aggregate_wintermax <- function(
         )
       )
     ) %>%
-    pull(.data$Analysis) %>%
+    dplyr::pull(.data$Analysis) %>%
     unlist(recursive = FALSE)
   output <- aggregation %>%
     select(

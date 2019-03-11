@@ -1,146 +1,102 @@
 #' Prepare the raw datasets and save them to the git repository
 #'
 #' The raw data is written to the git repository. All changes are always staged and committed. The commit is pushed when both username and password are provided.
-#' @param scheme.id the id of the scheme
-#' @param raw.connection a git-connection object to write the output to
-#' @param walloon.connection a git-connection object to the Walloon source data
-#' @param nbn.channel an RODBC connection to the NBN database
+#' @param scheme_id the id of the scheme
+#' @param raw_repo a git_repository object to write the output to
+#' @param flemish_channel a DBI connection to the Flemish database
+#' @param walloon_repo a git_repository object to the Walloon source data
 #' @param verbose Display a progress bar when TRUE (default)
+#' @param latest_year latest winter to import. Winter 2019 is defined as 2018-10-01 until 2019-03-31
 #' @inheritParams connect_flemish_source
-#' @inheritParams read_specieslist
 #' @inheritParams datasource_id_result
 #' @export
-#' @importFrom n2khelper odbc_get_id
-#' @importFrom git2rdata write_vc auto_commit rm_data
-#' @importFrom RODBC odbcClose
-#' @importFrom dplyr %>% bind_rows select_ distinct_ mutate_ arrange_ group_by_ do_
-#' @importFrom assertthat assert_that is.string is.flag noNA
-#' @importFrom tidyr unnest_
+#' @importFrom git2rdata write_vc commit rm_data prune_meta
+#' @importFrom dplyr %>% bind_rows distinct mutate arrange group_by do filter
+#' @importFrom rlang .data
+#' @importFrom assertthat assert_that is.string is.flag noNA is.count
+#' @importFrom tidyr unnest
+#' @importFrom tibble tibble
 #' @examples
 #' \dontrun{
 #'  prepare_dataset()
 #' }
 prepare_dataset <- function(
-  scheme.id,
-  raw.connection,
-  result.channel,
-  attribute.connection,
-  walloon.connection,
-  flemish.channel,
-  nbn.channel,
-  develop = FALSE,
-  verbose = TRUE
-){
-  assert_that(is.flag(verbose))
-  assert_that(noNA(verbose))
-  assert_that(is.flag(develop))
-  assert_that(noNA(develop))
-  assert_that(is.string(scheme.id))
+  scheme_id, raw_repo, result_channel, walloon_repo, flemish_channel,
+  develop = FALSE, verbose = TRUE,
+  latest_year = as.integer(format(Sys.time(), "%Y"))
+) {
+  assert_that(is.flag(verbose), noNA(verbose), is.flag(develop), noNA(develop),
+              is.string(scheme_id), is.count(latest_year))
+  latest_year <- min(latest_year, as.integer(format(Sys.time(), "%Y")))
+  latest_date <- as.POSIXct(paste0(latest_year, "-07-01"))
+  if (latest_date > Sys.time()) {
+    latest_year <- latest_year - 1
+    latest_date <- as.POSIXct(paste0(latest_year, "-07-01"))
+  }
 
-  rm_data(repo = raw.connection, type = "tsv", stage = TRUE)
+  rm_data(root = raw_repo, path = ".", stage = TRUE)
 
   if (verbose) {
     message("Reading and saving locations")
   }
   location <- prepare_dataset_location(
-    result.channel = result.channel,
-    flemish.channel = flemish.channel,
-    walloon.connection = walloon.connection,
-    raw.connection = raw.connection,
-    scheme.id = scheme.id
-  )
+    result_channel = result_channel, flemish_channel = flemish_channel,
+    walloon_repo = walloon_repo, raw_repo = raw_repo, scheme_id = scheme_id,
+    latest_date = latest_date)
   dataset <- location$Dataset
-  location_group_id <- location$LocationGroup %>%
-    filter_(~description == "Belgi\\u0137") %>%
-    '[['("fingerprint")
+  location$LocationGroup %>%
+    filter(.data$description == "Belgi\\u0137") %>%
+    dplyr::pull("fingerprint") -> location_group_id
   location <- location$Location
 
   if (verbose) {
     message("Reading and saving species")
   }
-  species.constraint <- prepare_dataset_species(
-    raw.connection = raw.connection,
-    flemish.channel = flemish.channel,
-    walloon.connection = walloon.connection,
-    result.channel = result.channel,
-    attribute.connection = attribute.connection,
-    nbn.channel = nbn.channel,
-    scheme.id = scheme.id
-  )
-  latest.year <- as.integer(format(Sys.time(), "%Y"))
-  if (Sys.time() < as.POSIXct(format(Sys.time(), "%Y-05-15"))) {
-    latest.year <- latest.year - 1
-  }
-  species.constraint$Lastyear <- latest.year
+  species <- prepare_dataset_species(
+    raw_repo = raw_repo, flemish_channel = flemish_channel,
+    walloon_repo = walloon_repo, result_channel = result_channel,
+    scheme_id = scheme_id, latest_date = latest_date)
 
-  metadata <- species.constraint %>%
-    select_(
-      ~SpeciesID,
-      FirstImportedYear = ~Firstyear,
-      LastImportedYear = ~Lastyear
+  species %>%
+    distinct(.data$species_id) %>%
+    mutate(
+      last_imported_year = latest_year,
+      results_datasource_id =
+        datasource_id_result(result_channel = result_channel, develop = develop)
     ) %>%
-    distinct_() %>%
-    mutate_(
-      Duration = ~LastImportedYear - FirstImportedYear + 1,
-      SchemeID = ~scheme.id,
-      ResultDatasourceID = ~datasource_id_result(
-        result.channel = result.channel,
-        develop = develop
-      )
-    ) %>%
-    arrange_(~SpeciesID)
+    arrange(.data$species_id) -> metadata
+  metadata_sha <- write_vc(x = metadata, file = "metadata", root = raw_repo,
+                           sorting = "species_id", stage = TRUE)
 
-  metadata.sha <- write_vc(
-    x = metadata,
-    file = "metadata.txt",
-    sorting = "SpeciesID",
-    stage = TRUE,
-    root = raw.connection
-  )
-
-  dataset <- data.frame(
-    filename = c("metadata.txt", "speciesgroupspecies.txt"),
-    fingerprint = c(
-      metadata.sha,
-      attr(species.constraint, "speciesgroupspecies.hash")
-    ),
+  tibble(
+    filename = c(metadata_sha, attr(species, "speciesgroupspecies_hash")),
+    fingerprint = c(names(metadata_sha),
+                    names(attr(species, "speciesgroupspecies_hash"))),
     import_date = dataset$import_date[1],
-    datasource = dataset$datasource[1],
-    stringsAsFactors = FALSE
+    datasource = dataset$datasource[1]
   ) %>%
-    bind_rows(dataset)
+    bind_rows(dataset) -> dataset
 
   # read and save observations
   if (verbose) {
     message("Reading and saving observations")
   }
-  species.constraint %>%
-    group_by_(~SpeciesGroupID) %>%
-    do_(
-      ImportAnalysis = ~prepare_dataset_observation(
-        .,
-        location = location,
-        location_group_id = location_group_id,
-        flemish.channel = flemish.channel,
-        walloon.connection = walloon.connection,
-        result.channel = result.channel,
-        raw.connection = raw.connection,
-        dataset = dataset
+  species %>%
+    group_by(.data$species_group_id) %>%
+    do(
+      import_analysis = prepare_dataset_observation(
+        .data, location = location, location_group_id = location_group_id,
+        flemish_channel = flemish_channel, walloon_repo = walloon_repo,
+        result_channel = result_channel, raw_repo = raw_repo, dataset = dataset
       )
     ) %>%
-    unnest_(~ImportAnalysis) %>%
-    write_vc(
-      file = "import.txt",
-      sorting = "SpeciesGroupID",
-      stage = TRUE,
-      root = raw.connection
-    )
-  rm_data(root = raw.connection, type = "tsv", stage = TRUE)
+    unnest(.data$import_analysis) %>%
+    write_vc(file = "import", sorting = "species_group_id", stage = TRUE,
+             root = raw_repo)
+  prune_meta(root = raw_repo, path = ".", stage = TRUE)
 
-  auto_commit(
-    package = "watervogels",
-    repo = raw.connection
-  )
+  commit(repo = raw_repo, session = TRUE,
+         message = "scripted commit from watervogelanalysis")
 
   return(invisible(NULL))
 }

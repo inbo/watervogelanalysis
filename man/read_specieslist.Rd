@@ -5,14 +5,16 @@
 \title{Read the relevant species list}
 \usage{
 read_specieslist(result_channel, flemish_channel, walloon_repo,
-  import_date)
+  latest_date)
 }
 \arguments{
+\item{result_channel}{An open RODBC connection to the results database}
+
 \item{flemish_channel}{a DBI connection to the Flemish database}
 
 \item{walloon_repo}{a git_repository object to the Walloon source data}
 
-\item{import_date}{The last date of the import}
+\item{latest_date}{until which date should we import the species list}
 }
 \description{
 Read the relevant species list

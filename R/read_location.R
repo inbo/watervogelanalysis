@@ -1,40 +1,20 @@
 #' read the dataset of locations from the database
-#' @inheritParams read_specieslist
-#' @inheritParams connect_flemish_source
 #' @inheritParams prepare_dataset
+#' @inheritParams prepare_dataset_species
 #' @export
-#' @importFrom n2khelper odbc_get_id odbc_connect git_connect
+#' @importFrom assertthat assert_that
+#' @importFrom dplyr %>% mutate filter semi_join transmute bind_rows
+#' @importFrom rlang .data
 #' @importFrom git2rdata read_vc
-#' @importFrom DBI dbGetQuery
-#' @examples
-#' \dontrun{
-#' result.channel <- n2khelper::connect_result()
-#' flemish.channel <- connect_flemish_source(result.channel = result.channel)
-#' walloon.connection <- connect_walloon_source(
-#'   result.channel = result.channel,
-#'   username = "Someone",
-#'   password = "xxxx",
-#'   commit.user = "Someone",
-#'   commit.email = "some\\u0040one.com"
-#' )
-#' location <- read_location(
-#'   result.channel = result.channel,
-#'   flemish.channel = flemish.channel,
-#'   walloon.connection = walloon.connection
-#' )
-#' head(location)
-#' }
+#' @importFrom DBI dbGetQuery dbQuoteString
 read_location <- function(
-  result_channel, flemish_channel, walloon_repo, import_date
+  result_channel, flemish_channel, walloon_repo, latest_date
 ){
-  assert_that(
-    inherits(import_date, "POSIXct"),
-    length(import_date) == 1
-  )
+  assert_that(inherits(latest_date, "POSIXct"), length(latest_date) == 1)
   # read Flemish data from the database
-  datasource_id <- datasource_id_flanders(result.channel = result_channel)
+  datasource_id <- datasource_id_flanders(result_channel = result_channel)
 
-  format(import_date, "%Y-%m-%d") %>%
+  format(latest_date, "%Y-%m-%d") %>%
     dbQuoteString(conn = flemish_channel) %>%
     sprintf(
       fmt = "WITH cte_survey AS (
@@ -68,24 +48,22 @@ read_location <- function(
       SPA = pmax(0, .data$SPA, na.rm = TRUE),
       Region = "Flanders"
     ) -> location
-  future <- !is.na(location$EndDate) & location$EndDate > import_date
+  future <- !is.na(location$EndDate) & location$EndDate > latest_date
   location$EndDate[future] <- NA
 
   # Read Walloon data from the git repository
-  read_vc(file = "visit.txt", root = walloon_repo) %>%
-    filter(.data$Date <= import_date) %>%
+  read_vc(file = "visit", root = walloon_repo) %>%
+    filter(.data$Date <= latest_date) %>%
     semi_join(
-      x = read_vc(file = "location.txt", root = walloon_repo),
+      x = read_vc(file = "location", root = walloon_repo),
       by = "LocationID"
     ) %>%
     transmute(
       external_code = .data$LocationID,
       description = .data$LocationName,
       .data$SPA,
-      datasource = datasource_id_wallonia(result.channel = result_channel),
+      datasource = datasource_id_wallonia(result_channel = result_channel),
       Region = "Wallonia"
     ) %>%
     bind_rows(location)
-
-  return(location)
 }

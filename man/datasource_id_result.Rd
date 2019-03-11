@@ -4,10 +4,10 @@
 \alias{datasource_id_result}
 \title{Get the id of the data source for the raw data}
 \usage{
-datasource_id_result(result.channel, develop = FALSE)
+datasource_id_result(result_channel, develop = FALSE)
 }
 \arguments{
-\item{result.channel}{An open RODBC connection to the results database}
+\item{result_channel}{An open RODBC connection to the results database}
 
 \item{develop}{logical. Indicate whether the use the development database TRUE or the production database}
 }

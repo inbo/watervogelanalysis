@@ -2,9 +2,9 @@
 #' @inheritParams prepare_analysis
 #' @param aggregation the output of \code{prepare_analysis_aggregate}
 #' @export
-#' @importFrom assertthat assert_that has_name is.flag noNA
-#' @importFrom n2kanalysis n2k_model_imputed
-#' @importFrom dplyr %>% arrange
+#' @importFrom assertthat assert_that is.flag noNA
+#' @importFrom n2kanalysis n2k_model_imputed get_file_fingerprint store_model
+#' @importFrom dplyr arrange
 #' @importFrom rlang .data
 prepare_analysis_model_wintermax <- function(
   aggregation,

@@ -4,45 +4,26 @@
 \alias{import_walloon_source_data}
 \title{Add the raw data from Wallonia to the git repository}
 \usage{
-import_walloon_source_data(location_file, visit_file, data_file,
-  path = ".", walloon_repo, nbn_channel)
+import_walloon_source_data(location_file, visit_file, species_file,
+  data_file, path = ".", walloon_repo, strict = TRUE)
 }
 \arguments{
 \item{location_file}{file with details on the location}
 
 \item{visit_file}{file with details on the visits to each location}
 
+\item{species_file}{file with all species}
+
 \item{data_file}{file with observed species at each visit}
 
 \item{path}{directory were the above files are stored}
+
+\item{walloon_repo}{a git_repository object to the Walloon source data}
+
+\item{strict}{What to do when the metadata changes. \code{strict = FALSE} will
+overwrite the data with a warning listing the changes, \code{strict = TRUE} will
+return an error and leave the data as is. Default to \code{TRUE}}
 }
 \description{
 This functions reads the files and performs some basic checks on them. See the details section for the required format of the files. The median date is used in case of multiple dates per visit id. The maximum is used in case of multiple observations per visit id.
-}
-\details{
-All files must textfile with ';' separated fields and '.' to indicate decimal points
-
-\code{location.file} must have the following fields:
-\itemize{
-\item{\code{CODE_ULT} The id of the location}
-\item{\code{Nom_site} The name of the location}
-\item{\code{ZPS} 1 if the location is a Special Procection Area, otherwise 0}
-\item{\code{Area} The surface area of the location in square m}
-\item{\code{Xlamb} The X coordinate of the location, Belgium Lambert 72 system}
-\item{\code{Ylamb} The Y coordinate of the location, Belgium Lambert 72 system}
-}
-
-\code{visit.file} must have the following fields:
-\itemize{
-\item{\code{ID_visit} The is of the visit to the location}
-\item{\code{CODE_ULT} The id of the location}
-\item{\code{DATE} The date of the visit to the location}
-}
-
-\code{visit_file} must have the following fields:
-\itemize{
-\item{\code{ID_visit} The is of the visit to the location}
-\item{\code{TAXPRIO} The scientific name of the species. Only exactly matches from \code{\link{read_specieslist}} with \code{limit = FALSE} are retained. Non-matching values are displayed in a warning.}
-\item{\code{SommeDeN} The observed number of animals}
-}
 }

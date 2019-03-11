@@ -10,14 +10,13 @@
 #' @importFrom git2rdata read_vc recent_commit
 #' @importFrom n2kanalysis n2k_inla get_file_fingerprint store_model
 #' @importFrom assertthat assert_that has_name noNA is.flag
-#' @importFrom dplyr %>% inner_join left_join mutate_ select_ filter_ ungroup
-#' @importFrom stats na.omit
+#' @importFrom dplyr %>% inner_join mutate_ select_ filter_ ungroup arrange_ bind_rows do_ group_by_
 #' @export
 prepare_analysis_imputation <- function(
   speciesgroupspecies,
   location,
   analysis.path,
-  raw.connection,
+  raw_repo,
   seed = 19790402,
   verbose = TRUE
 ){
@@ -50,11 +49,11 @@ prepare_analysis_imputation <- function(
 
   metadata <- read_vc(
     file = "metadata.txt",
-    root = raw.connection
+    root = raw_repo
   ) %>%
     inner_join(speciesgroupspecies, by = c("SpeciesID" = "Species")) %>%
     inner_join(
-      read_vc(file = "import.txt", root = raw.connection),
+      read_vc(file = "import.txt", root = raw_repo),
       by = c("SpeciesGroup" = "SpeciesGroupID")
     )
   assert_that(has_name(metadata, "FirstImportedYear"))
@@ -62,7 +61,7 @@ prepare_analysis_imputation <- function(
   assert_that(has_name(metadata, "ImportAnalysis"))
 
   rawdata.file <- paste0(metadata$SpeciesGroup, ".txt")
-  rawdata <- read_vc(rawdata.file, root = raw.connection)
+  rawdata <- read_vc(rawdata.file, root = raw_repo)
   assert_that(has_name(rawdata, "LocationID"))
   assert_that(has_name(rawdata, "Year"))
   assert_that(has_name(rawdata, "fMonth"))
@@ -83,7 +82,7 @@ observation"
 
   analysis.date <- recent_commit(
     file = rawdata.file,
-    root = raw.connection
+    root = raw_repo
   )$Date
   model.type <- "inla nbinomial: Year * (Month + Location)"
 

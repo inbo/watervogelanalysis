@@ -2,46 +2,38 @@
 #' @return a data.frame with the locations
 #' @inheritParams connect_flemish_source
 #' @inheritParams prepare_dataset
+#' @inheritParams prepare_dataset_species
 #' @export
 #' @importFrom assertthat assert_that is.string
-#' @importFrom dplyr %>% mutate select inner_join filter bind_rows distinct
+#' @importFrom dplyr %>% mutate select inner_join filter bind_rows distinct rename
+#' @importFrom rlang .data
 #' @importFrom tibble tibble
-#' @importFrom digest sha1
 #' @importFrom tidyr gather
 #' @importFrom n2kupdate store_location_group_location
 #' @importFrom git2rdata write_vc
-#' @importFrom purrr map2_chr pmap_chr
+#' @importFrom purrr pmap_chr
+#' @importFrom digest sha1
 prepare_dataset_location <- function(
-  result_channel,
-  flemish_channel,
-  walloon_repo,
-  raw_repo,
-  scheme_id,
-  import_date = as.POSIXct(Sys.time())
-){
+  result_channel, flemish_channel, walloon_repo, raw_repo, scheme_id,
+  latest_date = as.POSIXct(Sys.time())
+) {
   assert_that(is.string(scheme_id))
 
   # read the locations
   location <- read_location(
-    result_channel = result_channel,
-    flemish_channel = flemish_channel,
-    walloon_repo = walloon_repo,
-    import_date = import_date
-  ) %>%
+    result_channel = result_channel, flemish_channel = flemish_channel,
+    walloon_repo = walloon_repo, latest_date = latest_date) %>%
     mutate(
       fingerprint = pmap_chr(
         list(
-          datasource = .data$datasource,
-          external_code = .data$external_code,
+          datasource = .data$datasource, external_code = .data$external_code,
           description = .data$description
         ),
         function(datasource, external_code, description) {
-          sha1(
-            list(
+          sha1(list(
               datasource = datasource, external_code = external_code,
               description = description
-            )
-          )
+          ))
         }
       )
     ) -> location
@@ -101,7 +93,7 @@ prepare_dataset_location <- function(
   datafield_type <- tibble(description = "character")
   datafield <- tibble(
     Region = c("Flanders", "Wallonia"),
-    table_name = c("DimLocationWV", "location.txt"),
+    table_name = c("DimLocationWV", "location"),
     primary_key = c("LocationWVCode", "LocationID"),
     datafield_type = c("character", "character")
   ) %>%
@@ -129,7 +121,7 @@ prepare_dataset_location <- function(
       )
     )
   location <- datafield %>%
-    select(datafield = "fingerprint", "datasource") %>%
+    rename(datafield = "fingerprint") %>%
     inner_join(location, by = "datasource")
 
   store_location_group_location(
@@ -158,7 +150,7 @@ prepare_dataset_location <- function(
   location %>%
     select(ID = "fingerprint", "StartDate", "EndDate") %>%
     write_vc(
-      file = "location.txt", sorting = c("ID", "StartDate"), stage = TRUE,
+      file = "location", sorting = c("ID", "StartDate"), stage = TRUE,
       root = raw_repo
     ) -> location_sha
   location_group %>%
@@ -178,9 +170,8 @@ prepare_dataset_location <- function(
   dataset <- tibble(
     filename = hashes,
     fingerprint = names(hashes),
-    import_date = import_date,
-    datasource = datasource_id_raw(result.channel = result_channel),
-    stringsAsFactors = FALSE
+    import_date = Sys.time(),
+    datasource = datasource_id_raw(result_channel = result_channel)
   )
 
   return(

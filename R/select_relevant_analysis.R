@@ -9,6 +9,7 @@
 #' }
 #' @inheritParams n2kanalysis::select_factor_threshold
 #' @export
+#' @importFrom assertthat assert_that has_name
 #' @importFrom n2kanalysis select_factor_threshold select_factor_count_strictly_positive select_observed_range
 select_relevant_analysis <- function(observation){
   if (is.null(observation)) {

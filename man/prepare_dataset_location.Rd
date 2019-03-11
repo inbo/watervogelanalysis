@@ -5,7 +5,20 @@
 \title{Read the locations for the raw datasource, save them to the git repository and the results database}
 \usage{
 prepare_dataset_location(result_channel, flemish_channel, walloon_repo,
-  raw_repo, scheme_id, import_date = as.POSIXct(Sys.time()))
+  raw_repo, scheme_id, latest_date = as.POSIXct(Sys.time()))
+}
+\arguments{
+\item{result_channel}{An open RODBC connection to the results database}
+
+\item{flemish_channel}{a DBI connection to the Flemish database}
+
+\item{walloon_repo}{a git_repository object to the Walloon source data}
+
+\item{raw_repo}{a git_repository object to write the output to}
+
+\item{scheme_id}{the id of the scheme}
+
+\item{latest_date}{until which date should we import the species list}
 }
 \value{
 a data.frame with the locations
