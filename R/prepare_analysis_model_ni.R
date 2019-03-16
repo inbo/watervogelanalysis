@@ -4,11 +4,11 @@
 #' @export
 #' @importFrom assertthat assert_that is.flag noNA
 #' @importFrom n2kanalysis n2k_model_imputed get_file_fingerprint store_model
-#' @importFrom dplyr arrange_ bind_rows
+#' @importFrom dplyr arrange bind_rows
 #' @importFrom rlang .data
 prepare_analysis_model_ni <- function(
   aggregation,
-  analysis.path,
+  analysis_path,
   seed = 19790402,
   verbose = TRUE
 ) {
@@ -20,7 +20,7 @@ prepare_analysis_model_ni <- function(
   # yearly index
   if (verbose) {
     message("All-time maximum without imputation")
-    aggregation <- arrange_(aggregation, ~FileFingerprint)
+    aggregation <- arrange(aggregation, .data$FileFingerprint)
   }
   tot_max <- lapply(
     seq_along(aggregation$FileFingerprint),
@@ -57,7 +57,7 @@ prepare_analysis_model_ni <- function(
       )
       store_model(
         object,
-        base = analysis.path,
+        base = analysis_path,
         project = "watervogels",
         overwrite = FALSE
       )
@@ -102,7 +102,7 @@ prepare_analysis_model_ni <- function(
       )
       store_model(
         object,
-        base = analysis.path,
+        base = analysis_path,
         project = "watervogels",
         overwrite = FALSE
       )

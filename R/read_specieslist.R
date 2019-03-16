@@ -9,26 +9,28 @@
 #' @importFrom rlang .data
 #' @importFrom stats na.omit
 read_specieslist <- function(result_channel, flemish_channel, walloon_repo,
-                             latest_date){
-  format(latest_date, "%Y-%m-%d") %>%
-    dbQuoteString(conn = flemish_channel) %>%
-    sprintf(
-      fmt = "WITH cte_survey AS (
-        SELECT TaxonWVKey, RecommendedTaxonTLI_Key AS NBNKey,
-               COUNT(TaxonCount) AS N
-        FROM FactAnalyseSetOccurrence
-        WHERE SampleDate <= %s AND TaxonCount > 0
-        GROUP BY TaxonWVKey, RecommendedTaxonTLI_Key
-      )
+                             first_date, latest_date){
+  sprintf(
+    "WITH cte_survey AS (
+      SELECT TaxonWVKey, RecommendedTaxonTLI_Key AS NBNKey,
+             COUNT(TaxonCount) AS N
+      FROM FactAnalyseSetOccurrence
+      WHERE %s <= SampleDate AND SampleDate <= %s AND TaxonCount > 0
+      GROUP BY TaxonWVKey, RecommendedTaxonTLI_Key
+    )
 
-      SELECT
-        CASE WHEN c.NBNKey = '-               ' THEN NULL
-             ELSE c.NBNKey END AS NBNKey,
-        t.TaxonWVKey, CAST(t.euringcode AS int) AS euringcode,
-        t.scientificname AS ScientificName, t.commonname AS nl, c.n
-      FROM cte_survey AS c
-      INNER JOIN DimTaxonWV AS t ON c.TaxonWVKey = t.TaxonWVKey"
-    ) %>%
+    SELECT
+      CASE WHEN c.NBNKey = '-               ' THEN NULL
+           ELSE c.NBNKey END AS NBNKey,
+      t.TaxonWVKey, CAST(t.euringcode AS int) AS euringcode,
+      t.scientificname AS ScientificName, t.commonname AS nl, c.n
+    FROM cte_survey AS c
+    INNER JOIN DimTaxonWV AS t ON c.TaxonWVKey = t.TaxonWVKey",
+    format(first_date, "%Y-%m-%d") %>%
+      dbQuoteString(conn = flemish_channel),
+    format(latest_date, "%Y-%m-%d") %>%
+      dbQuoteString(conn = flemish_channel)
+  ) %>%
     dbGetQuery(conn = flemish_channel) %>%
     group_by(.data$euringcode, .data$TaxonWVKey, .data$ScientificName,
              .data$nl) %>%

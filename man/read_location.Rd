@@ -4,7 +4,8 @@
 \alias{read_location}
 \title{read the dataset of locations from the database}
 \usage{
-read_location(result_channel, flemish_channel, walloon_repo, latest_date)
+read_location(result_channel, flemish_channel, walloon_repo, first_date,
+  latest_date)
 }
 \arguments{
 \item{result_channel}{An open RODBC connection to the results database}
@@ -12,6 +13,8 @@ read_location(result_channel, flemish_channel, walloon_repo, latest_date)
 \item{flemish_channel}{a DBI connection to the Flemish database}
 
 \item{walloon_repo}{a git_repository object to the Walloon source data}
+
+\item{first_date}{earliest records to take into account}
 
 \item{latest_date}{until which date should we import the species list}
 }

@@ -6,16 +6,11 @@
 #' @importFrom n2kanalysis n2k_model_imputed get_file_fingerprint store_model
 #' @importFrom dplyr arrange
 #' @importFrom rlang .data
-prepare_analysis_model_wintermax <- function(
-  aggregation,
-  analysis.path,
-  seed = 19790402,
-  verbose = TRUE
-) {
+prepare_analysis_model_wintermax <- function(aggregation, analysis_path,
+                                             seed = 19790402, verbose = TRUE) {
   set.seed(seed)
-  assert_that(inherits(aggregation, "data.frame"))
-  assert_that(is.flag(verbose))
-  assert_that(noNA(verbose))
+  assert_that(inherits(aggregation, "data.frame"), is.flag(verbose),
+              noNA(verbose))
 
   requireNamespace("INLA", quietly = TRUE)
   if (verbose) {
@@ -33,11 +28,11 @@ prepare_analysis_model_wintermax <- function(
         scheme.id = aggregation[i, "SchemeID"],
         species.group.id = aggregation[i, "SpeciesGroupID"],
         location.group.id = aggregation[i, "LocationGroupID"],
-        model.type = "imputed average: Total ~ 1",
-        formula = "~ 1",
+        model.type = "imputed average: Total ~ cPeriod",
+        formula = "~ cPeriod",
         first.imported.year = aggregation[i, "FirstImportedYear"],
         last.imported.year = aggregation[i, "LastImportedYear"],
-        duration = 5,
+        duration = 10,
         last.analysed.year = aggregation[i, "LastAnalysedYear"],
         analysis.date = aggregation[i, "AnalysisDate"],
         seed = seed,
@@ -49,20 +44,14 @@ prepare_analysis_model_wintermax <- function(
         extractor =  function(model){
           model$summary.fixed[, c("mean", "sd")]
         },
-        filter = list("Year > max(Year) - 5"),
+        filter = list("Year > max(Year) - 10"),
+        mutate = list(cPeriod = "ceiling((Year - max(Year)) / 5)"),
         model.args = list(family = "nbinomial")
       )
-      store_model(
-        object,
-        base = analysis.path,
-        project = "watervogels",
-        overwrite = FALSE
-      )
-      data.frame(
-        Fingerprint = get_file_fingerprint(object),
-        Parent = aggregation[i, "FileFingerprint"],
-        stringsAsFactors = FALSE
-      )
+      store_model(object, base = analysis_path, project = "watervogels",
+                  overwrite = FALSE)
+      tibble(Fingerprint = get_file_fingerprint(object),
+             Parent = aggregation[i, "FileFingerprint"])
     }
   )
   bind_rows(shortterm)

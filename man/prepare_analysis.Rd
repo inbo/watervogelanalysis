@@ -4,11 +4,11 @@
 \alias{prepare_analysis}
 \title{Prepare all datasets and a to do list of models}
 \usage{
-prepare_analysis(analysis.path = ".", raw_repo, seed = 19790402,
+prepare_analysis(analysis_path = ".", raw_repo, seed = 19790402,
   verbose = TRUE)
 }
 \arguments{
-\item{analysis.path}{Path to store the analysis files. Must be either an existing local file path or an object of the \code{s3_bucket} class.}
+\item{analysis_path}{Path to store the analysis files. Must be either an existing local file path or an object of the \code{s3_bucket} class.}
 
 \item{raw_repo}{a git_repository object to write the output to}
 

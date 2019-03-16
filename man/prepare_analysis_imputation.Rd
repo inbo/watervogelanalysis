@@ -4,7 +4,7 @@
 \alias{prepare_analysis_imputation}
 \title{Create the analysis dataset based on the available raw data}
 \usage{
-prepare_analysis_imputation(speciesgroupspecies, location, analysis.path,
+prepare_analysis_imputation(speciesgroupspecies, location, analysis_path,
   raw_repo, seed = 19790402, verbose = TRUE)
 }
 \arguments{
@@ -12,7 +12,7 @@ prepare_analysis_imputation(speciesgroupspecies, location, analysis.path,
 
 \item{location}{a data.frame with the locations and location groups}
 
-\item{analysis.path}{Path to store the analysis files. Must be either an existing local file path or an object of the \code{s3_bucket} class.}
+\item{analysis_path}{Path to store the analysis files. Must be either an existing local file path or an object of the \code{s3_bucket} class.}
 
 \item{raw_repo}{a git_repository object to write the output to}
 

@@ -6,7 +6,8 @@
 #' @param flemish_channel a DBI connection to the Flemish database
 #' @param walloon_repo a git_repository object to the Walloon source data
 #' @param verbose Display a progress bar when TRUE (default)
-#' @param latest_year latest winter to import. Winter 2019 is defined as 2018-10-01 until 2019-03-31
+#' @param first_year first winter to import. defaults to 1992
+#' @param latest_year latest winter to import. Winter 2019 is defined as 2018-10-01 until 2019-03-31. Defaults the winter prior to last firsth of July. 2019-06-30 becomes 2018, 2019-07-01 becomes 2019
 #' @inheritParams connect_flemish_source
 #' @inheritParams datasource_id_result
 #' @export
@@ -22,17 +23,19 @@
 #' }
 prepare_dataset <- function(
   scheme_id, raw_repo, result_channel, walloon_repo, flemish_channel,
-  develop = FALSE, verbose = TRUE,
+  develop = FALSE, verbose = TRUE, first_year = 1992,
   latest_year = as.integer(format(Sys.time(), "%Y"))
 ) {
   assert_that(is.flag(verbose), noNA(verbose), is.flag(develop), noNA(develop),
-              is.string(scheme_id), is.count(latest_year))
+              is.string(scheme_id), is.count(first_year), is.count(latest_year),
+              first_year <= latest_year)
   latest_year <- min(latest_year, as.integer(format(Sys.time(), "%Y")))
   latest_date <- as.POSIXct(paste0(latest_year, "-07-01"))
   if (latest_date > Sys.time()) {
     latest_year <- latest_year - 1
     latest_date <- as.POSIXct(paste0(latest_year, "-07-01"))
   }
+  first_date <- as.POSIXct(paste0(first_year - 1, "-10-01"))
 
   rm_data(root = raw_repo, path = ".", stage = TRUE)
 
@@ -42,7 +45,7 @@ prepare_dataset <- function(
   location <- prepare_dataset_location(
     result_channel = result_channel, flemish_channel = flemish_channel,
     walloon_repo = walloon_repo, raw_repo = raw_repo, scheme_id = scheme_id,
-    latest_date = latest_date)
+    first_date = first_date, latest_date = latest_date)
   dataset <- location$Dataset
   location$LocationGroup %>%
     filter(.data$description == "Belgi\\u0137") %>%
@@ -55,12 +58,13 @@ prepare_dataset <- function(
   species <- prepare_dataset_species(
     raw_repo = raw_repo, flemish_channel = flemish_channel,
     walloon_repo = walloon_repo, result_channel = result_channel,
-    scheme_id = scheme_id, latest_date = latest_date)
+    scheme_id = scheme_id, first_date = first_date, latest_date = latest_date)
 
   species %>%
     distinct(.data$species_id) %>%
     mutate(
-      last_imported_year = latest_year,
+      first_imported_year = first_year, last_imported_year = latest_year,
+      scheme_id = scheme_id,
       results_datasource_id =
         datasource_id_result(result_channel = result_channel, develop = develop)
     ) %>%

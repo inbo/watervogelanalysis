@@ -11,51 +11,71 @@
 #' @export
 #' @importFrom assertthat assert_that has_name
 #' @importFrom n2kanalysis select_factor_threshold select_factor_count_strictly_positive select_observed_range
+#' @importFrom dplyr distinct filter add_count semi_join
+#' @importFrom rlang .data
 select_relevant_analysis <- function(observation){
   if (is.null(observation)) {
     return(NULL)
   }
-  assert_that(inherits(observation, "data.frame"))
-  assert_that(has_name(observation, "Count"))
-  assert_that(has_name(observation, "fMonth"))
-  assert_that(has_name(observation, "LocationID"))
-  assert_that(has_name(observation, "Year"))
+  assert_that(
+    inherits(observation, "data.frame"), has_name(observation, "Count"),
+    has_name(observation, "Month"), has_name(observation, "LocationID"),
+    has_name(observation, "Year"))
 
-  # select months with have on average at least 5% of the top month
-  observation <- select_factor_threshold(
-    observation = observation,
-    variable = "fMonth",
-    threshold = 0.05
-  )
+  # select locations with at least 4 prescences
+  observation %>%
+    filter(.data$Count > 0) %>%
+    add_count(.data$LocationID) %>%
+    filter(.data$n >= 4) %>%
+    semi_join(x = observation, by = "LocationID") -> observation
   if (nrow(observation) == 0) {
     return(observation)
   }
-  observation$fMonth <- factor(observation$fMonth)
+
+  # select months with have on average at least 5% of the top month
+  observation <- select_factor_threshold(observation = observation,
+                                         variable = "Month", threshold = 0.05)
+  if (nrow(observation) == 0) {
+    return(observation)
+  }
+  observation$Month <- factor(observation$Month)
 
   # select locations with at least 4 prescences
-  observation <- select_factor_count_strictly_positive( #nolint
-    observation = observation,
-    variable = "LocationID",
-    threshold = 5
-  )
+  observation %>%
+    filter(.data$Count > 0) %>%
+    add_count(.data$LocationID) %>%
+    filter(.data$n >= 4) %>%
+    semi_join(x = observation, by = "LocationID") -> observation
   if (nrow(observation) == 0) {
     return(observation)
   }
 
   # select locations with prescences in at least 3 years
-  observation <- select_factor_count_strictly_positive( #nolint
-    observation = observation,
-    variable = c("LocationID", "Year"),
-    threshold = 3,
-    dimension = 1
-  )
+  observation %>%
+    filter(.data$Count > 0) %>%
+    distinct(.data$Year, .data$LocationID) %>%
+    add_count(.data$LocationID) %>%
+    filter(.data$n >= 3) %>%
+    semi_join(x = observation, by = "LocationID") -> observation
   if (nrow(observation) == 0) {
     return(observation)
   }
 
   # remove time periodes without prescences at the start or end
-  select_observed_range(
-    observation = observation,
-    variable = "Year"
-  )
+  observation %>%
+    filter(.data$Count > 0) %>%
+    summarise(start = min(.data$Year), end = max(.data$Year)) -> obs_range
+  observation %>%
+    filter(obs_range$start <= .data$Year, .data$Year <= obs_range$end) ->
+    observation
+  if (nrow(observation) == 0) {
+    return(observation)
+  }
+  observation %>%
+    mutate(Missing = is.na(.data$Count), Month = factor(.data$Month),
+           fYear = factor(.data$Year), cYear = .data$Year - max(.data$Year),
+           fYearMonth = interaction(.data$fYear, .data$Month, drop = TRUE),
+           fYearLocation = interaction(.data$fYear, factor(.data$LocationID),
+                                      drop = TRUE)) %>%
+    select(-"LocationID")
 }

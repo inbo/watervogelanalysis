@@ -15,14 +15,15 @@
 #' @importFrom digest sha1
 prepare_dataset_location <- function(
   result_channel, flemish_channel, walloon_repo, raw_repo, scheme_id,
-  latest_date = as.POSIXct(Sys.time())
+  first_date, latest_date = as.POSIXct(Sys.time())
 ) {
   assert_that(is.string(scheme_id))
 
   # read the locations
   location <- read_location(
     result_channel = result_channel, flemish_channel = flemish_channel,
-    walloon_repo = walloon_repo, latest_date = latest_date) %>%
+    walloon_repo = walloon_repo, first_date = first_date,
+    latest_date = latest_date) %>%
     mutate(
       fingerprint = pmap_chr(
         list(

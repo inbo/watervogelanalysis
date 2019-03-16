@@ -9,8 +9,9 @@
 #' @importFrom assertthat assert_that is.count
 #' @importFrom dplyr %>% filter mutate left_join transmute
 #' @importFrom rlang .data
-read_observation_wallonia <- function(species_id, latest_year, walloon_repo) {
-  assert_that(is.count(species_id), is.count(latest_year))
+read_observation_wallonia <- function(species_id, first_year, latest_year, walloon_repo) {
+  assert_that(is.count(species_id), is.count(first_year), is.count(latest_year))
+  first_year <- as.integer(first_year)
   latest_year <- as.integer(latest_year)
 
   read_vc(file = "data", root = walloon_repo) %>%
@@ -26,7 +27,7 @@ read_observation_wallonia <- function(species_id, latest_year, walloon_repo) {
       Year = as.integer(format(.data$Date, "%Y")) +
         as.integer(.data$Month >= 7)
     ) %>%
-    filter(.data$Year <= latest_year) %>%
+    filter(first_year <= .data$Year, .data$Year <= latest_year) %>%
     left_join(
       data,
       by = "OriginalObservationID"

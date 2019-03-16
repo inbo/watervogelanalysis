@@ -7,8 +7,9 @@ build:
           apt-get update -y
           apt-get install -y r-cran-RODBC
           Rscript -e 'install.packages("INLA", repos="http://www.math.ntnu.no/inla/R/stable")'
-          Rscript -e 'devtools::install_bitbucket("thierry_onkelinx/n2khelper@develop")'
-          Rscript -e 'devtools::install_bitbucket("thierry_onkelinx/n2kanalysis@develop")'
+          Rscript -e 'devtools::install_bitbucket("thierry_onkelinx/n2kupdate")'
+          Rscript -e 'devtools::install_bitbucket("thierry_onkelinx/n2khelper")'
+          Rscript -e 'devtools::install_bitbucket("thierry_onkelinx/n2kanalysis")'
     - jimhester/r-dependencies
     - jimhester/r-check
     - jimhester/r-coverage

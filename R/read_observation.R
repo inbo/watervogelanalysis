@@ -16,47 +16,34 @@
 #' @importFrom DBI dbQuoteString dbQuoteLiteral dbGetQuery
 #' @importFrom dplyr %>% group_by arrange slice ungroup desc
 #' @importFrom rlang .data
-read_observation <- function(species_id, latest_year, flemish_channel) {
-  assert_that(is.count(species_id), is.count(latest_year))
+read_observation <- function(species_id, first_year, latest_year, flemish_channel) {
+  assert_that(is.count(species_id), is.count(first_year), is.count(latest_year))
   species_id <- as.integer(species_id)
   latest_year <- as.integer(latest_year)
 
-  dbGetQuery(flemish_channel, "
-    SELECT CoverageCode, CoverageDescription FROM DimSample GROUP BY CoverageCode, CoverageDescription")
-  dbGetQuery(flemish_channel, "
-  WITH cte AS (
-    SELECT s.CoverageCode, s.CoverageDescription, f.SampleDate, f.samplekey
-    FROM DimSample AS s
-    INNER JOIN FactAnalyseSetOccurrence AS f ON f.samplekey = s.samplekey
-    GROUP BY s.CoverageCode, s.CoverageDescription, f.SampleDate, f.samplekey
-  )
-
-  SELECT CoverageCode, CoverageDescription, COUNT(SampleDate) AS n, MIN(SampleDate) AS start, MAX(SampleDate) AS lastone
-  FROM cte
-  GROUP BY CoverageCode, CoverageDescription")
-
-  sprintf("%i-06-30", latest_year) %>%
-    dbQuoteString(conn = flemish_channel) %>%
-    sprintf(fmt = "
-      SELECT
-        f.OccurrenceKey AS ObservationID,
-        YEAR(f.SampleDate) + IIF(MONTH(f.SampleDate) >= 7, 1, 0) AS Year,
-        MONTH(f.SampleDate) AS Month,
-        l.LocationWVCode AS external_code,
-        f.TaxonCount AS Count,
-        'FactAnalyseSetOccurrence' AS TableName,
-        CASE WHEN s.CoverageCode = 'V' THEN 1
-             ELSE 0 END AS Complete
-      FROM FactAnalyseSetOccurrence AS f
-      INNER JOIN DimLocationWV AS l ON l.locationwvkey = f.locationwvkey
-      INNER JOIN DimAnalyseSet AS a ON  a.analysesetkey = f.analysesetkey
-      INNER JOIN DimSample AS s ON f.samplekey = s.samplekey
-      WHERE
-        f.SampleDate <= %s AND f.TaxonWVKey = %s AND
-            analysesetcode LIKE 'MIDMA%%' AND
-            s.CoverageCode IN ('V', 'O')",
-      dbQuoteLiteral(flemish_channel, species_id)
-    ) %>%
+  sprintf("
+    SELECT
+      f.OccurrenceKey AS ObservationID,
+      YEAR(f.SampleDate) + IIF(MONTH(f.SampleDate) >= 7, 1, 0) AS Year,
+      MONTH(f.SampleDate) AS Month,
+      l.LocationWVCode AS external_code,
+      f.TaxonCount AS Count,
+      'FactAnalyseSetOccurrence' AS TableName,
+      CASE WHEN s.CoverageCode = 'V' THEN 1
+           ELSE 0 END AS Complete
+    FROM FactAnalyseSetOccurrence AS f
+    INNER JOIN DimLocationWV AS l ON l.locationwvkey = f.locationwvkey
+    INNER JOIN DimAnalyseSet AS a ON  a.analysesetkey = f.analysesetkey
+    INNER JOIN DimSample AS s ON f.samplekey = s.samplekey
+    WHERE
+      %s <= f.SampleDate AND f.SampleDate <= %s AND f.TaxonWVKey = %s AND
+      analysesetcode LIKE 'MIDMA%%' AND s.CoverageCode IN ('V', 'O')",
+    sprintf("%i-10-01", first_year - 1) %>%
+      dbQuoteString(conn = flemish_channel),
+    sprintf("%i-06-30", latest_year) %>%
+      dbQuoteString(conn = flemish_channel),
+    dbQuoteLiteral(flemish_channel, species_id)
+  ) %>%
     dbGetQuery(conn = flemish_channel) %>%
     group_by(.data$Year, .data$Month, .data$external_code) %>%
     arrange(desc(.data$Count)) %>%

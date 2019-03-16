@@ -5,7 +5,7 @@
 \title{Read the species for the raw datasource, save them to the results database}
 \usage{
 prepare_dataset_species(raw_repo, result_channel, flemish_channel,
-  walloon_repo, scheme_id, latest_date)
+  walloon_repo, scheme_id, first_date, latest_date)
 }
 \arguments{
 \item{raw_repo}{a git_repository object to write the output to}
@@ -17,6 +17,8 @@ prepare_dataset_species(raw_repo, result_channel, flemish_channel,
 \item{walloon_repo}{a git_repository object to the Walloon source data}
 
 \item{scheme_id}{the id of the scheme}
+
+\item{first_date}{earliest records to take into account}
 
 \item{latest_date}{until which date should we import the species list}
 }

@@ -6,7 +6,8 @@
 \usage{
 prepare_dataset(scheme_id, raw_repo, result_channel, walloon_repo,
   flemish_channel, develop = FALSE, verbose = TRUE,
-  latest_year = as.integer(format(Sys.time(), "\%Y")))
+  first_year = 1992, latest_year = as.integer(format(Sys.time(),
+  "\%Y")))
 }
 \arguments{
 \item{scheme_id}{the id of the scheme}
@@ -23,7 +24,9 @@ prepare_dataset(scheme_id, raw_repo, result_channel, walloon_repo,
 
 \item{verbose}{Display a progress bar when TRUE (default)}
 
-\item{latest_year}{latest winter to import. Winter 2019 is defined as 2018-10-01 until 2019-03-31}
+\item{first_year}{first winter to import. defaults to 1992}
+
+\item{latest_year}{latest winter to import. Winter 2019 is defined as 2018-10-01 until 2019-03-31. Defaults the winter prior to last firsth of July. 2019-06-30 becomes 2018, 2019-07-01 becomes 2019}
 }
 \description{
 The raw data is written to the git repository. All changes are always staged and committed. The commit is pushed when both username and password are provided.

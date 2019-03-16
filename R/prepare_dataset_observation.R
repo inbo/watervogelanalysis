@@ -11,7 +11,7 @@
 #' @importFrom utils sessionInfo
 #' @importFrom dplyr %>% distinct count filter mutate bind_rows select inner_join arrange transmute pull
 #' @importFrom tidyr complete
-#' @importFrom n2kupdate store_analysis_dataset store_observation
+#' @importFrom n2kupdate store_analysis_dataset store_observation store_datafield
 #' @importFrom n2kanalysis get_analysis_version
 #' @importFrom digest sha1
 #' @importFrom purrr pmap_chr
@@ -41,6 +41,7 @@ prepare_dataset_observation <- function(
       filter(.data$DatasourceID == flanders_id) %>%
       mutate(ExternalCode = as.integer(.data$ExternalCode)) %>%
       dplyr::pull(.data$ExternalCode),
+    first_year = metadata$first_imported_year,
     latest_year = metadata$last_imported_year,
     flemish_channel = flemish_channel
   ) %>%
@@ -55,6 +56,7 @@ prepare_dataset_observation <- function(
       species_id = this_species %>%
         filter(.data$DatasourceID == wallonia_id) %>%
         dplyr::pull(.data$ExternalCode),
+      first_year = metadata$first_imported_year,
       latest_year = metadata$last_imported_year,
       walloon_repo = walloon_repo
     )
@@ -97,9 +99,9 @@ prepare_dataset_observation <- function(
     observation_sha <- NA
     analysis_status <- "No data"
     model_set <- data.frame(local_id = "import", description = "import",
-      first_year = min(observation$Year),
+      first_year = metadata$first_imported_year,
       last_year = metadata$last_imported_year,
-      duration = metadata$last_imported_year - min(observation$Year) + 1,
+      duration = metadata$last_imported_year - metadata$first_imported_year + 1,
       stringsAsFactors = FALSE)
     analysis_version <- get_analysis_version(sessionInfo())
     analysis <- data.frame(
@@ -175,6 +177,10 @@ prepare_dataset_observation <- function(
                  .data$datafield_type)
     ) %>%
     mutate(local_id = paste(.data$datasource, .data$table_name)) -> datafield
+  store_datafield(datafield = datafield, conn = result_channel$con) %>%
+    filter(.data$datasource == metadata$results_datasource_id[1],
+           .data$table_name == "observation") %>%
+    dplyr::pull("fingerprint") -> obs_df
   result %>%
     distinct(.data$Month) %>%
     transmute(local_id = as.character(.data$Month),
@@ -188,7 +194,7 @@ prepare_dataset_observation <- function(
         stringsAsFactors = FALSE
       )
     ) -> parameter
-  result <- store_observation(
+  store_observation(
     datafield = datafield,
     observation = result %>%
       transmute(.data$local_id, external_code = .data$ObservationID,
@@ -204,14 +210,17 @@ prepare_dataset_observation <- function(
     conn = result_channel$con
   ) %>%
   inner_join(result, by = "local_id") %>%
-  select(ObservationID = "fingerprint", "LocationID", "Year", "Month", "Count")
+  mutate(DataFieldID = obs_df) %>%
+  select("DataFieldID", ObservationID = "fingerprint", "LocationID", "Year",
+         "Month", "Count", "Complete") -> result
 
   if (nrow(result) == 0) {
     observation_sha <- NA
     analysis_status <- "No data"
   } else {
-    observation_sha <- write_vc(x = result, file = this_species$species_id[1],
-      sorting = c("LocationID", "Year", "Month"), stage = TRUE, root = raw_repo)
+    observation_sha <- write_vc(x = result,
+      file = this_species$species_group_id[1],
+      sorting = c("Year", "Month", "LocationID"), stage = TRUE, root = raw_repo)
     analysis_status <- "converged"
     data.frame(
       filename = observation_sha, fingerprint = names(observation_sha),
@@ -221,20 +230,19 @@ prepare_dataset_observation <- function(
       bind_rows(dataset) -> dataset
   }
 
-  model_set <- data.frame(local_id = "import", description = "import",
-    first_year = min(result$Year), last_year = metadata$last_imported_year,
-    duration = metadata$last_imported_year - min(result$Year) + 1,
-    stringsAsFactors = FALSE)
+  model_set <- tibble(local_id = "import", description = "import",
+    first_year = metadata$first_imported_year,
+    last_year = metadata$last_imported_year,
+    duration = metadata$last_imported_year - metadata$first_imported_year + 1)
   analysis_version <- get_analysis_version(sessionInfo())
-  analysis <- data.frame(
+  analysis <- tibble(
     model_set_local_id = "import", location_group = location_group_id,
     species_group = this_species$species_group_id[1],
     last_year = metadata$last_imported_year,
     seed = sample(.Machine$integer.max, 1),
     analysis_version = attr(analysis_version, "AnalysisVersion") %>%
       unname(),
-    analysis_date = import_date, status = analysis_status,
-    stringsAsFactors = FALSE
+    analysis_date = import_date, status = analysis_status
   ) %>%
     mutate(file_fingerprint = sha1(list(
         dataset = dataset %>%

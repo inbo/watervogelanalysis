@@ -3,6 +3,7 @@
 #' @inheritParams prepare_dataset
 #' @inheritParams connect_flemish_source
 #' @inheritParams prepare_dataset
+#' @param first_date earliest records to take into account
 #' @param latest_date until which date should we import the species list
 #' @export
 #' @importFrom assertthat assert_that is.string
@@ -12,12 +13,13 @@
 #' @importFrom rlang .data
 #' @importFrom tibble tibble
 prepare_dataset_species <- function(raw_repo, result_channel, flemish_channel,
-                                    walloon_repo, scheme_id, latest_date) {
+  walloon_repo, scheme_id, first_date, latest_date) {
   assert_that(is.string(scheme_id))
 
   species_list <- read_specieslist(
     result_channel = result_channel, flemish_channel = flemish_channel,
-    walloon_repo = walloon_repo, latest_date = latest_date)
+    walloon_repo = walloon_repo, first_date = first_date,
+    latest_date = latest_date)
 
   species_list$flanders %>%
     transmute(

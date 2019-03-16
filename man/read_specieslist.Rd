@@ -4,7 +4,7 @@
 \alias{read_specieslist}
 \title{Read the relevant species list}
 \usage{
-read_specieslist(result_channel, flemish_channel, walloon_repo,
+read_specieslist(result_channel, flemish_channel, walloon_repo, first_date,
   latest_date)
 }
 \arguments{
@@ -13,6 +13,8 @@ read_specieslist(result_channel, flemish_channel, walloon_repo,
 \item{flemish_channel}{a DBI connection to the Flemish database}
 
 \item{walloon_repo}{a git_repository object to the Walloon source data}
+
+\item{first_date}{earliest records to take into account}
 
 \item{latest_date}{until which date should we import the species list}
 }

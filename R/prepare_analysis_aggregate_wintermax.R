@@ -8,24 +8,19 @@
 #' @inheritParams prepare_analysis_model
 #' @inheritParams prepare_dataset
 prepare_analysis_aggregate_wintermax <- function(
-  aggregation,
-  analysis.path,
-  seed = 19790402,
-  verbose = TRUE
-){
-  assert_that(inherits(aggregation, "data.frame"))
-  assert_that(has_name(aggregation, "Parent"))
-  assert_that(has_name(aggregation, "ResultDatasourceID"))
-  assert_that(has_name(aggregation, "SchemeID"))
-  assert_that(has_name(aggregation, "SpeciesGroupID"))
-  assert_that(has_name(aggregation, "LocationGroupID"))
-  assert_that(has_name(aggregation, "FirstImportedYear"))
-  assert_that(has_name(aggregation, "LastImportedYear"))
-  assert_that(has_name(aggregation, "AnalysisDate"))
-  assert_that(has_name(aggregation, "FileFingerprint"))
-  assert_that(has_name(aggregation, "ResultDatasourceID"))
+  aggregation, analysis_path, seed = 19790402, verbose = TRUE) {
+  assert_that(
+    inherits(aggregation, "data.frame"), has_name(aggregation, "Parent"),
+    has_name(aggregation, "ResultDatasourceID"),
+    has_name(aggregation, "SchemeID"), has_name(aggregation, "SpeciesGroupID"),
+    has_name(aggregation, "LocationGroupID"),
+    has_name(aggregation, "FirstImportedYear"),
+    has_name(aggregation, "LastImportedYear"),
+    has_name(aggregation, "AnalysisDate"),
+    has_name(aggregation, "FileFingerprint"),
+    has_name(aggregation, "ResultDatasourceID"))
 
-  models <- aggregation %>%
+  aggregation %>%
     rowwise() %>%
     do(
       Analysis = list(
@@ -47,22 +42,15 @@ prepare_analysis_aggregate_wintermax <- function(
       )
     ) %>%
     dplyr::pull(.data$Analysis) %>%
-    unlist(recursive = FALSE)
-  output <- aggregation %>%
+    unlist(recursive = FALSE) -> models
+  aggregation %>%
     select(
-      .data$ResultDatasourceID,
-      .data$SchemeID,
-      .data$SpeciesGroupID,
-      .data$LocationGroupID,
-      .data$FirstImportedYear,
-      .data$LastImportedYear,
-      .data$AnalysisDate,
-      Imputation = .data$Parent,
-      Parent = .data$FileFingerprint
-    ) %>%
+      "ResultDatasourceID", "SchemeID", "SpeciesGroupID", "LocationGroupID",
+      "FirstImportedYear", "LastImportedYear", "AnalysisDate",
+      Imputation = "Parent", Parent = "FileFingerprint") %>%
     mutate(
       FileFingerprint = sapply(models, get_file_fingerprint)
-    )
+    ) -> output
 
   if (verbose) {
     message("Wintermaxima:")
@@ -71,22 +59,13 @@ prepare_analysis_aggregate_wintermax <- function(
       models[order(output$FileFingerprint)],
       function(x) {
         message("    ", get_file_fingerprint(x))
-        store_model(
-          x,
-          base = analysis.path,
-          project = "watervogels",
-          overwrite = FALSE
-        )
+        store_model(x, base = analysis_path, project = "watervogels",
+                    overwrite = FALSE)
       }
     )
   } else {
-    stored <- lapply(
-      models,
-      store_model,
-      base = analysis.path,
-      project = "watervogels",
-      overwrite = FALSE
-    )
+    stored <- lapply(models, store_model, base = analysis_path,
+                     project = "watervogels", overwrite = FALSE)
   }
   return(output)
 }
