@@ -26,7 +26,6 @@ Imports:
     plyr,
     purrr,
     rlang,
-    RODBC,
     tibble,
     tidyr
 Suggests:

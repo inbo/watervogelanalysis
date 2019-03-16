@@ -5,7 +5,6 @@ build:
         name: installation of packages not covered by jimhester/r-dependencies
         code: |
           apt-get update -y
-          apt-get install -y r-cran-RODBC
           Rscript -e 'install.packages("INLA", repos="http://www.math.ntnu.no/inla/R/stable")'
           Rscript -e 'devtools::install_bitbucket("thierry_onkelinx/n2kupdate")'
           Rscript -e 'devtools::install_bitbucket("thierry_onkelinx/n2khelper")'
