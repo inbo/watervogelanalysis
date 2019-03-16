@@ -1,74 +1,72 @@
 #' read the dataset of locations from the database
-#' @inheritParams read_specieslist
-#' @inheritParams connect_flemish_source
 #' @inheritParams prepare_dataset
+#' @inheritParams prepare_dataset_species
 #' @export
-#' @importFrom n2khelper odbc_get_id odbc_connect git_connect read_delim_git
-#' @importFrom RODBC sqlQuery
-#' @examples
-#' \dontrun{
-#' result.channel <- n2khelper::connect_result()
-#' flemish.channel <- connect_flemish_source(result.channel = result.channel)
-#' walloon.connection <- connect_walloon_source(
-#'   result.channel = result.channel,
-#'   username = "Someone",
-#'   password = "xxxx",
-#'   commit.user = "Someone",
-#'   commit.email = "some\\u0040one.com"
-#' )
-#' location <- read_location(
-#'   result.channel = result.channel,
-#'   flemish.channel = flemish.channel,
-#'   walloon.connection = walloon.connection
-#' )
-#' head(location)
-#' }
-read_location <- function(result.channel, flemish.channel, walloon.connection){
+#' @importFrom assertthat assert_that
+#' @importFrom dplyr %>% mutate filter semi_join transmute bind_rows
+#' @importFrom rlang .data
+#' @importFrom git2rdata read_vc
+#' @importFrom DBI dbGetQuery dbQuoteString
+read_location <- function(
+  result_channel, flemish_channel, walloon_repo, first_date, latest_date
+){
+  assert_that(inherits(first_date, "POSIXct"), length(first_date) == 1,
+              inherits(latest_date, "POSIXct"), length(latest_date) == 1)
+  # read Flemish data from the database
+  datasource_id <- datasource_id_flanders(result_channel = result_channel)
 
-  # read Flemisch data from the database
-  datasource.id <- datasource_id_flanders(result.channel = result.channel)
-  sql <- "
-    SELECT
-      Code AS external_code,
-      Gebiedsnaam AS description,
-      BeginDatum AS StartDate,
-      EindDatum AS EndDate,
-      ABS(EgVogelrichtlijngebied) AS SPA
-    FROM
-      tblGebied
-    WHERE
-      Actief = 1
-    ORDER BY
-      Code
-  "
-  location <- sqlQuery(
-    channel = flemish.channel,
-    query = sql,
-    stringsAsFactors = FALSE
-  )
-  location$datasource <- datasource.id
-  location$SPA[is.na(location$SPA)] <- 0
-  location$Region <- "Flanders"
+  sprintf(
+    "WITH cte_survey AS (
+      SELECT LocationWVKey
+      FROM FactAnalyseSetOccurrence
+      WHERE %s <= SampleDate AND SampleDate <= %s
+      GROUP BY LocationWVKey
+    ),
+    cte AS (
+      SELECT
+        l.LocationWVCode AS external_code,
+        l.locationWVNaam AS description,
+        l.StartDate,
+        l.EndDate,
+        CASE
+          WHEN f.LocationGroupTypeCode = 'EVRL'
+          THEN 1 ELSE 0 END AS SPA
+      FROM cte_survey AS c
+      INNER JOIN DimLocationWV AS l ON c.LocationWVKey = l.LocationWVKey
+      LEFT JOIN FactLocationGROUP AS f ON l.LocationWVCode = f.LocationWVCode
+      WHERE l.LocationWVCode <> '-'
+    )
+
+    SELECT external_code, description, StartDate, EndDate, MAX(SPA) AS SPA
+    FROM cte
+    GROUP BY external_code, description, StartDate, EndDate",
+    format(first_date, "%Y-%m-%d") %>%
+      dbQuoteString(conn = flemish_channel),
+    format(latest_date, "%Y-%m-%d") %>%
+      dbQuoteString(conn = flemish_channel)
+  ) %>%
+    dbGetQuery(conn = flemish_channel) %>%
+    mutate(
+      datasource = datasource_id,
+      SPA = pmax(0, .data$SPA, na.rm = TRUE),
+      Region = "Flanders"
+    ) -> location
+  future <- !is.na(location$EndDate) & location$EndDate > latest_date
+  location$EndDate[future] <- NA
 
   # Read Walloon data from the git repository
-  datasource.id <- datasource_id_wallonia(result.channel = result.channel)
-  walloon.location <- read_delim_git(
-    file = "location.txt",
-    connection = walloon.connection
-  )
-  if (class(walloon.location) == "logical") {
-    Encoding(location$Description) <- "UTF-8"
-    return(location)
-  }
-  walloon.location <- walloon.location[, c("LocationID", "LocationName", "SPA")]
-  colnames(walloon.location) <- c("external_code", "description", "SPA")
-  walloon.location$SPA[is.na(walloon.location$SPA)] <- 0
-  walloon.location$StartDate <- NA
-  walloon.location$EndDate <- NA
-  walloon.location$datasource <- datasource.id
-  walloon.location$Region <- "Wallonia"
-  location <- rbind(location, walloon.location)
-  Encoding(location$description) <- "UTF-8"
-
-  return(location)
+  read_vc(file = "visit", root = walloon_repo) %>%
+    filter(first_date <= .data$Date, .data$Date <= latest_date) %>%
+    semi_join(
+      x = read_vc(file = "location", root = walloon_repo),
+      by = "LocationID"
+    ) %>%
+    transmute(
+      external_code = .data$LocationID,
+      description = .data$LocationName,
+      .data$SPA,
+      datasource = datasource_id_wallonia(result_channel = result_channel),
+      Region = "Wallonia"
+    ) %>%
+    bind_rows(location)
 }

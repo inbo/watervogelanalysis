@@ -4,10 +4,10 @@
 \alias{scheme_id}
 \title{Get the id of the scheme}
 \usage{
-scheme_id(result.channel)
+scheme_id(result_channel)
 }
 \arguments{
-\item{result.channel}{An open RODBC connection to the results database}
+\item{result_channel}{An open RODBC connection to the results database}
 }
 \description{
 Get the id of the scheme

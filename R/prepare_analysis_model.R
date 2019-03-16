@@ -2,25 +2,21 @@
 #' @inheritParams prepare_analysis
 #' @param aggregation the output of \code{prepare_analysis_aggregate}
 #' @export
-#' @importFrom assertthat assert_that has_name is.flag noNA
-#' @importFrom n2kanalysis n2k_model_imputed
-#' @importFrom dplyr arrange_
-prepare_analysis_model <- function(
-  aggregation,
-  analysis.path,
-  seed = 19790402,
-  verbose = TRUE
-) {
+#' @importFrom assertthat assert_that is.flag noNA
+#' @importFrom n2kanalysis n2k_model_imputed get_file_fingerprint store_model
+#' @importFrom dplyr %>% arrange left_join
+#' @importFrom rlang .data
+prepare_analysis_model <- function(aggregation, analysis_path, seed = 19790402,
+                                   verbose = TRUE) {
   set.seed(seed)
-  assert_that(inherits(aggregation, "data.frame"))
-  assert_that(is.flag(verbose))
-  assert_that(noNA(verbose))
+  assert_that(inherits(aggregation, "data.frame"), is.flag(verbose),
+              noNA(verbose))
 
   requireNamespace("INLA", quietly = TRUE)
   # yearly index
   if (verbose) {
     message("Yearly indices")
-    aggregation <- arrange_(aggregation, ~FileFingerprint)
+    aggregation <- arrange(aggregation, .data$FileFingerprint)
   }
   yearly <- lapply(
     seq_along(aggregation$FileFingerprint),
@@ -59,17 +55,10 @@ prepare_analysis_model <- function(
         mutate = list(cYear = "Year - max(Year)"),
         model.args = list(family = "nbinomial")
       )
-      store_model(
-        object,
-        base = analysis.path,
-        project = "watervogels",
-        overwrite = FALSE
-      )
-      data.frame(
-        Fingerprint = get_file_fingerprint(object),
-        Parent = aggregation[i, "FileFingerprint"],
-        stringsAsFactors = FALSE
-      )
+      store_model(object, base = analysis_path, project = "watervogels",
+                  overwrite = FALSE)
+      tibble(Fingerprint = get_file_fingerprint(object),
+             Parent = aggregation[i, "FileFingerprint"])
     }
   )
   if (verbose) {
@@ -105,17 +94,10 @@ prepare_analysis_model <- function(
         mutate = list(cYear = "Year - max(Year)"),
         model.args = list(family = "nbinomial")
       )
-      store_model(
-        object,
-        base = analysis.path,
-        project = "watervogels",
-        overwrite = FALSE
-      )
-      data.frame(
-        Fingerprint = get_file_fingerprint(object),
-        Parent = aggregation[i, "FileFingerprint"],
-        stringsAsFactors = FALSE
-      )
+      store_model(object, base = analysis_path, project = "watervogels",
+                  overwrite = FALSE)
+      tibble(Fingerprint = get_file_fingerprint(object),
+             Parent = aggregation[i, "FileFingerprint"])
     }
   )
   if (verbose) {
@@ -136,7 +118,7 @@ prepare_analysis_model <- function(
         formula = "~ cYear + f(fMonth, model = \"iid\")",
         first.imported.year = aggregation[i, "FirstImportedYear"],
         last.imported.year = aggregation[i, "LastImportedYear"],
-        duration = 10,
+        duration = 12,
         last.analysed.year = aggregation[i, "LastAnalysedYear"],
         analysis.date = aggregation[i, "AnalysisDate"],
         seed = seed,
@@ -148,72 +130,15 @@ prepare_analysis_model <- function(
         extractor =  function(model){
           model$summary.fixed[, c("mean", "sd")]
         },
-        filter = list("Year > max(Year) - 10"),
+        filter = list("Year > max(Year) - 12"),
         mutate = list(cYear = "Year - max(Year)"),
         model.args = list(family = "nbinomial")
       )
-      store_model(
-        object,
-        base = analysis.path,
-        project = "watervogels",
-        overwrite = FALSE
-      )
-      data.frame(
-        Fingerprint = get_file_fingerprint(object),
-        Parent = aggregation[i, "FileFingerprint"],
-        stringsAsFactors = FALSE
-      )
+      store_model(object, base = analysis_path, project = "watervogels",
+                  overwrite = FALSE)
+      tibble(Fingerprint = get_file_fingerprint(object),
+             Parent = aggregation[i, "FileFingerprint"])
     }
   )
-  if (verbose) {
-    message("All-time maximum")
-    aggregation <- arrange_(aggregation, ~FileFingerprint)
-  }
-  tot_max <- lapply(
-    seq_along(aggregation$FileFingerprint),
-    function(i){
-      if (verbose) {
-        message("  ", aggregation[i, "FileFingerprint"])
-      }
-      object <- n2k_model_imputed(
-        result.datasource.id = aggregation[i, "ResultDatasourceID"],
-        scheme.id = aggregation[i, "SchemeID"],
-        species.group.id = aggregation[i, "SpeciesGroupID"],
-        location.group.id = aggregation[i, "LocationGroupID"],
-        model.type = "all-time maximum: Total ~ 1",
-        formula = "~ 1",
-        first.imported.year = aggregation[i, "FirstImportedYear"],
-        last.imported.year = aggregation[i, "LastImportedYear"],
-        duration = aggregation[i, "Duration"],
-        last.analysed.year = aggregation[i, "LastAnalysedYear"],
-        analysis.date = aggregation[i, "AnalysisDate"],
-        seed = seed,
-        parent = aggregation[i, "FileFingerprint"],
-        parent.status = aggregation[i, "Status"],
-        parent.statusfingerprint = aggregation[i, "StatusFingerprint"],
-        model.fun = function(form, data, ...){
-          dplyr::summarise(
-            data,
-            Estimate = max(.data$Imputed),
-            SE = 0
-          )
-        },
-        package = "dplyr",
-        extractor =  function(x){x},
-        model.args = list()
-      )
-      store_model(
-        object,
-        base = analysis.path,
-        project = "watervogels",
-        overwrite = FALSE
-      )
-      data.frame(
-        Fingerprint = get_file_fingerprint(object),
-        Parent = aggregation[i, "FileFingerprint"],
-        stringsAsFactors = FALSE
-      )
-    }
-  )
-  bind_rows(yearly, longterm, shortterm, tot_max)
+  bind_rows(yearly, longterm, shortterm)
 }

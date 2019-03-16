@@ -1,180 +1,121 @@
 #' Read the species for the raw datasource, save them to the results database
 #' @return the species group constraint information
-#' @inheritParams read_specieslist
+#' @inheritParams prepare_dataset
 #' @inheritParams connect_flemish_source
 #' @inheritParams prepare_dataset
+#' @param first_date earliest records to take into account
+#' @param latest_date until which date should we import the species list
 #' @export
 #' @importFrom assertthat assert_that is.string
-#' @importFrom n2khelper get_nbn_key_multi read_delim_git write_delim_git
-#' @importFrom dplyr %>% mutate_ select_ inner_join filter_ bind_rows transmute_ distinct_ arrange_ transmute
+#' @importFrom git2rdata write_vc
+#' @importFrom dplyr %>% mutate select inner_join bind_rows transmute distinct
 #' @importFrom n2kupdate store_species_group_species
 #' @importFrom rlang .data
-prepare_dataset_species <- function(
-  raw.connection,
-  result.channel,
-  flemish.channel,
-  attribute.connection,
-  walloon.connection,
-  nbn.channel,
-  scheme.id
-){
-  assert_that(is.string(scheme.id))
+#' @importFrom tibble tibble
+prepare_dataset_species <- function(raw_repo, result_channel, flemish_channel,
+  walloon_repo, scheme_id, first_date, latest_date) {
+  assert_that(is.string(scheme_id))
 
-  # read Flemish species list
-  species.list <- read_specieslist(
-    result.channel = result.channel,
-    flemish.channel = flemish.channel,
-    attribute.connection = attribute.connection,
-    limit = TRUE
-  )
+  species_list <- read_specieslist(
+    result_channel = result_channel, flemish_channel = flemish_channel,
+    walloon_repo = walloon_repo, first_date = first_date,
+    latest_date = latest_date)
 
-  species <- get_nbn_key_multi(
-    species = species.list$species,
-    orders = c("la", "nl", "en"),
-    channel = nbn.channel
-  ) %>%
-    mutate_(
-      Description = ~DutchName
-    )
-
-  species.constraint <- species %>%
-    select_(~ExternalCode, ~NBNKey) %>%
-    inner_join(
-      species.list$species.constraint,
-      by = "ExternalCode"
-    ) %>%
-    select_(~-ExternalCode)
-
-  # read Walloon species list
-  source.species <- read_delim_git(
-    file = "species.txt",
-    connection = walloon.connection
-  ) %>%
-    filter_(~NBNKey %in% species.constraint$NBNKey) %>%
-    mutate_(
-      ExternalCode = ~NBNKey,
-      Description = ~ScientificName,
-      DatasourceID = ~datasource_id_wallonia(
-        result.channel = result.channel
-      ),
-      TableName = ~"species.txt",
-      ColumnName = ~"NBNKey",
-      Datatype = ~"character"
-    ) %>%
-  bind_rows(
-    species %>%
-      transmute_(
-        ExternalCode = ~as.character(ExternalCode),
-        ~DatasourceID,
-        ~Description,
-        ~NBNKey,
-        ~TableName,
-        ~ColumnName,
-        ~Datatype
-      )
-  )
-  export_datafield <- source.species %>%
-    distinct_(~DatasourceID, ~TableName, ~ColumnName, ~Datatype) %>%
-    transmute_(
-      local_id = ~DatasourceID,
-      datasource = ~DatasourceID,
-      table_name = ~TableName,
-      primary_key = ~ColumnName,
-      datafield_type = ~Datatype
-    )
-
-  export_sourcespecies <- source.species %>%
-    transmute_(
-      local_id = ~ExternalCode,
-      description = ~Description,
-      datafield_local_id = ~DatasourceID,
-      external_code = ~ExternalCode
-    )
-
-  export_species <- species %>%
+  species_list$flanders %>%
     transmute(
-      local_id = .data$NBNKey,
-      scientific_name = .data$ScientificName,
-      nbn_key = .data$NBNKey,
-      nl = .data$DutchName,
-      en = .data$EnglishName,
-      fr = .data$FrenchName
-    )
+      ExternalCode = .data$TaxonWVKey,
+      Description = .data$ScientificName,
+      .data$NBNKey, DatasourceID = datasource_id_flanders(result_channel),
+      TableName = "DimTaxonWV", ColumnName = "TaxonWVKey", Datatype = "integer",
+      local_id = paste("f", .data$TaxonWVKey)
+    ) %>%
+    bind_rows(
+      species_list$wallonia %>%
+        transmute(
+          ExternalCode = .data$euringcode, Description = .data$ScientificName,
+          .data$NBNKey, DatasourceID = datasource_id_wallonia(result_channel),
+          TableName = "species", ColumnName = "NBNKey", Datatype = "character",
+          local_id = paste("w", .data$euringcode)
+        )
+    ) -> source_species
+
+  source_species %>%
+    distinct(
+      .data$DatasourceID, .data$TableName, .data$ColumnName, .data$Datatype
+    ) %>%
+    transmute(
+      local_id = .data$DatasourceID, datasource = .data$DatasourceID,
+      table_name = .data$TableName, primary_key = .data$ColumnName,
+      datafield_type = .data$Datatype
+    ) -> export_datafield
+  source_species %>%
+    select("local_id", description = "Description",
+           datafield_local_id = "DatasourceID", external_code = "ExternalCode"
+    ) -> export_sourcespecies
+
+  species_list$flanders %>%
+    select("NBNKey", scientific_name = "ScientificName", "nl") -> species
+  species %>%
+    transmute(
+      local_id = .data$NBNKey, .data$scientific_name,
+      nbn_key = .data$NBNKey, .data$nl
+    ) -> export_species
 
   # \u00E7 is the UTF-8 code for c with cedilla
-  export_language <- data.frame(
+  export_language <- tibble(
     code = c("nl", "en", "fr"),
-    description = c("Nederland", "English", "Fran\u00E7ais"),
-    stringsAsFactors = FALSE
+    description = c("Nederlands", "English", "Fran\u00E7ais")
   )
 
-  export_speciesgroup <- species %>%
-    transmute_(
-      local_id = ~NBNKey,
-      description = ~DutchName,
-      scheme = ~scheme.id
-    )
+  species %>%
+    select(local_id = "NBNKey", description = "nl") %>%
+    mutate(scheme = scheme_id) -> export_speciesgroup
 
   export_speciesgroupspecies <- species %>%
-    transmute_(
-      species_local_id = ~NBNKey,
-      species_group_local_id = ~NBNKey
-    )
+    transmute(species_local_id = .data$NBNKey,
+              species_group_local_id = .data$NBNKey)
 
-  export_sourcespeciesspecies <- source.species %>%
-    select_(
-      species_local_id = ~NBNKey,
-      source_species_local_id = ~ExternalCode
+  export_sourcespeciesspecies <- source_species %>%
+    select(
+      species_local_id = "NBNKey", source_species_local_id = "local_id"
     )
 
   stored <- store_species_group_species(
-    species = export_species,
-    language = export_language,
+    species = export_species, language = export_language,
     source_species = export_sourcespecies,
     source_species_species = export_sourcespeciesspecies,
-    datafield = export_datafield,
-    species_group = export_speciesgroup,
+    datafield = export_datafield, species_group = export_speciesgroup,
     species_group_species = export_speciesgroupspecies,
-    conn = result.channel$con
+    conn = result_channel$con
   )
 
-
-  speciesgroupspecies.hash <- export_species %>%
-    select_(~nbn_key, species_local_id = ~local_id) %>%
+  export_species %>%
+    select("nbn_key", species_local_id = "local_id") %>%
     inner_join(
       stored$species %>%
-        select_(Species = ~fingerprint, ~nbn_key),
+        select(species = "fingerprint", "nbn_key"),
       by = "nbn_key"
     ) %>%
-    inner_join(
-      export_speciesgroupspecies,
-      by = "species_local_id"
-    ) %>%
+    inner_join(export_speciesgroupspecies, by = "species_local_id") %>%
     inner_join(
       stored$species_group %>%
-        select_(
-          species_group_local_id = ~local_id,
-          SpeciesGroup = ~fingerprint
+        select(
+          species_group_local_id = "local_id", speciesgroup = "fingerprint"
         ),
       by = "species_group_local_id"
     ) %>%
-    select_(~SpeciesGroup, ~Species) %>%
-    arrange_(~SpeciesGroup, ~Species) %>%
-    write_delim_git(
-      file = "speciesgroupspecies.txt",
-      connection = raw.connection
-    )
+    select("speciesgroup", "species") %>%
+    write_vc(
+      file = "speciesgroupspecies", sorting = c("speciesgroup", "species"),
+      stage = TRUE, root = raw_repo
+    ) -> speciesgroupspecies_hash
 
-  species.constraint <- source.species %>%
-    select_(~NBNKey, ~ExternalCode, ~DatasourceID) %>%
+  source_species %>%
+    select("NBNKey", "ExternalCode", "DatasourceID") %>%
     inner_join(
       stored$species %>%
-        select_(~nbn_key, SpeciesID = ~fingerprint),
+        select("nbn_key", species_id = "fingerprint"),
       by = c("NBNKey" = "nbn_key")
-    ) %>%
-    inner_join(
-      species.constraint,
-      by = "NBNKey"
     ) %>%
     inner_join(
       export_speciesgroupspecies,
@@ -182,11 +123,12 @@ prepare_dataset_species <- function(
     ) %>%
     inner_join(
       stored$species_group %>%
-        select_(species_group_local_id = ~local_id, SpeciesGroupID = ~fingerprint),
+        select(species_group_local_id = "local_id",
+               species_group_id = "fingerprint"),
       by = "species_group_local_id"
     ) %>%
-    select_(~-NBNKey, ~-species_group_local_id)
+    select(-"NBNKey", -"species_group_local_id") -> final_list
 
-  attr(species.constraint, "speciesgroupspecies.hash") <- speciesgroupspecies.hash
-  return(species.constraint)
+  attr(final_list, "speciesgroupspecies_hash") <- speciesgroupspecies_hash
+  return(final_list)
 }

@@ -8,123 +8,45 @@
 #'  \item The location is 'active' and the observation date is within the 'active' period of the location
 #'  \item The observation is between october and march
 #'}
-#' @param species.id The id of the species
-#' @param first.winter The oldest winter from which the observation are relevant. Observation prior to \code{first.winter} are ignored
-#' @param last.winter The most recent winter from which the observation are relevant. Observation after \code{last.winter} are ignored
-#' @param species.covered A vector with codes of relevant methodes
-#' @inheritParams read_specieslist
+#' @param species_id The id of the species
+#' @inheritParams prepare_dataset
 #' @return A \code{data.frame} with observations. \code{Complete= 1} indicates that the entire location was surveyed.
 #' @export
-#' @importFrom RODBC sqlQuery
 #' @importFrom assertthat assert_that is.count
-#' @examples
-#' \dontrun{
-#' observation <- read_observation(
-#'   species.id = 4860,
-#'   first.winter = 1992,
-#'   species.covered = c("w", "weg", "wegm", "wem", "st")
-#' )
-#' head(observation)
-#' }
-read_observation <- function(
-  species.id,
-  first.winter,
-  last.winter,
-  species.covered,
-  flemish.channel
-){
-  assert_that(is.count(species.id))
-  assert_that(is.count(first.winter))
-  assert_that(is.count(last.winter))
-  species.id <- as.integer(species.id)
-  first.winter <- as.integer(first.winter)
-  last.winter <- as.integer(last.winter)
+#' @importFrom DBI dbQuoteString dbQuoteLiteral dbGetQuery
+#' @importFrom dplyr %>% group_by arrange slice ungroup desc
+#' @importFrom rlang .data
+read_observation <- function(species_id, first_year, latest_year, flemish_channel) {
+  assert_that(is.count(species_id), is.count(first_year), is.count(latest_year))
+  species_id <- as.integer(species_id)
+  latest_year <- as.integer(latest_year)
 
-  speciescovered.sql <- paste0(
-    "SoortenTellingCode IN (",
-    paste0(
-      paste0("'", species.covered, "'"),
-      collapse = ", "
-    ),
-    ")"
-  )
-  sql <- paste0("
+  sprintf("
     SELECT
-      ObservationID,
-      LocationID,
-      Date,
-      Complete,
-      Count
-    FROM
-        (
-          SELECT
-            WaarnemingID AS SpeciesObservationID,
-            Aantal AS Count
-          FROM
-            tblWaarnemingSoort
-          WHERE
-            EuringNummer = ", species.id, "
-        ) AS counts
-      RIGHT JOIN
-        (
-          SELECT
-            ID AS ObservationID,
-            TelDatum AS Date,
-            CASE
-              WHEN UPPER(TelvolledigheidCode) = 'O'
-              THEN 0
-              ELSE 1
-            END AS Complete,
-            location.LocationID
-          FROM
-              tblWaarneming
-            INNER JOIN
-              (
-                SELECT
-                  Code AS LocationID,
-                  BeginDatum AS StartDate,
-                  EindDatum AS EndDate
-                FROM
-                  tblGebied
-                WHERE
-                  Actief = 1
-              ) AS location
-            ON
-              tblWaarneming.GebiedCode = location.LocationID
-          WHERE
-            MidmaandelijkseTelling = 1 AND
-            Gevalideerd = 1 AND
-            ( -- use all observations except those which are not observed
-              NOT TelvolledigheidCode = 'N' OR
-              TelvolledigheidCode IS NULL
-            ) AND
-            ( -- only observations from october until march
-              datepart(m, TelDatum) <= 3 OR
-              datepart(m, TelDatum) >= 10
-            ) AND ",
-            speciescovered.sql, " AND
-            TelDatum >= '", first.winter - 1, "/10/01' AND\n", #nolint
-"            TelDatum <= '", last.winter, "/03/31' AND\n", #nolint
-"            (
-              TelDatum >= StartDate OR
-              StartDate IS NULL
-            ) AND (
-              TelDatum <= EndDate OR
-              EndDate IS NULL
-            )
-        ) AS observation
-      ON
-        counts.SpeciesObservationID = observation.ObservationID
-  "
-  )
-  observation <- sqlQuery(
-    channel = flemish.channel,
-    query = sql,
-    stringsAsFactors = FALSE
-  )
-
-  observation$Count[is.na(observation$Count)] <- 0
-
-  observation <- observation[order(observation$ObservationID), ]
-  return(observation)
+      f.OccurrenceKey AS ObservationID,
+      YEAR(f.SampleDate) + IIF(MONTH(f.SampleDate) >= 7, 1, 0) AS Year,
+      MONTH(f.SampleDate) AS Month,
+      l.LocationWVCode AS external_code,
+      f.TaxonCount AS Count,
+      'FactAnalyseSetOccurrence' AS TableName,
+      CASE WHEN s.CoverageCode = 'V' THEN 1
+           ELSE 0 END AS Complete
+    FROM FactAnalyseSetOccurrence AS f
+    INNER JOIN DimLocationWV AS l ON l.locationwvkey = f.locationwvkey
+    INNER JOIN DimAnalyseSet AS a ON  a.analysesetkey = f.analysesetkey
+    INNER JOIN DimSample AS s ON f.samplekey = s.samplekey
+    WHERE
+      %s <= f.SampleDate AND f.SampleDate <= %s AND f.TaxonWVKey = %s AND
+      analysesetcode LIKE 'MIDMA%%' AND s.CoverageCode IN ('V', 'O')",
+    sprintf("%i-10-01", first_year - 1) %>%
+      dbQuoteString(conn = flemish_channel),
+    sprintf("%i-06-30", latest_year) %>%
+      dbQuoteString(conn = flemish_channel),
+    dbQuoteLiteral(flemish_channel, species_id)
+  ) %>%
+    dbGetQuery(conn = flemish_channel) %>%
+    group_by(.data$Year, .data$Month, .data$external_code) %>%
+    arrange(desc(.data$Count)) %>%
+    slice(1) %>%
+    ungroup()
 }

@@ -1,59 +1,43 @@
 #' Read the Wallon observations from a species
 #'
-#' All available imported data is used. The only constraint is that the observation are not older than \code{first.winter} and originate form november up to februari.
+#' All available imported data is used.
 #' @inheritParams read_observation
 #' @inheritParams prepare_dataset
 #' @export
-#' @importFrom n2khelper read_delim_git
+#' @importFrom git2rdata read_vc
 #' @importFrom lubridate round_date year
-#' @importFrom assertthat assert_that is.string is.count
-#' @importFrom dplyr %>% filter_ mutate_ full_join transmute_ arrange_
-read_observation_wallonia <- function(
-  species.id,
-  first.winter,
-  last.winter,
-  walloon.connection
-){
-  assert_that(is.string(species.id))
-  assert_that(is.count(first.winter))
-  assert_that(is.count(last.winter))
-  first.winter <- as.integer(first.winter)
-  last.winter <- as.integer(last.winter)
+#' @importFrom assertthat assert_that is.count
+#' @importFrom dplyr %>% filter mutate left_join transmute
+#' @importFrom rlang .data
+read_observation_wallonia <- function(species_id, first_year, latest_year, walloon_repo) {
+  assert_that(is.count(species_id), is.count(first_year), is.count(latest_year))
+  first_year <- as.integer(first_year)
+  latest_year <- as.integer(latest_year)
 
-  data <- read_delim_git(file = "data.txt", connection = walloon.connection) %>%
-    filter_(~NBNKey == species.id)
+  read_vc(file = "data", root = walloon_repo) %>%
+    filter(.data$euringcode == species_id) -> data
 
   if (nrow(data) == 0) {
     return(NULL)
   }
 
-  observation <- read_delim_git(
-    file = "visit.txt", connection = walloon.connection
-  ) %>%
-    mutate_(
-      Date = ~as.Date(Date) %>%
-        as.POSIXct(),
-      Month = ~format(Date, "%m"),
-      Winter = ~round_date(Date, unit = "year") %>%
-        year()
+  read_vc(file = "visit", root = walloon_repo) %>%
+    mutate(
+      Month = as.integer(format(.data$Date, "%m")),
+      Year = as.integer(format(.data$Date, "%Y")) +
+        as.integer(.data$Month >= 7)
     ) %>%
-    filter_(
-      ~Month %in% c("11", "12", "01", "02"),
-      ~Winter >= first.winter,
-      ~Winter <= last.winter
-    ) %>%
-    full_join(
+    filter(first_year <= .data$Year, .data$Year <= latest_year) %>%
+    left_join(
       data,
       by = "OriginalObservationID"
     ) %>%
-    transmute_(
-      ~ObservationID,
-      ~LocationID,
-      ~Date,
-      Count = ~ifelse(is.na(Count), 0, Count),
-      Complete = ~1
-    ) %>%
-    arrange_(~ObservationID)
-
-  return(observation)
+    transmute(
+      ObservationID = ifelse(is.na(.data$Count), .data$ObservationID.x,
+                             .data$ObservationID.y),
+      TableName = ifelse(is.na(.data$Count), "visit", "data"),
+      external_code = .data$LocationID, .data$Year, .data$Month,
+      Count = pmax(0, .data$Count, na.rm = TRUE),
+      Complete = 1
+    )
 }

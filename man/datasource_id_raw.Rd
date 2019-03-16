@@ -4,10 +4,10 @@
 \alias{datasource_id_raw}
 \title{Get the id of the data source for the raw data}
 \usage{
-datasource_id_raw(result.channel)
+datasource_id_raw(result_channel)
 }
 \arguments{
-\item{result.channel}{An open RODBC connection to the results database}
+\item{result_channel}{An open RODBC connection to the results database}
 }
 \description{
 The raw data is the combination of the Flemish and Walloon source data

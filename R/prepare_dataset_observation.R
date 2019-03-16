@@ -1,337 +1,271 @@
 #' Read the observations for the raw datasource, save them to the git repository and the results database
-#' @param this.constraint the constraints for this species group
+#' @param this_species the species in this species group
 #' @param location a data frame with the full list of locations
 #' @param location_group_id the ID of the location group
 #' @param dataset a data frame with a
-#' @inheritParams read_specieslist
 #' @inheritParams prepare_dataset
 #' @inheritParams connect_flemish_source
 #' @export
-#' @importFrom n2khelper check_dataframe_variable odbc_get_id odbc_get_multi_id check_id read_delim_git
-#' @importFrom lubridate round_date year month
-#' @importFrom assertthat assert_that is.string
+#' @importFrom git2rdata read_vc write_vc
+#' @importFrom assertthat assert_that is.string has_name
 #' @importFrom utils sessionInfo
-#' @importFrom dplyr %>% distinct_ count_ filter_ mutate_ bind_rows select_ inner_join arrange_ transmute_ bind_rows semi_join
-#' @importFrom n2kupdate store_analysis_dataset get_analysis_version store_anomaly store_observation
+#' @importFrom dplyr %>% distinct count filter mutate bind_rows select inner_join arrange transmute pull
+#' @importFrom tidyr complete
+#' @importFrom n2kupdate store_analysis_dataset store_observation store_datafield
+#' @importFrom n2kanalysis get_analysis_version
+#' @importFrom digest sha1
+#' @importFrom purrr pmap_chr
+#' @importFrom rlang .data
 prepare_dataset_observation <- function(
-  this.constraint,
-  location,
-  location_group_id,
-  flemish.channel,
-  walloon.connection,
-  result.channel,
-  raw.connection,
-  dataset
+  this_species, location, location_group_id, flemish_channel, walloon_repo,
+  result_channel, raw_repo, dataset
 ){
-  check_dataframe_variable(
-    df = this.constraint,
-    variable = c(
-      "Firstyear", "ExternalCode", "DatasourceID", "SpeciesCovered",
-      "SpeciesGroupID"
-    ),
-    name = "this.constraint"
+  assert_that(
+    inherits(this_species, "data.frame"), inherits(location, "data.frame"),
+    has_name(this_species, "DatasourceID"),
+    has_name(this_species, "ExternalCode"),
+    has_name(location, "fingerprint"), has_name(location, "external_code"),
+    has_name(location, "datafield"), is.string(location_group_id)
   )
-  check_dataframe_variable(
-    df = location,
-    variable = c("fingerprint", "external_code", "datafield"),
-    name = "location"
-  )
-  external <- this.constraint %>%
-    distinct_(~DatasourceID, ~ExternalCode) %>%
-    count_(~DatasourceID) %>%
-    filter_(~n > 1)
-  if (nrow(external)) {
+  if (anyDuplicated(this_species[, c("DatasourceID", "ExternalCode")])) {
     stop("Each datasource must use just one ExternalCode")
   }
-  external <- this.constraint %>%
-    distinct_(~SpeciesGroupID, ~Firstyear)
-  if (nrow(external) != 1) {
-    stop(
-      "this.constraint must contain just one SpeciesGroupID and one Firstyear"
-    )
-  }
-  assert_that(is.string(location_group_id))
 
-  metadata <- read_delim_git(
-    file = "metadata.txt",
-    connection = raw.connection
-  )
+  read_vc(file = "metadata", root = raw_repo) %>%
+    filter(.data$species_id == unique(this_species$species_id)) -> metadata
 
-  import.date <- as.POSIXct(Sys.time())
-  flanders.id <- datasource_id_flanders(result.channel = result.channel)
-  observation.flemish <- read_observation(
-    species.id = this.constraint %>%
-      filter_(~DatasourceID == flanders.id) %>%
-      distinct_(~ExternalCode) %>%
-      mutate_(ExternalCode = ~as.integer(ExternalCode)) %>%
-      unlist(),
-    first.winter = unique(this.constraint$Firstyear),
-    last.winter = unique(this.constraint$Lastyear),
-    species.covered = unique(this.constraint$SpeciesCovered),
-    flemish.channel = flemish.channel
+  import_date <- as.POSIXct(Sys.time())
+  flanders_id <- datasource_id_flanders(result_channel = result_channel)
+  read_observation(
+    species_id = this_species %>%
+      filter(.data$DatasourceID == flanders_id) %>%
+      mutate(ExternalCode = as.integer(.data$ExternalCode)) %>%
+      dplyr::pull(.data$ExternalCode),
+    first_year = metadata$first_imported_year,
+    latest_year = metadata$last_imported_year,
+    flemish_channel = flemish_channel
   ) %>%
-    mutate_(DatasourceID = ~flanders.id)
+    mutate(
+      DatasourceID = flanders_id,
+      ObservationID = as.character(.data$ObservationID)
+    ) -> observation_flemish
 
-  wallonia.id <- datasource_id_wallonia(result.channel = result.channel)
-  if (any(this.constraint$DatasourceID == wallonia.id)) {
-    observation.walloon <- read_observation_wallonia(
-      species.id = this.constraint %>%
-        filter_(~DatasourceID == wallonia.id) %>%
-        distinct_(~ExternalCode) %>%
-        unlist(),
-      first.winter = unique(this.constraint$Firstyear),
-      last.winter = unique(this.constraint$Lastyear),
-      walloon.connection = walloon.connection
+  wallonia_id <- datasource_id_wallonia(result_channel = result_channel)
+  if (wallonia_id %in% this_species$DatasourceID) {
+    observation_walloon <- read_observation_wallonia(
+      species_id = this_species %>%
+        filter(.data$DatasourceID == wallonia_id) %>%
+        dplyr::pull(.data$ExternalCode),
+      first_year = metadata$first_imported_year,
+      latest_year = metadata$last_imported_year,
+      walloon_repo = walloon_repo
     )
   } else {
-    observation.walloon <- NULL
+    observation_walloon <- NULL
   }
-  if (is.null(observation.walloon)) {
-    observation <- observation.flemish
+  if (is.null(observation_walloon)) {
+    observation <- observation_flemish
   } else {
     observation <- bind_rows(
-      observation.flemish %>%
-        mutate_(
-          ObservationID = ~as.character(ObservationID),
-          LocationID = ~as.character(LocationID)
-        ),
-      observation.walloon %>%
-        mutate_(DatasourceID = ~wallonia.id)
+      observation_flemish,
+      observation_walloon %>%
+        mutate(DatasourceID = wallonia_id)
     )
   }
 
-  result <- observation %>%
-    mutate_(
-      LocationID = ~as.character(LocationID),
-      Year = ~round_date(Date, unit = "year") %>%
-        year(),
-      fMonth = ~ month(Date) %>%
-        as.factor()
-    ) %>%
-    select_(~-Date) %>%
+  observation %>%
     inner_join(
       location %>%
-        select_(~external_code, ~fingerprint, ~datasource),
-      by = c(
-        "LocationID" = "external_code",
-        "DatasourceID" = "datasource"
-      )
+        select("external_code", DatasourceID = "datasource",
+               LocationID = "fingerprint"),
+      by = c("external_code", "DatasourceID")
     ) %>%
-    select_(
-      ~DatasourceID,
-      ~ObservationID,
-      LocationID = ~fingerprint,
-      ~Year,
-      ~fMonth,
-      ~Count,
-      ~Complete
+    select("DatasourceID", "TableName", "ObservationID", "Year", "Month",
+           "LocationID", "Count", "Complete") %>%
+    select_relevant_import() %>%
+    mutate(
+      Month = factor(.data$Month, levels = c(1:3, 10:12),
+                     labels = c("Januari", "Februari", "March", "October",
+                                "November", "December")),
+      LocationID = factor(.data$LocationID)
     ) %>%
-    select_relevant_import()
-  result <- expand.grid(
-    LocationID = unique(result$LocationID),
-    Year = unique(result$Year),
-    fMonth = unique(result$fMonth),
-    stringsAsFactors = FALSE
-  ) %>%
-    left_join(
-      result,
-      by = c("LocationID", "Year", "fMonth")
+    complete(.data$Year, .data$Month, .data$LocationID) %>%
+    mutate(
+      DatasourceID = ifelse(is.na(.data$DatasourceID),
+                     metadata$results_datasource_id[1], .data$DatasourceID),
+      TableName = ifelse(is.na(.data$TableName), "observation",
+                         .data$TableName)) -> result
+  if (nrow(result) == 0) {
+    observation_sha <- NA
+    analysis_status <- "No data"
+    model_set <- data.frame(local_id = "import", description = "import",
+      first_year = metadata$first_imported_year,
+      last_year = metadata$last_imported_year,
+      duration = metadata$last_imported_year - metadata$first_imported_year + 1,
+      stringsAsFactors = FALSE)
+    analysis_version <- get_analysis_version(sessionInfo())
+    analysis <- data.frame(
+      model_set_local_id = "import", location_group = location_group_id,
+      species_group = this_species$species_group_id[1],
+      last_year = metadata$last_imported_year,
+      seed = sample(.Machine$integer.max, 1),
+      analysis_version = attr(analysis_version, "AnalysisVersion") %>%
+        unname(),
+      analysis_date = import_date, status = analysis_status,
+      stringsAsFactors = FALSE
     ) %>%
-    mutate_(
-      DatasourceID = ~ifelse(
-        is.na(DatasourceID),
-        metadata$ResultDatasourceID,
-        DatasourceID
-      ),
-      ObservationID = ~as.character(ObservationID)
-    ) %>%
-    rowwise() %>%
-    mutate_(
-      ObservationID = ~ifelse(
-        is.na(ObservationID),
-        sha1(c(
-          datasource = DatasourceID,
-          location = as.character(LocationID),
-          year = as.character(Year),
-          month = as.character(fMonth)
+      mutate(file_fingerprint = sha1(list(
+          dataset = dataset %>%
+            arrange(.data$fingerprint) %>%
+            select("fingerprint", "datasource", "filename", "import_date"),
+          model_set = model_set %>%
+            select("description","first_year", "last_year", "duration"),
+          location_group = .data$location_group,
+          species_group = .data$species_group, last_year = .data$last_year,
+          seed = .data$seed, analysis_date = .data$analysis_date
         )),
-        ObservationID
+        status_fingerprint = sha1(list(
+          file_fingerprint = .data$file_fingerprint, status = .data$status,
+          analysis_version = .data$analysis_version
+        ))
       )
+    analysis_dataset <- data.frame(analysis = analysis$file_fingerprint,
+                                   dataset = dataset$fingerprint,
+                                   stringsAsFactors = FALSE)
+    store_analysis_dataset(analysis = analysis, model_set = model_set,
+                           analysis_version = analysis_version, dataset = dataset,
+                           analysis_dataset = analysis_dataset,
+                           conn = result_channel$con)
+
+    return(analysis$file_fingerprint)
+  }
+  result %>%
+    filter(is.na(.data$ObservationID)) %>%
+    mutate(ObservationID = pmap_chr(
+      list(d = .data$DatasourceID, y = .data$Year, m = .data$Month,
+           l = .data$LocationID),
+      function(d, y, m, l) {
+        sha1(list(d, y, m, l))
+      }
+    )) %>%
+    bind_rows(
+      result %>%
+        filter(!is.na(.data$ObservationID))
     ) %>%
-    ungroup() %>%
-    mutate_(
-      local_id = ~paste(DatasourceID, ObservationID)
-    )
-  datafield <- result %>%
-    distinct_(~DatasourceID) %>%
+    mutate(local_id = paste(.data$DatasourceID, .data$TableName,
+                            .data$ObservationID),
+           datafield_local_id = paste(.data$DatasourceID, .data$TableName)) ->
+    result
+
+  result %>%
+    distinct(.data$DatasourceID, .data$TableName) %>%
     inner_join(
       x = data.frame(
-        datasource = c(
-          flanders.id,
-          wallonia.id,
-          metadata$ResultDatasourceID[1]
-        ),
-        table_name = c("tblWaarneming", "visit.txt", "observation"),
-        primary_key = c("ID", "ObservationID", "id"),
-        datafield_type = c("integer", "character", "integer"),
+        datasource = c(flanders_id, wallonia_id, wallonia_id,
+                       metadata$results_datasource_id[1]),
+        table_name = c("FactAnalyseSetOccurrence", "visit", "data",
+                       "observation"),
+        primary_key = c("ID", "ObservationID", "ObservationID", "id"),
+        datafield_type = c("integer", "character", "character", "integer"),
         stringsAsFactors = FALSE
       ),
-      by = c("datasource" = "DatasourceID")
-    ) %>%
-    mutate_(local_id = ~datasource)
-  parameter <- result %>%
-    distinct_(~fMonth) %>%
-    transmute_(
-      local_id = ~as.character(fMonth),
-      description = ~as.character(fMonth),
-      parent_parameter_local_id = ~"fMonth"
+      by = c(datasource = "DatasourceID", table_name = "TableName")
     ) %>%
     bind_rows(
+      location %>%
+        distinct(.data$datasource, .data$table_name, .data$primary_key,
+                 .data$datafield_type)
+    ) %>%
+    mutate(local_id = paste(.data$datasource, .data$table_name)) -> datafield
+  store_datafield(datafield = datafield, conn = result_channel$con) %>%
+    filter(.data$datasource == metadata$results_datasource_id[1],
+           .data$table_name == "observation") %>%
+    dplyr::pull("fingerprint") -> obs_df
+  result %>%
+    distinct(.data$Month) %>%
+    transmute(local_id = as.character(.data$Month),
+              description = as.character(.data$Month),
+              parent_parameter_local_id = "Month") %>%
+    bind_rows(
       data.frame(
-        local_id = c("observation parameter", "fMonth"),
-        description = c("observation parameter", "fMonth"),
+        local_id = c("observation parameter", "Month"),
+        description = c("observation parameter", "Month"),
         parent_parameter_local_id = c(NA, "observation parameter"),
         stringsAsFactors = FALSE
       )
-    )
-  result <- store_observation(
+    ) -> parameter
+  store_observation(
     datafield = datafield,
     observation = result %>%
-      transmute_(
-        ~local_id,
-        external_code = ~ObservationID,
-        datafield_local_id = ~DatasourceID,
-        location_local_id = ~LocationID,
-        year = ~Year,
-        parameter_local_id = ~as.character(fMonth)
+      transmute(.data$local_id, external_code = .data$ObservationID,
+        .data$datafield_local_id, location_local_id = .data$LocationID,
+        year = .data$Year, parameter_local_id = .data$Month
       ),
     location = location %>%
-      semi_join(datafield, by = c("datasource" = "local_id")) %>%
-      transmute_(
-        local_id = ~fingerprint,
-        parent_local_id = ~NA_character_,
-        ~description,
-        datafield_local_id = ~datasource,
-        ~external_code
+      transmute(local_id = .data$fingerprint, parent_local_id = NA_character_,
+                .data$description, .data$external_code,
+                datafield_local_id = paste(.data$datasource, .data$table_name)
       ),
     parameter = parameter,
-    conn = result.channel$con
+    conn = result_channel$con
   ) %>%
-  left_join(
-    result,
-    by = "local_id"
-  ) %>%
-  select_(
-    ObservationID = ~fingerprint,
-    ~LocationID,
-    ~Year,
-    ~fMonth,
-    ~Count,
-    ~Complete
-  ) %>%
-  remove_duplicate_observation()
+  inner_join(result, by = "local_id") %>%
+  mutate(DataFieldID = obs_df) %>%
+  select("DataFieldID", ObservationID = "fingerprint", "LocationID", "Year",
+         "Month", "Count", "Complete") -> result
 
-  if (is.null(result$Observation)) {
-    observation.sha <- NA
-    analysis.status <- "No data"
+  if (nrow(result) == 0) {
+    observation_sha <- NA
+    analysis_status <- "No data"
   } else {
-    observation <- result$Observation %>%
-      select_(
-        ~LocationID, ~Year, ~fMonth, ~ObservationID, ~Complete,
-        ~Count
-      ) %>%
-      arrange_(~LocationID, ~Year, ~fMonth)
-
-    filename <- paste0(this.constraint$SpeciesGroupID[1], ".txt")
-    observation.sha <- write_delim_git(
-      x = observation,
-      file = filename,
-      connection = raw.connection
-    )
-    analysis.status <- "converged"
-    dataset <- data.frame(
-      filename = filename,
-      fingerprint = observation.sha,
-      import_date = import.date,
-      datasource = dataset$datasource[1],
+    observation_sha <- write_vc(x = result,
+      file = this_species$species_group_id[1],
+      sorting = c("Year", "Month", "LocationID"), stage = TRUE, root = raw_repo)
+    analysis_status <- "converged"
+    data.frame(
+      filename = observation_sha, fingerprint = names(observation_sha),
+      import_date = import_date, datasource = dataset$datasource[1],
       stringsAsFactors = FALSE
     ) %>%
-      bind_rows(dataset)
+      bind_rows(dataset) -> dataset
   }
 
-  model_set <- data.frame(
-    local_id = "import",
-    description = "import",
-    first_year = this.constraint$Firstyear[1],
-    last_year = this.constraint$Lastyear[1],
-    duration = this.constraint$Lastyear[1] - this.constraint$Firstyear[1] + 1,
-    stringsAsFactors = FALSE
-  )
+  model_set <- tibble(local_id = "import", description = "import",
+    first_year = metadata$first_imported_year,
+    last_year = metadata$last_imported_year,
+    duration = metadata$last_imported_year - metadata$first_imported_year + 1)
   analysis_version <- get_analysis_version(sessionInfo())
-  analysis <- data.frame(
-    model_set_local_id = "import",
-    location_group = location_group_id,
-    species_group = this.constraint$SpeciesGroupID[1],
-    last_year = this.constraint$Lastyear[1],
+  analysis <- tibble(
+    model_set_local_id = "import", location_group = location_group_id,
+    species_group = this_species$species_group_id[1],
+    last_year = metadata$last_imported_year,
     seed = sample(.Machine$integer.max, 1),
     analysis_version = attr(analysis_version, "AnalysisVersion") %>%
       unname(),
-    analysis_date = import.date,
-    status = analysis.status,
-    stringsAsFactors = FALSE
+    analysis_date = import_date, status = analysis_status
   ) %>%
-    mutate_(
-      file_fingerprint = ~sha1(list(
-        dataset = arrange_(dataset, ~fingerprint) %>%
-          select_(~fingerprint, ~datasource, ~filename, ~import_date),
-        model_set = select_(
-          model_set,
-          ~description, ~first_year, ~last_year, ~duration
-        ),
-        location_group = location_group,
-        species_group = species_group,
-        last_year = last_year,
-        seed = seed,
-        analysis_date = analysis_date
+    mutate(file_fingerprint = sha1(list(
+        dataset = dataset %>%
+          arrange(.data$fingerprint) %>%
+          select("fingerprint", "datasource", "filename", "import_date"),
+        model_set = model_set %>%
+          select("description","first_year", "last_year", "duration"),
+        location_group = .data$location_group,
+        species_group = .data$species_group, last_year = .data$last_year,
+        seed = .data$seed, analysis_date = .data$analysis_date
       )),
-      status_fingerprint = ~sha1(list(
-        file_fingerprint = file_fingerprint,
-        status = status,
-        analysis_version = analysis_version
+      status_fingerprint = sha1(list(
+        file_fingerprint = .data$file_fingerprint, status = .data$status,
+        analysis_version = .data$analysis_version
       ))
     )
-  analysis_dataset <- data.frame(
-    analysis = analysis$file_fingerprint,
-    dataset = dataset$fingerprint,
-    stringsAsFactors = FALSE
-  )
-  store_analysis_dataset(
-    analysis = analysis,
-    model_set = model_set,
-    analysis_version = analysis_version,
-    dataset = dataset,
-    analysis_dataset = analysis_dataset,
-    conn = result.channel$con
-  )
+  analysis_dataset <- data.frame(analysis = analysis$file_fingerprint,
+                                 dataset = dataset$fingerprint,
+                                 stringsAsFactors = FALSE)
+  store_analysis_dataset(analysis = analysis, model_set = model_set,
+                         analysis_version = analysis_version, dataset = dataset,
+                         analysis_dataset = analysis_dataset,
+                         conn = result_channel$con)
 
-  if (nrow(result$Duplicate) > 0) {
-    anomaly_type <- data.frame(
-      local_id = 1,
-      description = "multiple observations for a single location time combination",
-      stringsAsFactors = FALSE
-    )
-    anomaly <- result$Duplicate %>%
-      transmute_(
-        anomaly_type_local_id = ~1,
-        analysis = ~analysis$file_fingerprint,
-        observation = ~as.character(ObservationID),
-        parameter_local_id = ~NA_character_
-      )
-    store_anomaly(
-      anomaly = anomaly,
-      anomaly_type = anomaly_type,
-      conn = result.channel$con
-    )
-  }
   return(analysis$file_fingerprint)
 }

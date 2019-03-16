@@ -1,16 +1,16 @@
 #' Create aggregation objects for imputed counts while ignoring the missing data
 #' @export
 #' @importFrom assertthat assert_that has_name
-#' @importFrom aws.s3 s3readRDS
-#' @importFrom dplyr %>% filter_ select_ bind_rows mutate_
-#' @importFrom n2kanalysis n2k_aggregate
+#' @importFrom dplyr %>% filter select bind_rows mutate arrange
+#' @importFrom n2kanalysis n2k_aggregate store_model
+#' @importFrom git2rdata read_vc
 #' @inheritParams prepare_analysis_imputation
 #' @inheritParams prepare_dataset
 #' @param imputations a data.frame with the imputations per location group
 prepare_analysis_aggregate_ni <- function(
-  analysis.path,
+  analysis_path,
   imputations,
-  raw.connection,
+  raw_repo,
   seed = 19790402,
   verbose = TRUE
 ){
@@ -22,12 +22,9 @@ prepare_analysis_aggregate_ni <- function(
   assert_that(has_name(imputations, "Scheme"))
   assert_that(has_name(imputations, "Fingerprint"))
   imputations <- imputations %>%
-    arrange_(~Fingerprint, ~LocationGroup)
+    arrange(.data$Fingerprint, .data$LocationGroup)
 
-  location <- read_delim_git(
-    file = "locationgrouplocation.txt",
-    connection = raw.connection
-  )
+  location <- read_vc(file = "locationgrouplocation.txt", root = raw_repo)
   assert_that(inherits(location, "data.frame"))
   assert_that(has_name(location, "LocationGroupID"))
   assert_that(has_name(location, "LocationID"))
@@ -39,7 +36,7 @@ prepare_analysis_aggregate_ni <- function(
         message("imputation: ", fingerprint)
       }
       locationgroups <- imputations %>%
-        filter_(~Fingerprint == fingerprint) %>%
+        filter(.data$Fingerprint == fingerprint) %>%
         "[["("LocationGroup")
       lapply(
         locationgroups,
@@ -48,7 +45,7 @@ prepare_analysis_aggregate_ni <- function(
             message("  locationgroup: ", lg)
           }
           metadata <- imputations %>%
-            filter_(~Fingerprint == fingerprint, ~LocationGroup == lg)
+            filter(.data$Fingerprint == fingerprint, .data$LocationGroup == lg)
           form <- ifelse(
             grepl("fMonth", metadata$Formula),
             "~Year + fMonth",
@@ -68,8 +65,8 @@ prepare_analysis_aggregate_ni <- function(
             last.imported.year = metadata$LastImportedYear,
             analysis.date = metadata$AnalysisDate,
             join = location %>%
-              filter_(~LocationGroupID == lg) %>%
-              select_(~LocationID) %>%
+              filter(.data$LocationGroupID == lg) %>%
+              select("LocationID") %>%
               as.data.frame(stringsAsFactors = FALSE),
             filter = list("!Missing"),
             fun = sum,
@@ -77,20 +74,19 @@ prepare_analysis_aggregate_ni <- function(
           )
           store_model(
             x = analysis,
-            base = analysis.path,
+            base = analysis_path,
             project = "watervogels",
             overwrite = FALSE
           )
           analysis@AnalysisMetadata %>%
-            select_(
-              ~SchemeID, ~SpeciesGroupID, ~LocationGroupID, ~FirstImportedYear,
-              ~LastImportedYear, ~Duration, ~LastAnalysedYear, ~AnalysisDate,
-              ~Status, ~StatusFingerprint, ~FileFingerprint, ~ResultDatasourceID
+            select("SchemeID", "SpeciesGroupID", "LocationGroupID", "FirstImportedYear",
+              "LastImportedYear", "Duration", "LastAnalysedYear", "AnalysisDate",
+              "Status", "StatusFingerprint", "FileFingerprint", "ResultDatasourceID"
             )
         }
       ) %>%
         bind_rows() %>%
-        mutate_(Parent = ~fingerprint)
+        mutate(Parent = .data$fingerprint)
     }
   ) %>%
     bind_rows()

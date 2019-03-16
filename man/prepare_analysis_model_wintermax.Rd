@@ -4,13 +4,13 @@
 \alias{prepare_analysis_model_wintermax}
 \title{Generate the models to apply on the aggregated sets}
 \usage{
-prepare_analysis_model_wintermax(aggregation, analysis.path, seed = 19790402,
-  verbose = TRUE)
+prepare_analysis_model_wintermax(aggregation, analysis_path,
+  seed = 19790402, verbose = TRUE)
 }
 \arguments{
 \item{aggregation}{the output of \code{prepare_analysis_aggregate}}
 
-\item{analysis.path}{Path to store the analysis files. Must be either an existing local file path or an object of the \code{s3_bucket} class.}
+\item{analysis_path}{Path to store the analysis files. Must be either an existing local file path or an object of the \code{s3_bucket} class.}
 
 \item{seed}{the seed for the random number generator. Defaults to 19790402 which refers to "Council Directive 79/409/EEC of 2 April 1979 on the conservation of wild birds".}
 

@@ -1,94 +1,95 @@
-#' Read the species list and their constraints
-#' @param limit Return only species with explicit constraints (default = TRUE). Otherwise return all species in the database
-#' @param flemish.channel An open ODBC connection to the source database
-#' @param attribute.connection a git-connection object to the attributes
+#' Read the relevant species list
 #' @inheritParams connect_flemish_source
+#' @inheritParams prepare_dataset
+#' @inheritParams prepare_dataset_species
 #' @export
-#' @importFrom n2khelper read_delim_git
-#' @importFrom RODBC sqlQuery
-#' @importFrom assertthat assert_that is.flag noNA
-#' @examples
-#' \dontrun{
-#' result.channel <- n2khelper::connect_result()
-#' flemish.channel <- connect_flemish_source(result.channel = result.channel)
-#' attribute.connection <- connect_attribute(
-#'   result.channel = result.channel,
-#'   username = "Someone",
-#'   password = "xxxx",
-#'   commit.user = "Someone",
-#'   commit.email = "some\\u0040one.com"
-#' )
-#' species.list <- read_specieslist(
-#'   result.channel = result.channel,
-#'   flemish.channel = flemish.channel,
-#'   attribute.connection = attribute.connection
-#' )
-#' head(species.list$species)
-#' head(species.list$species.constraint)
-#' }
-read_specieslist <- function(
-  result.channel,
-  flemish.channel,
-  attribute.connection,
-  limit = TRUE
-){
-  assert_that(is.flag(limit))
-  assert_that(noNA(limit))
+#' @importFrom dplyr %>% filter semi_join count group_by summarise full_join anti_join inner_join mutate pull select ungroup
+#' @importFrom DBI dbQuoteString dbGetQuery
+#' @importFrom git2rdata read_vc
+#' @importFrom rlang .data
+#' @importFrom stats na.omit
+read_specieslist <- function(result_channel, flemish_channel, walloon_repo,
+                             first_date, latest_date){
+  sprintf(
+    "WITH cte_survey AS (
+      SELECT TaxonWVKey, RecommendedTaxonTLI_Key AS NBNKey,
+             COUNT(TaxonCount) AS N
+      FROM FactAnalyseSetOccurrence
+      WHERE %s <= SampleDate AND SampleDate <= %s AND TaxonCount > 0
+      GROUP BY TaxonWVKey, RecommendedTaxonTLI_Key
+    )
 
-  sql <- "
     SELECT
-      EuringCode AS ExternalCode,
-      NaamWetenschappelijk AS ScientificName,
-      NaamNederlands AS DutchName,
-      NaamEngels AS EnglishName,
-      NaamFrans AS FrenchName
-    FROM
-      tblSoort
-  "
-  species <- sqlQuery(
-    channel = flemish.channel,
-    query = sql,
-    stringsAsFactors = FALSE
-  )
-  species$DatasourceID <- datasource_id_flanders(
-    result.channel = result.channel
-  )
-  species$TableName <- "tblSoort"
-  species$ColumnName <- "EuringCode"
-  species$Datatype <- "integer"
-
-  # restrict the species list to the species with constraints
-  species.constraint <- read_delim_git(
-    file = "soorttelling.txt",
-    connection = attribute.connection
-  )
-  colnames(species.constraint)[1] <- "DutchName"
-
-  species.constraint <- merge(
-    species[, c("DutchName", "ExternalCode")],
-    species.constraint
-  )
-  species.constraint$DutchName <- NULL
-
-  species.constraint <- merge(
-    species.constraint,
-    species[, c("ExternalCode", "DutchName")]
-  )
-  species.constraint$DutchName <- NULL
-
-  if (limit) {
-    species <- species[
-      species$ExternalCode %in% species.constraint$ExternalCode,
-    ]
+      CASE WHEN c.NBNKey = '-               ' THEN NULL
+           ELSE c.NBNKey END AS NBNKey,
+      t.TaxonWVKey, CAST(t.euringcode AS int) AS euringcode,
+      t.scientificname AS ScientificName, t.commonname AS nl, c.n
+    FROM cte_survey AS c
+    INNER JOIN DimTaxonWV AS t ON c.TaxonWVKey = t.TaxonWVKey",
+    format(first_date, "%Y-%m-%d") %>%
+      dbQuoteString(conn = flemish_channel),
+    format(latest_date, "%Y-%m-%d") %>%
+      dbQuoteString(conn = flemish_channel)
+  ) %>%
+    dbGetQuery(conn = flemish_channel) %>%
+    group_by(.data$euringcode, .data$TaxonWVKey, .data$ScientificName,
+             .data$nl) %>%
+    summarise(NBNKey = na.omit(.data$NBNKey), n = sum(.data$n)) %>%
+    ungroup() -> species_flanders
+  if (any(is.na(species_flanders$NBNKey))) {
+    species_flanders %>%
+      filter(is.na(.data$NBNKey)) %>%
+      anti_join(species_flanders, by = "euringcode")
   }
-
+  if (any(is.na(species_flanders$NBNKey))) {
+    species_flanders %>%
+      filter(is.na(.data$NBNKey)) %>%
+      summarise(problem = paste(.data$ScientificName, collapse = ", ")) %>%
+      sprintf(fmt = "Species in Flemish dataset without NBN key: %s") %>%
+      warning(call. = FALSE)
+    species_flanders %>%
+      filter(!is.na(.data$NBNKey)) -> species_flanders
+  }
+  if (any(is.na(species_flanders$euringcode))) {
+    species_flanders %>%
+      filter(is.na(.data$euringcode)) %>%
+      summarise(problem = paste(.data$ScientificName, collapse = ", ")) %>%
+      sprintf(fmt = "Species in Flemish dataset without euringcode: %s") %>%
+      warning(call. = FALSE)
+    species_flanders %>%
+      filter(!is.na(.data$euringcode)) -> species_flanders
+  }
+  read_vc("visit", walloon_repo) %>%
+    filter(.data$Date <= latest_date) %>%
+    semi_join(
+      x = read_vc("data", walloon_repo),
+      by = "OriginalObservationID"
+    ) %>%
+    count(.data$euringcode) %>%
+    inner_join(read_vc("species", walloon_repo), by = "euringcode") ->
+    species_wallonia
+  species_wallonia %>%
+    select("euringcode", nw = "n") %>%
+    full_join(species_flanders, by = "euringcode") %>%
+    mutate(n = ifelse(is.na(.data$n), 0, .data$n) +
+             ifelse(is.na(.data$nw), 0, .data$nw)) %>%
+    filter(.data$n >= 100) %>%
+    select("euringcode", "NBNKey", "nl") -> relevant
+  if (any(is.na(relevant$NBNKey))) {
+    relevant %>%
+      filter(is.na(relevant$NBNKey)) %>%
+      semi_join(x = species_wallonia, by = "euringcode") %>%
+      dplyr::pull("ScientificName") %>%
+      paste(collapse = ", ") %>%
+      sprintf(fmt = "Walloon species without NBN key: %s") %>%
+      warning(call. = FALSE)
+    relevant %>%
+      filter(!is.na(relevant$NBNKey)) -> relevant
+  }
   return(
     list(
-      species = species,
-      species.constraint = species.constraint[
-        ,
-        c("ExternalCode", "Firstyear", "SpeciesCovered")
-      ]
+      flanders = semi_join(species_flanders, relevant, by = "euringcode"),
+      wallonia = inner_join(species_wallonia, relevant, by = "euringcode")
     )
   )
 }

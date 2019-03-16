@@ -1,33 +1,43 @@
 Package: watervogelanalysis
 Title: Analysis of the Wintering Birds
-Version: 0.2
-Date: 2017-11-27
-Authors@R: c(person("Thierry", "Onkelinx", email = "thierry.onkelinx@inbo.be", role = c("aut", "cre")))
+Version: 0.3
+Authors@R: c(
+  person(
+    "Thierry", "Onkelinx", role = c("aut", "cre"), 
+    email = "thierry.onkelinx@inbo.be", 
+    comment = c(ORCID = "0000-0001-8804-4216")),
+  person(
+    "Research Institute for Nature and Forest",
+    role = c("cph", "fnd"), email = "info@inbo.be"))
 Description: Imports the data from the Flemish and Walloon monitoring schemes of
     the wintering birds. Prepares analysis datasets and runs the analysis.
 Depends:
     R (>= 3.1.2)
 Imports:
     assertthat,
-    aws.s3,
+    DBI,
     digest,
     dplyr,
+    git2rdata,
     lubridate,
-    n2kanalysis (>= 0.2.3),
-    n2khelper (>= 0.4.1),
-    n2kupdate,
+    n2kanalysis (>= 0.2.6),
+    n2khelper (>= 0.4.3),
+    n2kupdate (>= 0.1.1),
     plyr,
-    reshape2,
+    purrr,
     rlang,
-    RODBC,
+    tibble,
     tidyr
 Suggests:
     INLA,
     testthat
 Remotes:
+  inbo/git2rdata,
   inbo/n2khelper,
   inbo/n2kanalysis,
   inbo/n2kupdate
 License: GPL-3
+Encoding: UTF-8
 LazyData: true
-RoxygenNote: 6.0.1
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 6.1.1

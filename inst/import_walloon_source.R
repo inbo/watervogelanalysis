@@ -1,12 +1,15 @@
 library(watervogelanalysis)
-walloon.connection <- connect_walloon_source(
-  result.channel = n2khelper::connect_result()
+result_channel <- n2khelper::connect_result(
+  username = Sys.getenv("N2KRESULT_USERNAME"),
+  password = Sys.getenv("N2KRESULT_PASSWORD")
 )
 duplicates <- import_walloon_source_data(
-  location.file = "rStation.csv",
-  visit.file = "rVisits.csv",
-  data.file = "rData.csv",
-  path = ".",
-  walloon.connection = walloon.connection
+  location_file = "locations_waterbirds_winter_count_aves.txt",
+  visit_file = "visits_winter_waterbirds_count_walbru_aves.txt",
+  species_file = "species_winter_waterbirds_count_walbru_aves.txt",
+  data_file = "data_winter_waterbirds_count_walbru_aves.txt",
+  path = "~/Downloads",
+  walloon_repo = git2r::repository("~/n2k/waterbirds_wallonia"),
+  strict = FALSE
 )
 duplicates

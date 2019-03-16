@@ -4,13 +4,13 @@
 \alias{prepare_analysis}
 \title{Prepare all datasets and a to do list of models}
 \usage{
-prepare_analysis(analysis.path = ".", raw.connection, seed = 19790402,
+prepare_analysis(analysis_path = ".", raw_repo, seed = 19790402,
   verbose = TRUE)
 }
 \arguments{
-\item{analysis.path}{Path to store the analysis files. Must be either an existing local file path or an object of the \code{s3_bucket} class.}
+\item{analysis_path}{Path to store the analysis files. Must be either an existing local file path or an object of the \code{s3_bucket} class.}
 
-\item{raw.connection}{a git-connection object to write the output to}
+\item{raw_repo}{a git_repository object to write the output to}
 
 \item{seed}{the seed for the random number generator. Defaults to 19790402 which refers to "Council Directive 79/409/EEC of 2 April 1979 on the conservation of wild birds".}
 

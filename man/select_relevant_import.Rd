@@ -12,8 +12,8 @@ select_relevant_import(observation)
 \description{
 Relevant observations have
 \itemize{
- \item At least 4 presences per location
- \item Only locations where the species was present during at least 3 winters
- \item No winters without any presences at the beginning or end of the dataset
+\item At least 4 presences per location
+\item Only locations where the species was present during at least 3 winters
+\item No winters without any presences at the beginning or end of the dataset
 }
 }

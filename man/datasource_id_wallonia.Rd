@@ -4,10 +4,10 @@
 \alias{datasource_id_wallonia}
 \title{Get the id of the data source for the Walloon source data}
 \usage{
-datasource_id_wallonia(result.channel)
+datasource_id_wallonia(result_channel)
 }
 \arguments{
-\item{result.channel}{An open RODBC connection to the results database}
+\item{result_channel}{An open RODBC connection to the results database}
 }
 \description{
 Get the id of the data source for the Walloon source data
