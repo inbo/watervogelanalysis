@@ -77,5 +77,5 @@ select_relevant_analysis <- function(observation){
            fYearMonth = interaction(.data$fYear, .data$Month, drop = TRUE),
            fYearLocation = interaction(.data$fYear, factor(.data$LocationID),
                                       drop = TRUE)) %>%
-    select(-"LocationID")
+    select(-"LocationGroupID")
 }
