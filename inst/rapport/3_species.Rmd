@@ -1,0 +1,20 @@
+# Overview by species
+
+```{r display-species, results = "asis"}
+wintermax %>%
+  filter(LocationGroup == "Belgium") %>%
+  select(id, wintermax = Estimate) %>%
+  inner_join(results, by = "id") %>%
+  filter(Status == "converged") %>%
+  distinct(id, wintermax) %>%
+  arrange(desc(wintermax)) %>%
+  pull(id) %>%
+  sapply(
+    function(id) {
+      knit_expand("_speciesgroup.Rmd", id = id)
+    }
+  ) %>%
+  paste(collapse = "\n\n") -> rmd
+knit(text = rmd, quiet = TRUE) %>%
+  cat()
+```

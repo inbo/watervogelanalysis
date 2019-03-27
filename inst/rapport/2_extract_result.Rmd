@@ -1,0 +1,150 @@
+```{r import-data, eval = !file.exists("results.Rds")}
+library(aws.s3)
+library(n2kanalysis)
+
+project <- "watervogels"
+base <- get_bucket("n2kmonitoring", prefix = project, max = 1)
+
+result_channel <- n2khelper::connect_result(
+  username = Sys.getenv("N2KRESULT_USERNAME"),
+  password = Sys.getenv("N2KRESULT_PASSWORD")
+)
+
+tbl(result_channel, "scheme") %>%
+  filter(description == "Watervogels") %>%
+  semi_join(x = tbl(result_channel, "species_group"),
+            by = c("scheme" = "id")) %>%
+  select(SpeciesGroupID = fingerprint, SpeciesGroup = description, id) %>%
+  inner_join(
+    tbl(result_channel, "species_group_species") %>%
+      filter(is.na(destroy)) %>%
+      select(species_group, species),
+    by = c("id" = "species_group")
+  ) %>%
+  left_join(
+    tbl(result_channel, "species") %>%
+      select(id, scientific_name) %>%
+      left_join(
+        tbl(result_channel, "species_common_name") %>%
+          filter(is.na(destroy)) %>%
+          select(id = language, species, common_name = description) %>%
+          inner_join(
+            tbl(result_channel, "language") %>%
+              select(id, language = description),
+            by = "id"
+          ) %>%
+          select(-id),
+        by = c("id" = "species")
+      ),
+    by = c("species" = "id")
+  ) %>%
+  arrange(SpeciesGroupID) %>%
+  select(-id, -species) %>%
+  collect() %>%
+  spread(language, common_name) %>%
+  mutate_at(c("SpeciesGroup", "scientific_name", "Nederlands"), factor) ->
+  species_list
+
+tbl(result_channel, "scheme") %>%
+  filter(description == "Watervogels") %>%
+  semi_join(x = tbl(result_channel, "location_group"),
+            by = c("scheme" = "id")) %>%
+  select(LocationGroupID = fingerprint, LocationGroup = description) %>%
+  collect() %>%
+  mutate(LocationGroup = str_replace(LocationGroup, "\\\\u0137", "ë") %>%
+           factor()) ->
+  location_group
+
+sprintf("%s/manifest", project) %>%
+  get_bucket_df(bucket = base) %>%
+  select(Key, LastModified) %>%
+  mutate(
+    LastModified = as.POSIXct(LastModified, format = "%Y-%m-%dT%H:%M:%S")
+  ) %>%
+  filter(LastModified >= as.POSIXct("2019-03-20")) %>%
+  mutate(
+    manifest = str_extract(Key, "([[:xdigit:]]{40})") %>%
+      map(read_manifest, base = base, project = project) %>%
+      map(slot, "Manifest")
+  ) %>%
+  unnest() -> relevant
+
+extract_results <- function(hash, base, project) {
+  message(hash)
+  x <- try(read_model(hash, base = base, project = project))
+  if (inherits(x, "try-error")) {
+    return(tibble(FileFingerprint = hash, Status = "missing"))
+  }
+  if (inherits(x, "n2kAggregate")) {
+    relevant %>%
+      filter(Parent == get_file_fingerprint(x)) %>%
+      pull(Fingerprint) %>%
+      lapply(extract_results, base = base, project = project) %>%
+      bind_rows() -> result
+    return(result)
+  }
+  if (inherits(x, "n2kModelImputed")) {
+    x@AnalysisMetadata %>%
+      select(SpeciesGroupID, LocationGroupID, ModelType, Duration,
+             FileFingerprint, StatusFingerprint, Status) %>%
+      inner_join(x@AnalysisRelation, by = c("FileFingerprint" = "Analysis")) ->
+      result
+    if (x@AnalysisMetadata$Status == "converged") {
+      result %>%
+        inner_join(
+          x@Results %>%
+            mutate(FileFingerprint = hash),
+          by = "FileFingerprint"
+        ) -> result
+    }
+    return(result)
+  }
+  stop(class(x), " not handled")
+}
+
+relevant %>%
+  filter(is.na(Parent)) %>%
+  semi_join(x = relevant, by = c("Parent" = "Fingerprint")) %>%
+  semi_join(x = relevant, by = c("Parent" = "Fingerprint")) %>%
+  arrange(Fingerprint) %>%
+  mutate(results = map(Fingerprint, extract_results, base = base,
+                       project = project)) %>%
+  unnest() %>%
+  inner_join(location_group, by = "LocationGroupID") %>%
+  inner_join(species_list, by = "SpeciesGroupID") %>%
+  mutate_at(c("Key", "Fingerprint", "Parent", "ModelType", "FileFingerprint",
+              "StatusFingerprint", "Status", "ParentAnalysis",
+              "ParentStatusFingerprint", "ParentStatus", "Parameter"),
+            factor
+  ) -> results
+saveRDS(results, "results.Rds")
+```
+
+```{r read-data}
+readRDS("results.Rds") %>%
+  mutate(id = as.integer(SpeciesGroup)) -> results
+levels(results$LocationGroup) %>%
+  str_replace("België", "Belgium") %>%
+  str_replace("Vogelrichtlijn", "SPA") -> levels(results$LocationGroup)
+results %>%
+  filter(ModelType == "imputed average: Total ~ cPeriod", 
+         Parameter == "(Intercept)") %>%
+  select(id, LocationGroup, Estimate, LCL, UCL) %>%
+  mutate_at(c("Estimate", "LCL", "UCL"), exp) %>%
+  mutate(
+    Magnitude = floor(log10(UCL)),
+    Magnitude = Magnitude - ifelse(UCL < 2 * 10 ^ Magnitude, 1, 0)
+  ) %>%
+  mutate_at(
+    c(pEstimate = "Estimate", pLCL = "LCL", pUCL = "UCL"), 
+    function(x, m) {
+      round(x / 10 ^ m, 1) * 10 ^ m
+    },
+    .$Magnitude,
+  ) %>%
+  mutate(
+    Detailed = sprintf("%0.1f (%0.1f; %0.1f)", Estimate, LCL, UCL),
+    `For publication` = sprintf("%s (%s; %s)", pEstimate, pLCL, pUCL)
+  ) %>%
+  select(-Magnitude) -> wintermax
+```

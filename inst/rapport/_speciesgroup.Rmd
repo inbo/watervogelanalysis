@@ -1,0 +1,85 @@
+```{r {{id}}-set}
+this_id <- "{{id}}"
+# id <- sample(results$id, 1)
+```
+
+```{r {{id}}-select}
+results %>%
+  filter(id == this_id, Status == "converged") -> selection
+this_species <- paste0("_", as.character(selection$scientific_name[1]), "_")
+```
+
+## `r this_species`
+
+### Based on the monthly population total
+
+```{r {{id}}-index, fig.cap = "Yearly index based on the monthly population total. The index of the initial year is set to 100."}
+selection %>%
+  filter(ModelType == "yearly imputed index: Total ~ Year + Month") %>%
+  mutate(Parameter = str_replace(Parameter, "Year", "") %>%
+         as.integer()) -> index
+p <- index %>%
+  group_by(LocationGroup) %>%
+  arrange(Parameter) %>%
+  slice(1) %>%
+  ungroup() %>%
+  select(LocationGroup, Reference = Estimate) %>%
+  inner_join(index, by = "LocationGroup") %>%
+  mutate(
+    Area = LocationGroup,
+    p5 = center_index(Estimate, SE, Reference, 0.05),
+    p10 = center_index(Estimate, SE, Reference, 0.1),
+    p30 = center_index(Estimate, SE, Reference, 0.3),
+    p50 = center_index(Estimate, SE, Reference, 0.5),
+    p70 = center_index(Estimate, SE, Reference, 0.7),
+    p90 = center_index(Estimate, SE, Reference, 0.9),
+    p95 = center_index(Estimate, SE, Reference, 0.95)
+  ) %>%
+  ggplot(aes(x = Parameter, y = p50)) +
+  geom_hline(yintercept = 100, linetype = 2) +
+  geom_ribbon(alpha = 0.2, aes(ymin = p30, ymax = p70, fill = Area)) +
+  geom_ribbon(alpha = 0.2, aes(ymin = p10, ymax = p90, fill = Area)) +
+  geom_ribbon(alpha = 0.2, aes(ymin = p5, ymax = p95, fill = Area)) +
+  geom_line(aes(colour = Area)) +
+  scale_y_continuous("Index") +
+  theme(axis.title.x = element_blank())
+if (static) {
+  p
+} else {
+  ggplotly(p, dynamicTicks = TRUE)
+}
+```
+
+```{r {{id}}-trend}
+selection %>%
+  filter(ModelType == "imputed trend: Total ~ Year + Month", 
+         Parameter == "cYear") %>%
+  mutate_at(c("Estimate", "LCL", "UCL"), change) %>%
+  transmute(
+    Area = LocationGroup, "Time span" = Duration, 
+    Trend = sprintf("%0.1f%% (%0.1f%%; %0.1f%%)", Estimate, LCL, UCL)
+  ) %>%
+  arrange(`Time span`, Area) %>%
+  kable(caption = "Average yearly change over the last time span")
+```
+
+### Based on the maximal population total for each winter
+
+```{r {{id}}-wintermax}
+wintermax %>%
+  filter(id == this_id) %>%
+  select(Area = LocationGroup, Detailed, `For publication`) %>%
+  kable(caption = "Estimated maximal population total, averaged over the last 5 years.")
+```
+
+```{r {{id}}-wintermax-trend}
+selection %>%
+  filter(ModelType == "imputed average: Total ~ cPeriod", 
+         Parameter == "cPeriod") %>%
+  mutate_at(c("Estimate", "LCL", "UCL"), change) %>%
+  transmute(
+    Area = LocationGroup, 
+    Change = sprintf("%0.1f%% (%0.1f%%; %0.1f%%)", Estimate, LCL, UCL)
+  ) %>%
+  kable(caption = "Relative change in average maximal population total between the last two five year periods.")
+```
