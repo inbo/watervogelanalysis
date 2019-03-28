@@ -61,10 +61,9 @@ prepare_dataset <- function(
     scheme_id = scheme_id, first_date = first_date, latest_date = latest_date)
 
   species %>%
-    distinct(.data$species_id) %>%
+    distinct(.data$species_id, first_imported_year = .data$First) %>%
     mutate(
-      first_imported_year = first_year, last_imported_year = latest_year,
-      scheme_id = scheme_id,
+      last_imported_year = latest_year, scheme_id = scheme_id,
       results_datasource_id =
         datasource_id_result(result_channel = result_channel, develop = develop)
     ) %>%

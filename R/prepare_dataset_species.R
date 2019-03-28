@@ -27,7 +27,7 @@ prepare_dataset_species <- function(raw_repo, result_channel, flemish_channel,
       Description = .data$ScientificName,
       .data$NBNKey, DatasourceID = datasource_id_flanders(result_channel),
       TableName = "DimTaxonWV", ColumnName = "TaxonWVKey", Datatype = "integer",
-      local_id = paste("f", .data$TaxonWVKey)
+      local_id = paste("f", .data$TaxonWVKey), .data$First
     ) %>%
     bind_rows(
       species_list$wallonia %>%
@@ -35,7 +35,7 @@ prepare_dataset_species <- function(raw_repo, result_channel, flemish_channel,
           ExternalCode = .data$euringcode, Description = .data$ScientificName,
           .data$NBNKey, DatasourceID = datasource_id_wallonia(result_channel),
           TableName = "species", ColumnName = "NBNKey", Datatype = "character",
-          local_id = paste("w", .data$euringcode)
+          local_id = paste("w", .data$euringcode), .data$First
         )
     ) -> source_species
 
@@ -111,7 +111,7 @@ prepare_dataset_species <- function(raw_repo, result_channel, flemish_channel,
     ) -> speciesgroupspecies_hash
 
   source_species %>%
-    select("NBNKey", "ExternalCode", "DatasourceID") %>%
+    select("NBNKey", "ExternalCode", "DatasourceID", "First") %>%
     inner_join(
       stored$species %>%
         select("nbn_key", species_id = "fingerprint"),

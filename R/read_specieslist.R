@@ -12,18 +12,21 @@ read_specieslist <- function(result_channel, flemish_channel, walloon_repo,
                              first_date, latest_date){
   sprintf(
     "WITH cte_survey AS (
-      SELECT TaxonWVKey, RecommendedTaxonTLI_Key AS NBNKey,
-             COUNT(TaxonCount) AS N
-      FROM FactAnalyseSetOccurrence
-      WHERE %s <= SampleDate AND SampleDate <= %s AND TaxonCount > 0
-      GROUP BY TaxonWVKey, RecommendedTaxonTLI_Key
+      SELECT f.TaxonWVKey, f.RecommendedTaxonTLI_Key AS NBNKey,
+             COUNT(f.TaxonCount) AS n, MIN(f.SampleDate) AS First
+      FROM FactAnalyseSetOccurrence AS f
+      INNER JOIN DimAnalyseSet AS a ON  f.analysesetkey = a.analysesetkey
+      INNER JOIN DimSample AS s ON f.samplekey = s.samplekey
+      WHERE %s <= f.SampleDate AND f.SampleDate <= %s AND f.TaxonCount > 0 AND
+            a.AnalysesetCode LIKE 'MIDMA%%' AND s.CoverageCode IN ('V', 'O')
+      GROUP BY f.TaxonWVKey, f.RecommendedTaxonTLI_Key
     )
 
     SELECT
       CASE WHEN c.NBNKey = '-               ' THEN NULL
            ELSE c.NBNKey END AS NBNKey,
       t.TaxonWVKey, CAST(t.euringcode AS int) AS euringcode,
-      t.scientificname AS ScientificName, t.commonname AS nl, c.n
+      t.scientificname AS ScientificName, t.commonname AS nl, c.n, c.First
     FROM cte_survey AS c
     INNER JOIN DimTaxonWV AS t ON c.TaxonWVKey = t.TaxonWVKey",
     format(first_date, "%Y-%m-%d") %>%
@@ -32,10 +35,14 @@ read_specieslist <- function(result_channel, flemish_channel, walloon_repo,
       dbQuoteString(conn = flemish_channel)
   ) %>%
     dbGetQuery(conn = flemish_channel) %>%
+    mutate(First = round_date(.data$First, unit = "year") %>%
+             year()) %>%
     group_by(.data$euringcode, .data$TaxonWVKey, .data$ScientificName,
              .data$nl) %>%
-    summarise(NBNKey = na.omit(.data$NBNKey), n = sum(.data$n)) %>%
+    summarise(NBNKey = na.omit(.data$NBNKey), n = sum(.data$n),
+              First = min(.data$First)) %>%
     ungroup() -> species_flanders
+
   if (any(is.na(species_flanders$NBNKey))) {
     species_flanders %>%
       filter(is.na(.data$NBNKey)) %>%
@@ -59,13 +66,15 @@ read_specieslist <- function(result_channel, flemish_channel, walloon_repo,
     species_flanders %>%
       filter(!is.na(.data$euringcode)) -> species_flanders
   }
+
   read_vc("visit", walloon_repo) %>%
     filter(.data$Date <= latest_date) %>%
-    semi_join(
-      x = read_vc("data", walloon_repo),
-      by = "OriginalObservationID"
-    ) %>%
-    count(.data$euringcode) %>%
+    mutate(Winter = round_date(.data$Date, unit = "year") %>%
+             year()) %>%
+    inner_join(read_vc("data", walloon_repo), by = "OriginalObservationID") %>%
+    inner_join(species_flanders, by = "euringcode") %>%
+    filter(.data$First <= .data$Winter) %>%
+    count(.data$euringcode, .data$First) %>%
     inner_join(read_vc("species", walloon_repo), by = "euringcode") ->
     species_wallonia
   species_wallonia %>%
