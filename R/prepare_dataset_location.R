@@ -40,19 +40,19 @@ prepare_dataset_location <- function(
     ) -> location
 
   # define and save location groups
-  # \\u0137 is the ASCII code for e umlaut
+  # \u00EB is the ASCII code for e umlaut
   tibble(
     description = c(
-      "Vlaanderen", "Walloni\\u0137", "Belgi\\u0137",
-      "Vogelrichtlijn Vlaanderen", "Vogelrichtlijn Walloni\\u0137",
-      "Vogelrichtlijn Belgi\\u0137"
+      "Vlaanderen", "Walloni\u00EB", "Belgi\u0EB",
+      "Vogelrichtlijn Vlaanderen", "Vogelrichtlijn Walloni\u00EB",
+      "Vogelrichtlijn Belgi\u00EB"
     ),
     Flanders = c(TRUE, NA, TRUE, TRUE, NA, TRUE),
     Wallonia = c(NA, TRUE, TRUE, NA, TRUE, TRUE),
     SPA = c(0, 0, 0, 1, 1, 1),
     Impute = c(
-      "Vlaanderen", "Walloni\\u0137", "Belgi\\u0137", "Vlaanderen",
-      "Walloni\\u0137", "Belgi\\u0137"
+      "Vlaanderen", "Walloni\u00EB", "Belgi\u00EB", "Vlaanderen",
+      "Walloni\u00EB", "Belgi\u00EB"
     ),
     SubsetMonths = c(FALSE, TRUE, TRUE, FALSE, TRUE, TRUE),
     scheme = scheme_id

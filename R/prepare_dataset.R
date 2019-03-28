@@ -48,7 +48,7 @@ prepare_dataset <- function(
     first_date = first_date, latest_date = latest_date)
   dataset <- location$Dataset
   location$LocationGroup %>%
-    filter(.data$description == "Belgi\\u0137") %>%
+    filter(.data$description == "Belgi\u00EB") %>%
     dplyr::pull("fingerprint") -> location_group_id
   location <- location$Location
 
