@@ -63,7 +63,7 @@ prepare_dataset <- function(
   species %>%
     distinct(.data$species_id, first_imported_year = .data$First) %>%
     mutate(
-      last_imported_year = latest_year, scheme_id = scheme_id,
+      last_imported_year = as.integer(latest_year), scheme_id = scheme_id,
       results_datasource_id =
         datasource_id_result(result_channel = result_channel, develop = develop)
     ) %>%

@@ -24,6 +24,7 @@ prepare_dataset_observation <- function(
     inherits(this_species, "data.frame"), inherits(location, "data.frame"),
     has_name(this_species, "DatasourceID"),
     has_name(this_species, "ExternalCode"),
+    has_name(this_species, "species_id"),
     has_name(location, "fingerprint"), has_name(location, "external_code"),
     has_name(location, "datafield"), is.string(location_group_id)
   )
@@ -159,7 +160,7 @@ prepare_dataset_observation <- function(
 
   result %>%
     distinct(.data$DatasourceID, .data$TableName) %>%
-    inner_join(
+    full_join(
       x = data.frame(
         datasource = c(flanders_id, wallonia_id, wallonia_id,
                        metadata$results_datasource_id[1]),
@@ -219,7 +220,7 @@ prepare_dataset_observation <- function(
     analysis_status <- "No data"
   } else {
     observation_sha <- write_vc(x = result,
-      file = this_species$species_group_id[1],
+      file = this_species$species_group_id[1], strict = FALSE,
       sorting = c("Year", "Month", "LocationID"), stage = TRUE, root = raw_repo)
     analysis_status <- "converged"
     data.frame(
