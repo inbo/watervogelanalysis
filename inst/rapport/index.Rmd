@@ -67,6 +67,9 @@ change <- function(x) {
 center_index <- function(x, se, reference, p) {
   100 * exp(qnorm(p = p, mean = x - reference, sd = se))
 }
+p_population <- function(x, se, p) {
+  exp(qnorm(p = p, mean = x, sd = se))
+}
 ```
 
 # Introduction

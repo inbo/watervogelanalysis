@@ -1,6 +1,6 @@
 ```{r {{id}}-set}
 this_id <- "{{id}}"
-# id <- sample(results$id, 1)
+# this_id <- sample(results$id, 1)
 ```
 
 ```{r {{id}}-select}
@@ -13,12 +13,47 @@ this_species <- paste0("_", as.character(selection$scientific_name[1]), "_")
 
 ### Based on the monthly population total
 
-```{r {{id}}-index, fig.cap = "Yearly index based on the monthly population total. The index of the initial year is set to 100."}
+```{r {{id}}-population, fig.cap = "Yearly population average based on the monthly population total."}
 selection %>%
   filter(ModelType == "yearly imputed index: Total ~ Year + Month") %>%
-  mutate(Parameter = str_replace(Parameter, "Year", "") %>%
-         as.integer()) -> index
+  mutate(
+    Parameter = str_replace(Parameter, "Year", "") %>%
+      as.integer(),
+    Area = LocationGroup,
+    p5 = p_population(Estimate, SE, 0.05),
+    p10 = p_population(Estimate, SE, 0.1),
+    p30 = p_population(Estimate, SE, 0.3),
+    p50 = p_population(Estimate, SE, 0.5),
+    p70 = p_population(Estimate, SE, 0.7),
+    p90 = p_population(Estimate, SE, 0.9),
+    p95 = p_population(Estimate, SE, 0.95)
+  ) -> index
+if (max(index$p95) > 1e4) {
+  index %>%
+    mutate_at(c("p5", "p10", "p30", "p50", "p70", "p90", "p95"), `/`, 1e3) -> 
+    index
+  ylab <- "Average population (x 1000)"
+} else {
+  ylab <- "Average population"
+}
 p <- index %>%
+  ggplot(aes(x = Parameter, y = p50)) +
+  geom_ribbon(alpha = 0.2, aes(ymin = p30, ymax = p70, fill = Area)) +
+  geom_ribbon(alpha = 0.2, aes(ymin = p10, ymax = p90, fill = Area)) +
+  geom_ribbon(alpha = 0.2, aes(ymin = p5, ymax = p95, fill = Area)) +
+  geom_line(aes(colour = Area)) +
+  scale_y_continuous(ylab, limits = c(0, NA)) +
+  theme(axis.title.x = element_blank())
+if (static) {
+  p
+} else {
+  ggplotly(p, dynamicTicks = TRUE)
+}
+```
+
+
+```{r {{id}}-index, fig.cap = "Yearly index based on the monthly population total. The index of the initial year is set to 100."}
+index %>%
   group_by(LocationGroup) %>%
   arrange(Parameter) %>%
   slice(1) %>%
@@ -34,14 +69,23 @@ p <- index %>%
     p70 = center_index(Estimate, SE, Reference, 0.7),
     p90 = center_index(Estimate, SE, Reference, 0.9),
     p95 = center_index(Estimate, SE, Reference, 0.95)
-  ) %>%
+  ) -> index
+if (max(index$p95) > 1e4) {
+  index %>%
+    mutate_at(c("p5", "p10", "p30", "p50", "p70", "p90", "p95"), `/`, 1e3) -> 
+    index
+  ylab <- "Index (x 1000)"
+} else {
+  ylab <- "Index"
+}
+p <- index %>%
   ggplot(aes(x = Parameter, y = p50)) +
   geom_hline(yintercept = 100, linetype = 2) +
   geom_ribbon(alpha = 0.2, aes(ymin = p30, ymax = p70, fill = Area)) +
   geom_ribbon(alpha = 0.2, aes(ymin = p10, ymax = p90, fill = Area)) +
   geom_ribbon(alpha = 0.2, aes(ymin = p5, ymax = p95, fill = Area)) +
   geom_line(aes(colour = Area)) +
-  scale_y_continuous("Index") +
+  scale_y_continuous(ylab) +
   theme(axis.title.x = element_blank())
 if (static) {
   p
@@ -63,13 +107,70 @@ selection %>%
   kable(caption = "Average yearly change over the last time span")
 ```
 
+```{r {{id}}-monthly-totals-raw, fig.cap = "Montly population totals after imputing missing observations."}
+selection %>%
+  filter(ModelType == "aggregate imputed: sum ~ Year + Month") %>%
+  mutate(Area = LocationGroup) %>%
+  tidyr::extract(Parameter, c("Winter", "Month"), 
+                 "([[:digit:]]*)\\.([[:alpha:]]*)", convert = TRUE) -> raw
+if (max(raw$UCL) > 1e4) {
+  raw %>%
+    mutate_at(c("Estimate", "LCL", "UCL"), `/`, 1e3) -> 
+    raw
+  ylab <- "Estimated total population (x 1000)"
+} else {
+  ylab <- "Estimated total population"
+}
+
+p <- raw %>%
+  ggplot(aes(x = Winter, y = Estimate, ymin = LCL, ymax = UCL)) +
+  geom_ribbon(alpha = 0.2, aes(fill = Area)) +
+  geom_line(aes(colour = Area)) +
+  facet_wrap(~Month, scales = "free_y") +
+  scale_y_continuous(ylab, limits = c(0, NA))
+if (static) {
+  p
+} else {
+  ggplotly(p, dynamicTicks = TRUE)
+}
+```
+
+
 ### Based on the maximal population total for each winter
+
+```{r {{id}}-wintermax-ruw, fig.cap = "Estimated maximal winter population per year"}
+selection %>%
+  filter(ModelType == "aggregate imputed: max ~ Year") %>%
+  mutate(Parameter = as.integer(as.character(Parameter)),
+         Area = LocationGroup) -> raw
+if (max(raw$UCL) > 1e4) {
+  raw %>%
+    mutate_at(c("Estimate", "LCL", "UCL"), `/`, 1e3) -> 
+    raw
+  ylab <- "Estimated winter maximum (x 1000)"
+} else {
+  ylab <- "Estimated winter maximum"
+}
+p <- raw %>%
+  ggplot(aes(x = Parameter, y = Estimate, ymin = LCL, ymax = UCL)) +
+  geom_ribbon(alpha = 0.2, aes(fill = Area)) +
+  geom_line(aes(colour = Area)) +
+  ylab(ylab) + 
+  theme(axis.title.x = element_blank()) +
+  scale_y_continuous(ylab, limits = c(0, NA))
+if (static) {
+  p
+} else {
+  ggplotly(p, dynamicTicks = TRUE)
+}
+```
+
 
 ```{r {{id}}-wintermax}
 wintermax %>%
   filter(id == this_id) %>%
   select(Area = LocationGroup, Detailed, `For publication`) %>%
-  kable(caption = "Estimated maximal population total, averaged over the last 5 years.")
+  kable(caption = "Estimated winter maximum, averaged over the last 5 years.")
 ```
 
 ```{r {{id}}-wintermax-trend}
@@ -81,5 +182,29 @@ selection %>%
     Area = LocationGroup, 
     Change = sprintf("%0.1f%% (%0.1f%%; %0.1f%%)", Estimate, LCL, UCL)
   ) %>%
-  kable(caption = "Relative change in average maximal population total between the last two five year periods.")
+  kable(caption = "Relative change in average winter maximum between the last two five year periods.")
 ```
+```{r {{id}}-fingerprint}
+selection %>%
+  distinct(Area = LocationGroup, Analysis = ModelType, Timespan = Duration,
+           "File fingerprint" = FileFingerprint,
+           "Status fingerprint" = StatusFingerprint, 
+           Parent = ParentAnalysis) %>%
+  mutate(
+    Analysis = factor(
+      Analysis, 
+      levels = c("aggregate imputed: sum ~ Year + Month", 
+                 "yearly imputed index: Total ~ Year + Month", 
+                 "imputed trend: Total ~ Year + Month", 
+                 "aggregate imputed: max ~ Year", 
+                 "imputed average: Total ~ cPeriod"), 
+      labels = c("monthy total", "yearly index", "linear trend", "raw wintermax", 
+                 "model wintermax")),
+    "File fingerprint" = str_trunc(as.character(`File fingerprint`), 10),
+    "Status fingerprint" = str_trunc(as.character(`Status fingerprint`), 10), 
+     Parent = str_trunc(as.character(Parent), 10)
+  ) %>%
+  arrange(Area, Analysis, Timespan) %>%
+  kable(caption = "Fingerprints of the analyses")
+```
+

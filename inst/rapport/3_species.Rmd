@@ -5,8 +5,11 @@ wintermax %>%
   filter(LocationGroup == "Belgium") %>%
   select(id, wintermax = Estimate) %>%
   inner_join(results, by = "id") %>%
-  filter(Status == "converged") %>%
-  distinct(id, wintermax) %>%
+  distinct(id, wintermax, LastModified) %>%
+  group_by(id) %>%
+  arrange(desc(LastModified)) %>%
+  slice(1) %>%
+  ungroup() %>%
   arrange(desc(wintermax)) %>%
   pull(id) %>%
   sapply(
