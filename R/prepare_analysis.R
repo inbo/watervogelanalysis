@@ -82,7 +82,7 @@ filter(grepl("^4556c3a55", .data$Impute)) %>% # limit to Belgian data
     store_manifest_yaml(
       manifest, base = analysis_path, project = "watervogels",
       docker = "inbobmk/rn2k:0.3",
-      dependencies = c("inbo/n2khelper@v0.4.3", "inbo/n2kanalysis@v0.2.6",
+      dependencies = c("inbo/n2khelper@v0.4.3", "inbo/n2kanalysis@v0.2.7",
                        "inbo/n2kupdate@v0.1.1")
     )
   }

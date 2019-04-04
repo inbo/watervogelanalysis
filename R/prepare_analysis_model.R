@@ -46,16 +46,36 @@ f(Month, model = \"iid\", constr = TRUE,
         parent.statusfingerprint = aggregation[i, "StatusFingerprint"],
         model.fun = INLA::inla,
         package = c("INLA", "dplyr"),
-        extractor =  function(model){
-          re <- model$summary.random$cYear[, c("ID", "mean", "sd")] %>%
-            left_join(
-              unique(model$.args$data[, c("Year", "cYear")]),
-              by = c("ID" = "cYear")
-            )
-          rownames(re) <- paste0("Year", re$Year)
-          re[, c("mean", "sd")]
+        extractor = function(model) {
+          rbind(
+            model$summary.lincomb.derived[, c("mean", "sd")],
+            model$summary.random$cYear[, c("mean", "sd")]
+          )
         },
         mutate = list(cYear = "Year - max(Year)"),
+        prepare.model.args = list(
+          function(model) {
+            winters <- sort(unique(model$.args$data$Year))
+            lc1 <- inla.make.lincombs("(Intercept)" = rep(1, length(winters)),
+                                      cYear = diag(length(winters)))
+            names(lc1) <- paste("total:", winters)
+            comb <- expand.grid(
+              winter1 = factor(winters),
+              winter2 = factor(winters)
+            )
+            comb <- comb[as.integer(comb$winter1) < as.integer(comb$winter2), ]
+            comb$label <- sprintf("index: %s-%s", comb$winter2, comb$winter1)
+            lc2 <- inla.make.lincombs(
+              cYear = sparseMatrix(
+                i = rep(seq_len(nrow(comb)), 2),
+                j = c(as.integer(comb$winter2), as.integer(comb$winter1)),
+                x = rep(c(1, -1), each = nrow(comb))
+              )
+            )
+            names(lc2) <- comb$label
+            return(list(lincomb = c(lc1, lc2)))
+          }
+        ),
         model.args = list(family = "nbinomial")
       )
       store_model(object, base = analysis_path, project = "watervogels",
