@@ -144,11 +144,8 @@ observation"
       n.month <- length(levels(dataset$Month))
       n.location <- length(unique(dataset$LocationID))
       covariate <- "Year"
-      form <- "f(
-  Year,
-  model = \"rw1\",
-  scale.model = TRUE,
-  hyper = list(theta = list(prior = \"pc.prec\", param = c(1, 0.01)))
+      form <- "f(Year, model = \"rw1\", scale.model = TRUE,
+  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.1, 0.01)))
 )"
       if (n.month > 1) {
         covariate <- c(covariate, "Month")
@@ -156,9 +153,10 @@ observation"
         n.used <- n.used + n.month
       }
       if (n.location > 1) {
-        form <- c(
-          form,
-          "f(LocationID, model = 'iid')"
+        form <- c(form,
+          "f(LocationID, model = \"iid\", constr = TRUE,
+  hyper = list(theta = list(prior = \"pc.prec\", param = c(1, 0.01)))
+)"
         )
         covariate <- c(covariate, "LocationID")
         n.used <- n.used + n.location
@@ -167,7 +165,9 @@ observation"
         n.extra <- length(levels(dataset$fYearMonth))
         if (n.used + n.extra <= n.eff / 5) {
           covariate <- c(covariate, "fYearMonth")
-          form <- c(form, "f(fYearMonth, model = 'iid')")
+          form <- c(form, "f(fYearMonth, model = \"iid\", constr = TRUE,
+  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.25, 0.01)))
+)")
           n.used <- n.used + n.extra
         }
       }
@@ -175,7 +175,8 @@ observation"
         n.extra <- length(levels(dataset$fYearLocation))
         if (n.used + n.extra <= n.eff / 5) {
           covariate <- c(covariate, "fYearLocation")
-          form <- c(form, "f(fYearLocation, model = 'iid')")
+          form <- c(form, "f(fYearLocation, model = \"iid\", constr = TRUE,
+  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.25, 0.01)))")
           n.used <- n.used + n.extra
         }
       }
