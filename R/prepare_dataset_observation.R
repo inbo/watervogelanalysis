@@ -86,11 +86,23 @@ prepare_dataset_observation <- function(
     select_relevant_import() %>%
     mutate(
       Month = factor(.data$Month, levels = c(1:3, 10:12),
-                     labels = c("Januari", "Februari", "March", "October",
-                                "November", "December")),
-      LocationID = factor(.data$LocationID)
+                     labels = c("January", "February", "March", "October",
+                                "November", "December"))
     ) %>%
     complete(.data$Year, .data$Month, .data$LocationID) %>%
+    inner_join(
+      location %>%
+        transmute(
+          LocationID = .data$fingerprint,
+          start = round_date(.data$StartDate, unit = "year") %>%
+            year(),
+          end = round_date(.data$StartDate, unit = "year") %>%
+            year()
+        ),
+      by = "LocationID"
+    ) %>%
+    filter(is.na(start) | start <= Year, is.na(end) | Year <= end) %>%
+    select(-"start", -"end") %>%
     mutate(
       DatasourceID = ifelse(is.na(.data$DatasourceID),
                      metadata$results_datasource_id[1], .data$DatasourceID),
@@ -133,10 +145,11 @@ prepare_dataset_observation <- function(
     analysis_dataset <- data.frame(analysis = analysis$file_fingerprint,
                                    dataset = dataset$fingerprint,
                                    stringsAsFactors = FALSE)
-    store_analysis_dataset(analysis = analysis, model_set = model_set,
-                           analysis_version = analysis_version, dataset = dataset,
-                           analysis_dataset = analysis_dataset,
-                           conn = result_channel$con)
+    store_analysis_dataset(
+      analysis = analysis, model_set = model_set,
+      analysis_version = analysis_version, dataset = dataset,
+      analysis_dataset = analysis_dataset, conn = result_channel$con
+    )
 
     return(analysis$file_fingerprint)
   }
@@ -220,7 +233,7 @@ prepare_dataset_observation <- function(
     analysis_status <- "No data"
   } else {
     observation_sha <- write_vc(x = result,
-      file = this_species$species_group_id[1], strict = FALSE,
+      file = this_species$species_group_id[1],
       sorting = c("Year", "Month", "LocationID"), stage = TRUE, root = raw_repo)
     analysis_status <- "converged"
     data.frame(
