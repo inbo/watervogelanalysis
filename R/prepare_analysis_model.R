@@ -32,9 +32,11 @@ prepare_analysis_model <- function(aggregation, analysis_path, seed = 19790402,
         model.type = "yearly imputed index: Total ~ Year + Month",
         formula =
           "~ f(cYear, model = \"rw1\", scale.model = TRUE,
-  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.1, 0.01))) +
+  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.1, 0.01)))
+) +
 f(Month, model = \"iid\", constr = TRUE,
-  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.6, 0.01)))",
+  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.6, 0.01)))
+)",
         first.imported.year = aggregation[i, "FirstImportedYear"],
         last.imported.year = aggregation[i, "LastImportedYear"],
         duration = aggregation[i, "Duration"],
@@ -101,7 +103,8 @@ f(Month, model = \"iid\", constr = TRUE,
         model.type = "imputed trend: Total ~ Year + Month",
         formula = "~ cYear +
 f(Month, model = \"iid\", constr = TRUE,
-  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.6, 0.01)))",
+  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.6, 0.01)))
+)",
         first.imported.year = aggregation[i, "FirstImportedYear"],
         last.imported.year = aggregation[i, "LastImportedYear"],
         duration = aggregation[i, "Duration"],
@@ -142,7 +145,8 @@ f(Month, model = \"iid\", constr = TRUE,
         model.type = "imputed trend: Total ~ Year + Month",
         formula = "~ cYear +
 f(Month, model = \"iid\", constr = TRUE,
-  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.6, 0.01)))",
+  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.6, 0.01)))
+)",
         first.imported.year = aggregation[i, "FirstImportedYear"],
         last.imported.year = aggregation[i, "LastImportedYear"],
         duration = 12,

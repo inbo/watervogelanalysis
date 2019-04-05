@@ -176,7 +176,8 @@ observation"
         if (n.used + n.extra <= n.eff / 5) {
           covariate <- c(covariate, "fYearLocation")
           form <- c(form, "f(fYearLocation, model = \"iid\", constr = TRUE,
-  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.25, 0.01)))")
+  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.25, 0.01)))
+)")
           n.used <- n.used + n.extra
         }
       }
