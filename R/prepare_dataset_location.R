@@ -145,7 +145,11 @@ prepare_dataset_location <- function(
 
   # store the datasets in the git repository
   stored$location %>%
-    select("local_id", "fingerprint") %>%
+    select("local_id", "fingerprint", "datafield_local_id") %>%
+    inner_join(
+      datafield %>%
+        select("local_id", "table_name", "datafield_type", "primary_key"),
+      by = c("datafield_local_id" = "local_id")) %>%
     inner_join(location, by = "local_id") -> location
   location %>%
     select(ID = "fingerprint", "StartDate", "EndDate") %>%
