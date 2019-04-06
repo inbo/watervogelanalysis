@@ -89,7 +89,8 @@ prepare_dataset_observation <- function(
                      labels = c("January", "February", "March", "October",
                                 "November", "December"))
     ) %>%
-    complete(.data$Year, .data$Month, .data$LocationID) %>%
+    complete(.data$Year, .data$Month, .data$LocationID,
+             fill = list(Count = NA_integer_, Complete = NA_integer_)) %>%
     inner_join(
       location %>%
         transmute(
