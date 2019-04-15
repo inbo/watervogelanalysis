@@ -57,7 +57,7 @@ f(Month, model = \"iid\", constr = TRUE,
         mutate = list(cYear = "Year - max(Year)"),
         prepare.model.args = list(
           function(model) {
-            winters <- sort(unique(model$.args$data$Year))
+            winters <- sort(unique(model@AggregatedImputed@Covariate$Year))
             lc1 <- inla.make.lincombs("(Intercept)" = rep(1, length(winters)),
                                       cYear = diag(length(winters)))
             names(lc1) <- paste("total:", winters)
