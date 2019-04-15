@@ -20,7 +20,6 @@ prepare_analysis <- function(analysis_path = ".", raw_repo, seed = 19790402,
     ) %>%
     select("ID", "StartYear", "EndYear") -> location
   read_vc(file = "locationgroup", root = raw_repo) %>%
-filter(grepl("^4556c3a55", .data$Impute)) %>% # limit to Belgian data
     select(LocationGroupID = "Impute", "SubsetMonths") %>%
     distinct() %>%
     inner_join(
