@@ -147,18 +147,18 @@ observation"
       form <- "f(Year, model = \"rw1\", scale.model = TRUE,
   hyper = list(theta = list(prior = \"pc.prec\", param = c(0.1, 0.01)))
 )"
+      covariate <- c(covariate, "Month")
       if (n.month > 1) {
-        covariate <- c(covariate, "Month")
         form <- c(form, "Month")
         n.used <- n.used + n.month
       }
+      covariate <- c(covariate, "LocationID")
       if (n.location > 1) {
         form <- c(form,
           "f(LocationID, model = \"iid\", constr = TRUE,
   hyper = list(theta = list(prior = \"pc.prec\", param = c(1, 0.01)))
 )"
         )
-        covariate <- c(covariate, "LocationID")
         n.used <- n.used + n.location
       }
       if (n.month > 1) {
