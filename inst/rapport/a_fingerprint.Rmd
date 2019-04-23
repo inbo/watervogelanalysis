@@ -1,0 +1,20 @@
+\appendix
+
+# Analysis fingerprints
+
+```{r fingerprint}
+results %>%
+  filter(Status == "converged", grepl("imputed (ave|tre|ind)", ModelType)) %>%
+  distinct(species = scientific_name, area = LocationGroup, model = ModelType, 
+           span = Duration, file = FileFingerprint, 
+           status = StatusFingerprint) %>%
+  mutate(model = ifelse(grepl("yearly", model),  "non-linear", 
+                        ifelse(grepl("trend", model), "linear", "wintermax"))
+         ) %>%
+  mutate_at(c("file", "status"), as.character) %>%
+  mutate_at(c("file", "status"), str_trunc, 10) %>%
+  arrange(species, area, model, span) %>%
+  kable(format = "pandoc")
+```
+
+

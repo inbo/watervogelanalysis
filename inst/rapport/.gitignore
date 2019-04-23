@@ -1,2 +1,4 @@
 results.Rds
 css
+_bookdown_files
+*.log

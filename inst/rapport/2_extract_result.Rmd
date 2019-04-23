@@ -1,4 +1,11 @@
 ```{r extract-results}
+year_month <- function(z) {
+  if (has_name(z, "Month")) {
+    as.character(interaction(z$Year, z$Month))
+  } else {
+    as.character(z$Year)
+  }
+}
 extract_results <- function(hash, base, project, relevant) {
   message(hash)
   x <- try(read_model(hash, base = base, project = project))
@@ -22,8 +29,7 @@ extract_results <- function(hash, base, project, relevant) {
           FileFingerprint = hash
         ),
         "aggregate imputed: sum ~ Year + Month" = tibble(
-          Parameter = interaction(x@AggregatedImputed@Covariate$Year,
-                                  x@AggregatedImputed@Covariate$Month),
+          Parameter = year_month(x@AggregatedImputed@Covariate),
           Estimate = rowMeans(x@AggregatedImputed@Imputation),
           LCL = apply(x@AggregatedImputed@Imputation, 1, quantile, 0.025),
           UCL = apply(x@AggregatedImputed@Imputation, 1, quantile, 0.975),
@@ -52,7 +58,10 @@ extract_results <- function(hash, base, project, relevant) {
       result %>%
         inner_join(
           x@Results %>%
-            mutate(FileFingerprint = hash),
+            mutate(
+              FileFingerprint = hash,
+              Parameter = as.character(Parameter)
+            ),
           by = "FileFingerprint"
         ) -> result
     }
@@ -62,7 +71,7 @@ extract_results <- function(hash, base, project, relevant) {
 }
 ```
 
-```{r import-data, eval = !file.exists("results.Rds")}
+```{r import-data, eval = !file.exists("results.Rds"), results = "hide", message = FALSE}
 library(aws.s3)
 library(n2kanalysis)
 
@@ -125,7 +134,7 @@ sprintf("%s/manifest", project) %>%
   mutate(
     LastModified = as.POSIXct(LastModified, format = "%Y-%m-%dT%H:%M:%S")
   ) %>%
-  filter(LastModified >= as.POSIXct("2019-03-30")) %>%
+  filter(LastModified >= as.POSIXct("2019-04-01")) %>%
   mutate(
     manifest = str_extract(Key, "([[:xdigit:]]{40})") %>%
       map(read_manifest, base = base, project = project) %>%
@@ -155,12 +164,29 @@ saveRDS(results, "results.Rds")
 ```
 
 ```{r read-data}
-readRDS("results.Rds") %>%
+readRDS("results.Rds") -> results
+results %>%
+  distinct(LocationGroup, SpeciesGroup, ModelType, Duration, FileFingerprint, 
+           LastModified) %>%
+  group_by(LocationGroup, SpeciesGroup, ModelType, Duration) %>%
+  arrange(desc(LastModified)) %>%
+  ungroup() %>%
+  semi_join(x = results, by = "FileFingerprint") %>%
+  filter(Status != "error") %>%
   mutate(id = as.character(scientific_name) %>% 
-           str_replace_all(" ", "-")) -> results
+           str_replace_all(" ", "-"),
+         Parameter = as.character(Parameter)) -> results
 levels(results$LocationGroup) %>%
   str_replace("België", "Belgium") %>%
-  str_replace("Vogelrichtlijn", "SPA") -> levels(results$LocationGroup)
+  str_replace("Vlaanderen", "Flanders") %>%
+  str_replace("Wallonië", "Wallonia") %>%
+  str_replace("Vogelrichtlijn (.*)", "\\1 SPA") -> levels(results$LocationGroup)
+results %>%
+  mutate(
+    loc_id = as.character(LocationGroup) %>%
+      str_replace_all(" ", "-") %>%
+      interaction(id, sep = "-")
+  ) -> results
 results %>%
   filter(ModelType == "imputed average: Total ~ cPeriod", 
          Parameter == "(Intercept)") %>%
@@ -175,7 +201,7 @@ results %>%
     function(x, m) {
       round(x / 10 ^ m, 1) * 10 ^ m
     },
-    .$Magnitude,
+    .$Magnitude
   ) %>%
   mutate(
     Detailed = sprintf("%0.1f (%0.1f; %0.1f)", Estimate, LCL, UCL),

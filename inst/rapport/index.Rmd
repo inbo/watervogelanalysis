@@ -1,5 +1,6 @@
 ---
 title: "Standard analysis wintering waterbirds in Belgium"
+subtitle: "Static report"
 author: 
   - 
     name: "Thierry Onkelinx"
@@ -10,12 +11,6 @@ author:
 link-citations: TRUE
 site: bookdown::bookdown_site
 output:
-  bookdown::gitbook:
-    split_by: "section+number"
-    template: !expr INBOmd::inbo_rapport_css("html")
-    dpi: 300
-    fig.width: 200 / 25.4
-    fig.height: 100 / 25.4
   bookdown::pdf_book:
     base_format: INBOmd::inbo_rapport
     dpi: 300
@@ -28,6 +23,12 @@ output:
   bookdown::epub_book:
     stylesheet: "css/inbo_rapport.css"
     template: !expr INBOmd::inbo_rapport_css("epub")
+  bookdown::gitbook:
+    split_by: "section+number"
+    template: !expr INBOmd::inbo_rapport_css("html")
+    dpi: 300
+    fig.width: 150 / 25.4
+    fig.height: 100 / 25.4
 ---
 
 ```{r setup, include = FALSE}
@@ -37,26 +38,20 @@ opts_chunk$set(
   warning = TRUE, error = TRUE, message = TRUE
 )
 library(tidyverse)
+library(scales)
 library(INBOtheme)
 if (interactive()) {
-  static <- TRUE
   theme_set(theme_inbo(base_family = "Flanders Art Sans", base_size = 12))
 } else {
   switch(
     opts_knit$get("rmarkdown.pandoc.to"),
-    html = {
-      library(plotly)
-      static <- FALSE
-      theme_set(theme_inbo(base_family = "Flanders Art Sans", base_size = 12))
-    },
     latex = {
       opts_chunk$set(dev = "cairo_pdf")
-      static <- TRUE
       theme_set(theme_inbo(base_family = "Flanders Art Sans", base_size = 8))
+      update_geom_defaults("point", list(size = 1.5))
     },
     epub3 = {
       opts_chunk$set(dev = "png")
-      static <- TRUE
       theme_set(theme_inbo(base_family = "Flanders Art Sans", base_size = 12))
     }
   )
@@ -64,8 +59,11 @@ if (interactive()) {
 change <- function(x) {
   100 * (exp(x) - 1)
 }
+total_change <- function(x, duration) {
+  100 * (exp(x * duration) - 1)
+}
 center_index <- function(x, se, reference, p) {
-  100 * exp(qnorm(p = p, mean = x - reference, sd = se))
+  exp(qnorm(p = p, mean = x - reference, sd = se))
 }
 p_population <- function(x, se, p) {
   exp(qnorm(p = p, mean = x, sd = se))
