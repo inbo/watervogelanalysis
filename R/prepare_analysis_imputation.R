@@ -83,7 +83,7 @@ observation"
     ) %>%
     filter(
       !.data$SubsetMonths |
-        .data$Month %in% c("November", "December", "Januari", "Februari"),
+        .data$Month %in% c("November", "December", "January", "February"),
       is.na(.data$StartYear) | .data$StartYear <= .data$Year,
       is.na(.data$EndYear) | .data$Year <= .data$EndYear
     ) %>%
