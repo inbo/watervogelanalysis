@@ -1,4 +1,4 @@
-results.Rds
+*.Rds
 css
-_bookdown_files
+*_files
 *.log
