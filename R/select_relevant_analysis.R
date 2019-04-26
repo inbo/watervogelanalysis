@@ -40,6 +40,16 @@ select_relevant_analysis <- function(observation){
   }
   observation$Month <- factor(observation$Month)
 
+  # select locations with observation from at least 10 different years
+  observation %>%
+    distinct(.data$Year, .data$LocationID) %>%
+    add_count(.data$LocationID) %>%
+    filter(.data$n >= 10) %>%
+    semi_join(x = observation, by = "LocationID") -> observation
+  if (nrow(observation) == 0) {
+    return(observation)
+  }
+
   # select locations with at least 4 prescences
   observation %>%
     filter(.data$Count > 0) %>%
