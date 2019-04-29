@@ -1,0 +1,138 @@
+```{r montly-totals}
+results %>%
+  filter(
+    ModelType == "aggregate imputed: max ~ Year", 
+    !is.na(Parameter)
+  ) %>%
+  mutate(
+    Parameter = as.integer(Parameter)
+  ) -> wintermax
+results %>%
+  filter(
+    ModelType == "aggregate imputed: sum ~ Year + Month", 
+    !is.na(Parameter)
+  ) %>%
+  extract(Parameter, c("type", "winter", "month"), "(.*): ([[:digit:]]*)-([[:alpha:]]*)", 
+          convert = TRUE) %>%
+  mutate(
+    month = factor(
+      month, 
+      levels = c("October", "November", "December", "January", "February", 
+                 "March")
+    )
+  ) -> mt
+levels(mt$LocationGroup) %>%
+  str_replace("België", "Belgium") %>%
+  str_replace("Vlaanderen", "Flanders") %>%
+  str_replace("Wallonië", "Wallonia") %>%
+  str_replace("Vogelrichtlijn (.*)", "\\1 - SPA") ->
+  levels(mt$LocationGroup)
+mt %>%
+  select(id, SpeciesGroup, scientific_name, LocationGroup, type, winter, month, 
+         Estimate, LCL, UCL) %>%
+  group_by(id, SpeciesGroup, scientific_name, LocationGroup) %>%
+  nest() %>%
+  left_join(
+    wintermax %>%
+      filter(LocationGroup == "België") %>%
+      arrange(desc(Parameter)) %>%
+      group_by(scientific_name) %>%
+      slice(1) %>%
+      ungroup() %>%
+      select(scientific_name, wintermax = Estimate),
+    by = "scientific_name"
+  ) %>%
+  mutate_at(c("SpeciesGroup", "LocationGroup", "scientific_name"), 
+            as.character) %>%
+  arrange(desc(wintermax), SpeciesGroup, LocationGroup) %>%
+  mutate(title = ifelse(
+    SpeciesGroup != lag(SpeciesGroup, default = ""),
+    sprintf("# _%s_ (%s)\n\n## %s\n\n", scientific_name, SpeciesGroup, LocationGroup),
+    sprintf("## %s\n\n", LocationGroup)
+    )
+  ) -> mt
+p_population <- function(x, se, p) {
+  exp(qnorm(p = p, mean = x, sd = se))
+}
+results %>%
+  filter(ModelType == "yearly imputed index: Total ~ Year + Month",
+         grepl("total:", Parameter)) %>%
+  transmute(id, 
+            winter = as.character(Parameter) %>% 
+              str_remove("total: ") %>%
+              as.integer(),
+            p05 = p_population(Estimate, SE, 0.05),
+            p10 = p_population(Estimate, SE, 0.1),
+            p30 = p_population(Estimate, SE, 0.3),
+            p50 = p_population(Estimate, SE, 0.5),
+            p70 = p_population(Estimate, SE, 0.7),
+            p90 = p_population(Estimate, SE, 0.9),
+            p95 = p_population(Estimate, SE, 0.95)) -> index
+results %>%
+  filter(ModelType == "imputed average: Total ~ cPeriod", 
+         Parameter == "(Intercept)") %>%
+  transmute(id, 
+            p05 = p_population(Estimate, SE, 0.05),
+            p10 = p_population(Estimate, SE, 0.1),
+            p30 = p_population(Estimate, SE, 0.3),
+            p50 = p_population(Estimate, SE, 0.5),
+            p70 = p_population(Estimate, SE, 0.7),
+            p90 = p_population(Estimate, SE, 0.9),
+            p95 = p_population(Estimate, SE, 0.95)) -> avg_wintermax
+results %>%
+  filter(
+    ModelType == "inla nbinomial: Year * (Month + Location)",
+    grepl("location: ", Parameter)
+  ) %>%
+  transmute(id, Parameter = str_remove(Parameter, "location: "), Estimate, LCL, 
+            UCL) %>%
+  left_join(location, by = c("Parameter" = "fingerprint")) %>%
+  select(-Parameter) %>%
+  mutate_at(c("Estimate", "LCL", "UCL"), exp) %>%
+  group_by(id) %>%
+  mutate(
+    LCL = LCL / max(Estimate),
+    UCL = UCL / max(Estimate),
+    Estimate = Estimate / max(Estimate)
+  ) %>%
+  ungroup() -> location_effect
+results %>%
+  filter(
+    ModelType == "inla nbinomial: Year * (Month + Location)",
+    grepl("imputation: ", Parameter)
+  ) %>%
+  select(id, Parameter, Estimate, LCL, UCL, scientific_name, LocationGroup) %>%
+  extract(Parameter, c("fingerprint", "year", "month"), convert = TRUE, 
+          "imputation: (.*):(.*):(.*)") %>%
+  inner_join(location, by = "fingerprint") %>%
+  mutate(month = factor(
+    month, 
+    levels = c("October", "November", "December", "January", "February", 
+               "March")),
+    loc_id = str_remove_all(location, "([[:punct:]]|\\+|=|\\|)") %>%
+      str_replace_all("(è|É|é|ê)", "e") %>%
+      str_replace_all("ç", "c") %>%
+      str_replace_all("î", "i") %>%
+      str_replace_all("ô", "o") %>%
+      str_replace_all("ü", "u") %>%
+      str_replace_all("(à|â)", "a") %>%
+      abbreviate(10) %>%
+      sprintf(fmt = "%2$s-%1$s", id)
+  ) %>%
+  select(-fingerprint) -> imputations
+```
+
+```{r display-monthly-totals, results = "asis"}
+mt %>%
+  distinct(id, scientific_name) %>%
+  arrange(scientific_name) %>%
+  pull(id) %>%
+  sapply(
+    function(id) {
+      knit_expand("_monthly_totals.Rmd", id = id)
+    }
+  ) %>%
+  paste(collapse = "\n\n") -> rmd
+knit(text = rmd, quiet = TRUE) %>%
+  cat()
+```
