@@ -1,13 +1,39 @@
 ```{r extract-results}
 year_month <- function(z) {
   if (has_name(z, "Month")) {
-    as.character(interaction(z$Year, z$Month))
+    sprintf("imputed total: %i-%s", z$Year, z$Month)
   } else {
-    as.character(z$Year)
+    sprintf("imputed total: %i-unknown", z$Year)
   }
 }
+get_monthly_total <- function(x, hash) {
+  if (is.null(x@Join)) {
+    x@RawImputed@Data %>%
+      filter(!Missing) %>%
+      mutate(Parameter = sprintf("observed total: %i-%s", Year, Month)) %>%
+      group_by(Parameter) %>%
+      summarise(Estimate = sum(Count)) -> mt
+  } else {
+    x@RawImputed@Data %>%
+      semi_join(x@Join[[1]], by = "LocationID") %>%
+      filter(!Missing) %>%
+      mutate(Parameter = sprintf("observed total: %i-%s", Year, Month)) %>%
+      group_by(Parameter) %>%
+      summarise(Estimate = sum(Count)) -> mt
+  }
+  mt %>%
+    bind_rows(
+      tibble(
+        Parameter = year_month(x@AggregatedImputed@Covariate),
+        Estimate = rowMeans(x@AggregatedImputed@Imputation),
+        LCL = apply(x@AggregatedImputed@Imputation, 1, quantile, 0.025),
+        UCL = apply(x@AggregatedImputed@Imputation, 1, quantile, 0.975)
+      )
+    ) %>%
+    mutate(FileFingerprint = hash)
+}
 extract_results <- function(hash, base, project, relevant) {
-  message(hash)
+  message(hash, " extract")
   x <- try(read_model(hash, base = base, project = project))
   if (inherits(x, "try-error")) {
     return(tibble(FileFingerprint = hash, Status = "missing"))
@@ -28,14 +54,8 @@ extract_results <- function(hash, base, project, relevant) {
           UCL = apply(x@AggregatedImputed@Imputation, 1, quantile, 0.975),
           FileFingerprint = hash
         ),
-        "aggregate imputed: sum ~ Year + Month" = tibble(
-          Parameter = year_month(x@AggregatedImputed@Covariate),
-          Estimate = rowMeans(x@AggregatedImputed@Imputation),
-          LCL = apply(x@AggregatedImputed@Imputation, 1, quantile, 0.025),
-          UCL = apply(x@AggregatedImputed@Imputation, 1, quantile, 0.975),
-          FileFingerprint = hash
-        ),
-        stop(x@AnalysisMetadata$ModelType)
+        "aggregate imputed: sum ~ Year + Month" = get_monthly_total(x, hash),
+        stop(x@AnalysisMetadata$ModelType, " ", hash)
       ) %>%
         inner_join(result, by = "FileFingerprint"
         ) -> result
@@ -115,9 +135,23 @@ extract_results <- function(hash, base, project, relevant) {
   stop(class(x), " not handled ", hash)
 }
 local_copy <- function(hash, base, local_base, project) {
-  message(hash)
+  file.path(local_base, project, str_trunc(hash, 4, ellipsis = "")) %>%
+    list.files(recursive = TRUE) %>%
+    str_subset(hash) -> available
+  if (length(available)) {
+    if (length(available) > 1) {
+      stop("duplicates ", hash)
+    }
+    file.path(project, str_trunc(hash, 4, ellipsis = ""), available) %>%
+      get_bucket(bucket = base) -> available.aws
+    if (length(available.aws)) {
+      message(hash, " no update")
+      return(file.path(project, str_trunc(hash, 4, ellipsis = ""), available))
+    }
+  }
+  message(hash, " update")
   read_model(hash, base, project) %>%
-    store_model(local_base, project)
+    store_model(local_base, project, overwrite = TRUE)
 }
 ```
 
@@ -200,7 +234,7 @@ sprintf("%s/manifest", project) %>%
   mutate(
     LastModified = as.POSIXct(LastModified, format = "%Y-%m-%dT%H:%M:%S")
   ) %>%
-  filter(LastModified >= as.POSIXct("2019-04-14")) %>%
+  filter(LastModified >= max(LastModified) - 2 * 3600) %>%
   mutate(
     manifest = str_extract(Key, "([[:xdigit:]]{40})") %>%
       map(read_manifest, base = base, project = project)
@@ -210,17 +244,12 @@ sapply(manifests$manifest, store_manifest, base = local_base,
 manifests %>%
   mutate(manifest = map(manifest, slot, "Manifest")) %>%
   unnest() -> relevant
-file.path(local_base, project) %>%
-  list.files(pattern = "\\.rds$", recursive = TRUE) %>%
-  basename() %>%
-  str_remove("\\.rds") -> done
 relevant %>%
   distinct(Fingerprint) %>%
   arrange(Fingerprint) %>%
-  filter(!Fingerprint %in% done) %>%
   mutate(stored = map_chr(Fingerprint, local_copy, base = base,
                           local_base = local_base, project = project)
-  )
+  ) -> junk
 
 relevant %>%
   arrange(Fingerprint) %>%
