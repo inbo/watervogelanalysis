@@ -6,6 +6,8 @@
 #' @importFrom n2kanalysis n2k_model_imputed get_file_fingerprint store_model
 #' @importFrom dplyr %>% arrange left_join
 #' @importFrom rlang .data
+#' @importFrom INLA inla.make.lincombs
+#' @importFrom Matrix sparseMatrix
 prepare_analysis_model <- function(aggregation, analysis_path, seed = 19790402,
                                    verbose = TRUE) {
   set.seed(seed)

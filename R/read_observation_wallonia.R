@@ -16,7 +16,7 @@ read_observation_wallonia <- function(species_id, first_year, latest_year, wallo
 
   read_vc(file = "data", root = walloon_repo) %>%
     filter(.data$euringcode == species_id) %>%
-    mutate(Count = as.integer(Count)) -> data
+    mutate(Count = as.integer(.data$Count)) -> data
 
   if (nrow(data) == 0) {
     return(NULL)

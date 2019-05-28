@@ -102,7 +102,8 @@ prepare_dataset_observation <- function(
         ),
       by = "LocationID"
     ) %>%
-    filter(is.na(start) | start <= Year, is.na(end) | Year <= end) %>%
+    filter(is.na(.data$start) | .data$start <= .data$Year,
+           is.na(.data$end) | .data$Year <= .data$end) %>%
     select(-"start", -"end") %>%
     mutate(
       DatasourceID = ifelse(is.na(.data$DatasourceID),
