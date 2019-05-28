@@ -1,5 +1,3 @@
-### Monthly totals
-
 ```{r mt-{{id}}-setup}
 if (interactive()) {
   this_id <- sample(mt$id, 1)
@@ -36,7 +34,11 @@ imputations  %>%
 
 `r selection$title`
 
-```{r mt-{{id}}-plot, fig.cap = "Montly totals as subplots"}
+### Monthly totals
+
+(ref:mt-{{id}}) Monthly totals as subplots for _`r selection$scientific_name[1]`_ in `r selection$LocationGroup[1]`.
+
+```{r mt-{{id}}-plot, fig.cap = "(ref:mt-{{id}})"}
 selection$data[[1]] %>%
   mutate(type = str_remove(type, " total") %>%
            factor(levels = c("observed", "imputed"))) %>%
@@ -49,7 +51,9 @@ selection$data[[1]] %>%
   theme(axis.title.x = element_blank())
 ```
 
-```{r mt-{{id}}-plot2, fig.cap = "Imputed montly totals in a single plot"}
+(ref:mt-{{id}}-2) Imputed montly totals in a single plot for _`r selection$scientific_name[1]`_ in `r selection$LocationGroup[1]`.
+
+```{r mt-{{id}}-plot2, fig.cap = "(ref:mt-{{id}}-2)"}
 selection$data[[1]] %>%
   filter(type == "imputed total") %>%
   ggplot(aes(x = winter, y = Estimate, ymin = LCL, ymax = UCL)) +
@@ -60,7 +64,9 @@ selection$data[[1]] %>%
   theme(axis.title.x = element_blank())
 ```
 
-```{r mt-{{id}}-plot3, fig.cap = "Montly totals (blue) combined with the yearly average (green)"}
+(ref:mt-{{id}}-3) Montly totals (blue) combined with the yearly average (green) for _`r selection$scientific_name[1]`_ in `r selection$LocationGroup[1]`.
+
+```{r mt-{{id}}-plot3, fig.cap = "(ref:mt-{{id}}-3)"}
 selection$data[[1]] %>%
   filter(type == "imputed total") %>%
   ggplot(aes(x = winter)) +
@@ -81,7 +87,9 @@ selection$data[[1]] %>%
 
 ### Winter maxima
 
-```{r wm-{{id}}-plot, fig.cap = "Winter maximum after imputation"}
+(ref:wm-{{id}}) Winter maximum after imputation for _`r selection$scientific_name[1]`_ in `r selection$LocationGroup[1]`.
+
+```{r wm-{{id}}-plot, fig.cap = "(ref:wm-{{id}})"}
 ggplot(this_wm, aes(x = Parameter, y = Estimate, ymin = LCL, ymax = UCL)) +
   geom_ribbon(alpha = 0.2) +
   geom_line() +
@@ -89,7 +97,9 @@ ggplot(this_wm, aes(x = Parameter, y = Estimate, ymin = LCL, ymax = UCL)) +
   theme(axis.title.x = element_blank())
 ```
 
-```{r wm-{{id}}-plot2, fig.cap = "Winter maximum after imputation with indication of the average over the last five years"}
+(ref:wm-{{id}}-2) Winter maximum after imputation with indication of the average over the last five years for _`r selection$scientific_name[1]`_ in `r selection$LocationGroup[1]`.
+
+```{r wm-{{id}}-plot2, fig.cap = "(ref:wm-{{id}}-2)"}
 ggplot(this_wm) +
   geom_rect(data = this_avg_wm, alpha = 0.2, fill = inbo.steun.geelgroen,
             aes(xmin = start, xmax = end, ymin = p05, ymax = p95)) +
@@ -105,10 +115,13 @@ ggplot(this_wm) +
   theme(axis.title.x = element_blank())
 ```
 
-### Importance of locations
+(ref:location-{{id}}) Histogram of the relative importance of the sites for _`r selection$scientific_name[1]`_ in `r selection$LocationGroup[1]`.
 
-```{r location-{{id}}, fig.cap = "Histogram of the relative importance of the sites"}
+`r if (nrow(this_location)) {cat("### Importance of locations")}`
+
+```{r location-{{id}}, fig.cap = "(ref:location-{{id}})"}
 if (nrow(this_location)) {
+  cat("### Importance of locations\n\n")
   this_location %>%
     ggplot(aes(x = Estimate)) + geom_histogram(binwidth = 0.05) +
     scale_x_continuous("Relative importance of a site", labels = percent) +
@@ -116,32 +129,41 @@ if (nrow(this_location)) {
 }
 ```
 
-```{r top-location-{{id}}}
+```{r top-location-{{id}}, results = "asis"}
 if (nrow(this_location)) {
 this_location %>%
   arrange(desc(Estimate)) %>%
   head(20) %>%
-  transmute(location, effect = sprintf("%.1f%% (%.1f%%; %.1f%%)", 100 * Estimate, 100 * LCL, 100 * UCL)) %>%
-  kable(caption = "Most important sites", format = "pandoc")
+  transmute(
+    location, 
+    effect = sprintf("%.1f%% (%.1f%%; %.1f%%)", 100 * Estimate, 100 * LCL, 
+                     100 * UCL)) %>%
+  pandoc.table(
+    caption = sprintf("Most important sites for _%s_ in %s.", 
+                      selection$scientific_name[1],
+                      selection$LocationGroup[1]), 
+    split.cells = 60, split.table = Inf)
 }
 ```
 
-### Imputations
+`r if(nrow(this_imputations)) {cat("### Imputations")}`
 
 ```{r imputations-{{id}}, warnings = FALSE, echo = FALSE, message = FALSE}
-this_imputations %>%
-  group_by(location) %>%
-  nest() %>%
-  mutate(plot = map2(
-    data, location,
-    ~ggplot(.x, aes(x = year, y = Estimate, ymin = LCL, ymax = UCL)) +
-      geom_errorbar() +
-      geom_line() +
-      geom_point(aes(colour = factor(is.na(LCL), levels = c(TRUE, FALSE), 
-                                     labels = c("observed", "imputed")))) +
-      facet_wrap(~month, scales = "free_y") +
-      labs(y = "count", title = .y, colour = "status") +
-      theme(axis.title.x = element_blank())) %>%
-      map(print)
-  ) -> junk
+if (nrow(this_imputations)) {
+  this_imputations %>%
+    group_by(location) %>%
+    nest() %>%
+    mutate(plot = map2(
+      data, location,
+      ~ggplot(.x, aes(x = year, y = Estimate, ymin = LCL, ymax = UCL)) +
+        geom_errorbar(data = filter(.x, !is.na(LCL))) +
+        geom_line() +
+        geom_point(aes(colour = factor(is.na(LCL), levels = c(TRUE, FALSE), 
+                                       labels = c("observed", "imputed")))) +
+        facet_wrap(~month, scales = "free_y") +
+        labs(y = "count", title = .y, colour = "status") +
+        theme(axis.title.x = element_blank())) %>%
+        map(print)
+    ) -> junk
+}
 ```

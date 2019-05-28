@@ -15,6 +15,7 @@ output:
     base_format: INBOmd::inbo_rapport
     lot: FALSE
     lof: FALSE
+    tocdepth: 1
     floatbarrier: subsubsection
     lang: english
     bookdown::gitbook:
@@ -38,6 +39,7 @@ opts_chunk$set(
   error = TRUE,
   message = TRUE
 )
+library(pander)
 library(tidyverse)
 library(scales)
 library(INBOtheme)
@@ -52,13 +54,21 @@ if (!interactive() && opts_knit$get("rmarkdown.pandoc.to") != "html") {
 
 ```{r read-data}
 readRDS("../rapport/results.Rds") %>%
+  # filter(SpeciesGroupID %in% sample(SpeciesGroupID, 2)) %>%
   mutate(
     id = LocationGroup %>%
       str_replace("ë", "e") %>%
       abbreviate() %>%
       interaction(abbreviate(scientific_name, 10), sep = "-") %>%
       as.character() %>%
-      str_replace_all(" ", "-")
+      str_replace_all(" ", "-"),
+    LocationGroup = factor(LocationGroup)
     ) -> results
+levels(results$LocationGroup) %>%
+  str_replace("België", "Belgium") %>%
+  str_replace("Vlaanderen", "Flanders") %>%
+  str_replace("Wallonië", "Wallonia") %>%
+  str_replace("Vogelrichtlijn (.*)", "\\1 - SPA") ->
+  levels(results$LocationGroup)
 readRDS("../rapport/location.Rds") -> location
 ```

@@ -1,3 +1,5 @@
+# (PART) Details per species {-}
+
 ```{r montly-totals}
 results %>%
   filter(
@@ -21,12 +23,6 @@ results %>%
                  "March")
     )
   ) -> mt
-levels(mt$LocationGroup) %>%
-  str_replace("België", "Belgium") %>%
-  str_replace("Vlaanderen", "Flanders") %>%
-  str_replace("Wallonië", "Wallonia") %>%
-  str_replace("Vogelrichtlijn (.*)", "\\1 - SPA") ->
-  levels(mt$LocationGroup)
 mt %>%
   select(id, SpeciesGroup, scientific_name, LocationGroup, type, winter, month, 
          Estimate, LCL, UCL) %>%

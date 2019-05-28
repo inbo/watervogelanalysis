@@ -1,0 +1,10 @@
+```{r imputations-{{z}}-selection, echo = FALSE}
+this_imputations %>%
+  filter(loc_id == "{{z}}") -> this_loc_data
+```
+
+(ref:{{z}}) Imputations for _`r as.character(this_loc_data$scientific_name[1])`_ at `r this_loc_data$location[1]` in the analysis for `r as.character(this_loc_data$LocationGroup[1])`
+
+```{r imputations-{{z}}, fig.cap = "(ref:{{z}})", message = FALSE, warning=FALSE, echo = FALSE}
+```
+
