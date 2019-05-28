@@ -212,7 +212,7 @@ observation"
         Fingerprint = get_file_fingerprint(model),
         FirstImportedYear = metadata$first_imported_year,
         LastImportedYear = metadata$last_imported_year,
-        AnalysisDate = analysis_date, Filename = filename,
+        AnalysisDate = analysis_date, Filename = filename, Months = n.month,
         Formula = paste(form, collapse = "+"), Status = "new"))
     }
   ) %>%
