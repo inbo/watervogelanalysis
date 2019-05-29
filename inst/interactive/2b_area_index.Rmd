@@ -1,0 +1,55 @@
+# Index based on monthly population totals, grouped by area
+
+```{r prepare_area_monthly_index, results = "asis"}
+p_index <- function(x, se, reference, p) {
+  100 * exp(qnorm(p = p, mean = x - reference, sd = se))
+}
+results %>%
+  filter(ModelType == "yearly imputed index: Total ~ Year + Month") -> index
+index %>%
+  arrange(Parameter) %>%
+  group_by(LocationGroupID, SpeciesGroupID) %>%
+  slice(1) %>%
+  ungroup() %>%
+  select(LocationGroupID, SpeciesGroupID, Reference = Estimate) %>%
+  inner_join(index, by = c("LocationGroupID", "SpeciesGroupID")) %>%
+  transmute(
+    LocationGroup, 
+    genus = str_replace(scientific_name, "([[:alpha:]]*) .*", "\\1"),
+    species = str_replace(scientific_name, "[[:alpha:]]* (.*)", "\\1") %>%
+      str_replace(" ", "\n"), 
+    year = as.integer(as.character(Parameter)),
+    p05 = p_index(Estimate, SE, Reference, 0.05), 
+    p10 = p_index(Estimate, SE, Reference, 0.1),
+    p30 = p_index(Estimate, SE, Reference, 0.3),
+    p50 = p_index(Estimate, SE, Reference, 0.5),
+    p70 = p_index(Estimate, SE, Reference, 0.7),
+    p90 = p_index(Estimate, SE, Reference, 0.9),
+    p95 = p_index(Estimate, SE, Reference, 0.95),
+    Order
+  ) %>%
+  arrange(LocationGroup, Order) %>%
+  group_by(LocationGroup, genus) %>%
+  nest() %>%
+  mutate(
+    id = str_replace(LocationGroup, " ", "-") %>%
+      interaction(genus, sep = "-") %>%
+      as.character(),
+    Previous = lag(LocationGroup),
+    Title = ifelse(
+      is.na(Previous) | Previous != LocationGroup,
+      sprintf("## %s\n\n### %s", LocationGroup, genus),
+      sprintf("### %s", genus)
+    )
+  ) -> monthly_population
+monthly_population %>%
+  pull(id) %>%
+  sapply(
+    function(id) {
+      knit_expand("_area_genus_montly_index.Rmd", id = id)
+    }
+  ) %>%
+  paste(collapse = "\n\n") -> rmd
+knit(text = rmd, quiet = TRUE) %>%
+  cat()
+```

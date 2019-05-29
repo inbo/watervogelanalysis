@@ -1,0 +1,183 @@
+```{r {{id}}-set}
+if (interactive()) {
+  this_id <- sample(species_index$loc_id, 1)
+} else {
+  this_id <- "{{id}}"
+}
+start_year <- 0
+end_year <- 0
+```
+
+```{r {{id}}-select, results = "asis"}
+species_index %>%
+  filter(loc_id == this_id) -> selection
+cat(selection$title)
+```
+
+(ref:{{id}}-population) Yearly population average based on the monthly population total of _`r selection$scientific_name`_ in `r selection$LocationGroup`.
+
+```{r {{id}}-population, fig.cap = "(ref:{{id}}-population)"}
+if (length(selection$data)) {
+selection$data[[1]] %>%
+  filter(grepl("^total: ", Parameter)) %>%
+  mutate(
+    Parameter = str_remove(Parameter, "total: ") %>%
+      as.integer(),
+    p5 = p_population(Estimate, SE, 0.05),
+    p10 = p_population(Estimate, SE, 0.1),
+    p30 = p_population(Estimate, SE, 0.3),
+    p50 = p_population(Estimate, SE, 0.5),
+    p70 = p_population(Estimate, SE, 0.7),
+    p90 = p_population(Estimate, SE, 0.9),
+    p95 = p_population(Estimate, SE, 0.95)
+  ) -> index
+  if (nrow(index)) {
+    if (max(index$p95) > 1e4) {
+      index %>%
+        mutate_at(c("p5", "p10", "p30", "p50", "p70", "p90", "p95"), `/`, 1e3) -> 
+        index
+      ylab <- "Average population (x 1000)"
+    } else {
+      ylab <- "Average population"
+    }
+    start_year <- min(index$Parameter, na.rm = TRUE)
+    end_year <- max(index$Parameter, na.rm = TRUE)
+    index %>%
+      ggplot(aes(x = Parameter, y = p50)) +
+      geom_ribbon(alpha = 0.2, aes(ymin = p30, ymax = p70)) +
+      geom_ribbon(alpha = 0.2, aes(ymin = p10, ymax = p90)) +
+      geom_ribbon(alpha = 0.2, aes(ymin = p5, ymax = p95)) +
+      geom_line() +
+      scale_y_continuous(ylab, limits = c(0, NA)) +
+      theme(axis.title.x = element_blank())
+  }
+}
+```
+
+(ref:{{id}}-index) Yearly index based on the monthly population total of _`r selection$scientific_name`_ in `r selection$LocationGroup`. The index of `r start_year` is set to 100.
+
+```{r {{id}}-index, fig.cap = "(ref:{{id}}-index)"}
+if (length(selection$data)) {
+selection$data[[1]] %>%
+  filter(grepl("^index", Parameter)) %>%
+  tidyr::extract(Parameter, into = c("To", "From"), convert = TRUE, 
+                 regex = "index: ([[:digit:]]*)-([[:digit:]]*)") %>%
+  transmute(
+    From, To,
+    p5 = p_population(Estimate, SE, 0.05),
+    p10 = p_population(Estimate, SE, 0.1),
+    p30 = p_population(Estimate, SE, 0.3),
+    p50 = p_population(Estimate, SE, 0.5),
+    p70 = p_population(Estimate, SE, 0.7),
+    p90 = p_population(Estimate, SE, 0.9),
+    p95 = p_population(Estimate, SE, 0.95)
+  ) -> indices
+indices %>%
+  mutate_at(c("p5", "p10", "p30", "p50", "p70", "p90", "p95"), `^`, -1) %>%
+  rename(Old = From, From = To) %>%
+  rename(To = Old) %>%
+  bind_rows(indices) -> indices
+indices %>%
+  filter(From == min(From)) -> index
+if (nrow(index)) {
+  if (max(index$p95) > 1e2) {
+    index %>%
+      mutate_at(c("p5", "p10", "p30", "p50", "p70", "p90", "p95"), `/`, 1e3) -> 
+      index
+    ylab <- "Index (x 1000)"
+    reference <- 1e-3
+  } else {
+    ylab <- "Index"
+    reference <- 1
+  }
+  index %>%
+    ggplot(aes(x = To, y = p50)) +
+    geom_hline(yintercept = reference, linetype = 2) +
+    geom_ribbon(alpha = 0.2, aes(ymin = p30, ymax = p70)) +
+    geom_ribbon(alpha = 0.2, aes(ymin = p10, ymax = p90)) +
+    geom_ribbon(alpha = 0.2, aes(ymin = p5, ymax = p95)) +
+    geom_line() +
+    scale_y_continuous(ylab, labels = percent) +
+    theme(axis.title.x = element_blank())
+}
+}
+```
+
+(ref:{{id}}-index-last) Yearly index based on the monthly population total of _`r selection$scientific_name`_ in `r selection$LocationGroup`. The index of `r end_year` is set to 100.
+
+```{r {{id}}-index-last, fig.cap = "(ref:{{id}}-index-last)"}
+if (length(selection$data) && nrow(indices)) {
+indices %>%
+  filter(From == max(From)) -> index
+if (max(index$p95) > 1e2) {
+  index %>%
+    mutate_at(c("p5", "p10", "p30", "p50", "p70", "p90", "p95"), `/`, 1e3) -> 
+    index
+  ylab <- "Index (x 1000)"
+  reference <- 1e-3
+} else {
+  ylab <- "Index"
+  reference <- 1
+}
+index %>%
+  ggplot(aes(x = To, y = p50)) +
+  geom_hline(yintercept = reference, linetype = 2) +
+  geom_ribbon(alpha = 0.2, aes(ymin = p30, ymax = p70)) +
+  geom_ribbon(alpha = 0.2, aes(ymin = p10, ymax = p90)) +
+  geom_ribbon(alpha = 0.2, aes(ymin = p5, ymax = p95)) +
+  geom_line() +
+  scale_y_continuous(ylab, labels = percent) +
+  theme(axis.title.x = element_blank())
+}
+```
+
+(ref:{{id}}-change) Pairwise changes among years of _`r selection$scientific_name`_ in `r selection$LocationGroup`.
+
+```{r {{id}}-change, fig.cap = "(ref:{{id}}-change)"}
+if (length(selection$data)) {
+selection$data[[1]] %>%
+  filter(grepl("^index", Parameter)) %>%
+  tidyr::extract(Parameter, into = c("To", "From"), convert = TRUE, 
+                 regex = "index: ([[:digit:]]*)-([[:digit:]]*)") %>%
+  transmute(From, To, Estimate, LCL, UCL,
+            pH0 = pnorm(0, mean = Estimate, sd = SE) %>%
+              `-`(0.5) %>%
+              abs() %>%
+              `*`(-2) %>%
+              `+`(1),
+            Classification = trend_class(LCL, UCL, log(0.75)) %>%
+              as.character() %>%
+              str_remove_all("`") %>%
+              str_replace_all("(\\+|-)", "*") %>%
+              factor(
+                levels = c("**", "*~", "~", "*", "?*", "?"),
+                labels = c("strong change", "moderate change", "stable",
+                           "change", "possible change", "unknown"))
+            ) -> index
+if (nrow(index)) {
+  index %>%
+    mutate(Estimate = -Estimate) %>%
+    rename(Old = From, From = To) %>%
+    rename(To = Old) %>%
+    bind_rows(index) -> index
+  breaks <- c(100/99, 50/49, 20/19, 10/9, 5/4, 4/3, 3/2, 2, 3, 5, 10, 20)
+  n <- sum(breaks <= exp(max(index$Estimate))) + 1
+  breaks <- tail(head(breaks, n), 4)
+  if (length(breaks) == 1) {
+    limits <- c(-1, 1) * log(breaks)
+  } else {
+    limits <- range(index$Estimate)
+  }
+  breaks <- log(c(1 / rev(breaks), 1, breaks))
+  ggplot(index, aes(x = From, y = To, colour = Estimate, 
+                    shape = Classification)) +
+    geom_point() + 
+    scale_shape_manual(values = c(17, 18, 16, 15, 5, 1), drop = FALSE) +
+    scale_colour_gradient2("Change", breaks = breaks, limits = limits,
+                         labels = sprintf("%+.0f%%", change(breaks))) +
+    theme(legend.key.size = unit(0.8, "lines"))
+}
+}
+```
+
+\clearpage

@@ -3,3 +3,7 @@
 ^\.git.*$
 ^\.lintr$
 ^wercker\.yml$
+^inst/output$
+^inst/rapport/_bookdown_files$
+^inst/rapport/css$
+^inst/rapport/results.Rds$

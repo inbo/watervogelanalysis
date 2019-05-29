@@ -1,0 +1,30 @@
+```{r {{id}}-monthly-total}
+this_id <- "{{id}}"
+# this_id <- sample(monthly_population$id, 1)
+```
+
+```{r {{id}}-monthly-total-subset}
+monthly_population %>%
+  filter(id == this_id) -> selection
+```
+
+`r selection$Title[[1]]`
+
+```{r {{id}}-monthly-total-plot}
+if (max(selection$data[[1]]$p95, na.rm = TRUE) > 1e4) {
+  ylab <- "Estimated total population (x 1000)"
+  selection$data[[1]] %>%
+    mutate_at(vars(starts_with("p")), `/`, 1e3) -> selection$data[[1]]
+} else {
+  ylab <- "Estimated total population"
+}
+p <- ggplot(selection$data[[1]], aes(x = year, y = p50)) +
+  geom_ribbon(aes(ymin = p30, ymax = p70, fill = area), alpha = 0.25) +
+  geom_ribbon(aes(ymin = p10, ymax = p90, fill = area), alpha = 0.25) +
+  geom_ribbon(aes(ymin = p05, ymax = p95, fill = area), alpha = 0.25) +
+  geom_line(aes(colour = area)) +
+  scale_y_continuous(ylab) +
+  theme(axis.title.x = element_blank())
+ggplotly(p, dynamicTicks = TRUE)
+```
+

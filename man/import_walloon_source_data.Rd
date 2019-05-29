@@ -20,9 +20,10 @@ import_walloon_source_data(location_file, visit_file, species_file,
 
 \item{walloon_repo}{a git_repository object to the Walloon source data}
 
-\item{strict}{What to do when the metadata changes. \code{strict = FALSE} will
-overwrite the data with a warning listing the changes, \code{strict = TRUE} will
-return an error and leave the data as is. Default to \code{TRUE}}
+\item{strict}{What to do when the metadata changes. \code{strict = FALSE}
+overwrites the data and the metadata with a warning listing the changes,
+\code{strict = TRUE} returns an error and leaves the data and metadata as is.
+Defaults to \code{TRUE}.}
 }
 \description{
 This functions reads the files and performs some basic checks on them. See the details section for the required format of the files. The median date is used in case of multiple dates per visit id. The maximum is used in case of multiple observations per visit id.

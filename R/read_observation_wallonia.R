@@ -15,7 +15,8 @@ read_observation_wallonia <- function(species_id, first_year, latest_year, wallo
   latest_year <- as.integer(latest_year)
 
   read_vc(file = "data", root = walloon_repo) %>%
-    filter(.data$euringcode == species_id) -> data
+    filter(.data$euringcode == species_id) %>%
+    mutate(Count = as.integer(.data$Count)) -> data
 
   if (nrow(data) == 0) {
     return(NULL)
@@ -37,7 +38,7 @@ read_observation_wallonia <- function(species_id, first_year, latest_year, wallo
                              .data$ObservationID.y),
       TableName = ifelse(is.na(.data$Count), "visit", "data"),
       external_code = .data$LocationID, .data$Year, .data$Month,
-      Count = pmax(0, .data$Count, na.rm = TRUE),
-      Complete = 1
+      Count = pmax(0L, .data$Count, na.rm = TRUE),
+      Complete = 1L
     )
 }

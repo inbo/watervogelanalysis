@@ -22,10 +22,20 @@ select_relevant_analysis <- function(observation){
     has_name(observation, "Month"), has_name(observation, "LocationID"),
     has_name(observation, "Year"))
 
+  # select locations with observation from at least 10 different years
+  observation %>%
+    distinct(.data$Year, .data$LocationID) %>%
+    count(.data$LocationID) %>%
+    filter(.data$n >= 10) %>%
+    semi_join(x = observation, by = "LocationID") -> observation
+  if (nrow(observation) == 0) {
+    return(observation)
+  }
+
   # select locations with at least 4 prescences
   observation %>%
     filter(.data$Count > 0) %>%
-    add_count(.data$LocationID) %>%
+    count(.data$LocationID) %>%
     filter(.data$n >= 4) %>%
     semi_join(x = observation, by = "LocationID") -> observation
   if (nrow(observation) == 0) {
@@ -40,10 +50,20 @@ select_relevant_analysis <- function(observation){
   }
   observation$Month <- factor(observation$Month)
 
+  # select locations with observation from at least 10 different years
+  observation %>%
+    distinct(.data$Year, .data$LocationID) %>%
+    count(.data$LocationID) %>%
+    filter(.data$n >= 10) %>%
+    semi_join(x = observation, by = "LocationID") -> observation
+  if (nrow(observation) == 0) {
+    return(observation)
+  }
+
   # select locations with at least 4 prescences
   observation %>%
     filter(.data$Count > 0) %>%
-    add_count(.data$LocationID) %>%
+    count(.data$LocationID) %>%
     filter(.data$n >= 4) %>%
     semi_join(x = observation, by = "LocationID") -> observation
   if (nrow(observation) == 0) {
@@ -54,7 +74,7 @@ select_relevant_analysis <- function(observation){
   observation %>%
     filter(.data$Count > 0) %>%
     distinct(.data$Year, .data$LocationID) %>%
-    add_count(.data$LocationID) %>%
+    count(.data$LocationID) %>%
     filter(.data$n >= 3) %>%
     semi_join(x = observation, by = "LocationID") -> observation
   if (nrow(observation) == 0) {
@@ -71,11 +91,12 @@ select_relevant_analysis <- function(observation){
   if (nrow(observation) == 0) {
     return(observation)
   }
+  observation$Month
   observation %>%
-    mutate(Missing = is.na(.data$Count), Month = factor(.data$Month),
+    mutate(Missing = is.na(.data$Count), Month = droplevels(.data$Month),
            fYear = factor(.data$Year), cYear = .data$Year - max(.data$Year),
            fYearMonth = interaction(.data$fYear, .data$Month, drop = TRUE),
            fYearLocation = interaction(.data$fYear, factor(.data$LocationID),
-                                      drop = TRUE)) %>%
-    select(-"LocationID")
+                                      drop = TRUE))
+    select(-"LocationGroupID")
 }

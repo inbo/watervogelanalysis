@@ -15,6 +15,6 @@ prepare_dataset(
 )
 
 prepare_analysis(
-  analysis.path = aws.s3::get_bucket("n2kmonitoring"),
+  analysis_path = aws.s3::get_bucket("n2kmonitoring"),
   raw_repo = raw_repo
 )

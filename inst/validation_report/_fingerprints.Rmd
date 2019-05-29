@@ -1,0 +1,20 @@
+```{r fingerprint-select-{{id}}}
+if (interactive()) {
+  this_id <- sample(fingerprints$id, 1)
+} else {
+  this_id <- "{{id}}"
+}
+fingerprints %>%
+  filter(id == this_id) -> this_fingerprints
+```
+
+# _`r this_fingerprints$scientific_name[1]`_ (`r this_fingerprints$Nederlands[1]`)
+
+(ref:fingerprint-{{id}}) File and status fingerprint for the analyses of _`r this_fingerprints$scientific_name[1]`_.
+
+```{r fingerprint-{{id}}, results = "asis"}
+this_fingerprints %>%
+  select(-scientific_name, -id, -Nederlands) %>%
+  pandoc.table(caption = "(ref:fingerprint-{{id}})", split.tables = Inf)
+```
+

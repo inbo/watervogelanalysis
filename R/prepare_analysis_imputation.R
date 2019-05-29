@@ -83,7 +83,7 @@ observation"
     ) %>%
     filter(
       !.data$SubsetMonths |
-        .data$Month %in% c("November", "December", "Januari", "Februari"),
+        .data$Month %in% c("November", "December", "January", "February"),
       is.na(.data$StartYear) | .data$StartYear <= .data$Year,
       is.na(.data$EndYear) | .data$Year <= .data$EndYear
     ) %>%
@@ -144,30 +144,30 @@ observation"
       n.month <- length(levels(dataset$Month))
       n.location <- length(unique(dataset$LocationID))
       covariate <- "Year"
-      form <- "f(
-  Year,
-  model = \"rw1\",
-  scale.model = TRUE,
-  hyper = list(theta = list(prior = \"pc.prec\", param = c(1, 0.01)))
+      form <- "f(Year, model = \"rw1\", scale.model = TRUE,
+  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.1, 0.01)))
 )"
+      covariate <- c(covariate, "Month")
       if (n.month > 1) {
-        covariate <- c(covariate, "Month")
         form <- c(form, "Month")
         n.used <- n.used + n.month
       }
+      covariate <- c(covariate, "LocationID")
       if (n.location > 1) {
-        form <- c(
-          form,
-          "f(LocationID, model = 'iid')"
+        form <- c(form,
+          "f(LocationID, model = \"iid\", constr = TRUE,
+  hyper = list(theta = list(prior = \"pc.prec\", param = c(1, 0.01)))
+)"
         )
-        covariate <- c(covariate, "LocationID")
         n.used <- n.used + n.location
       }
       if (n.month > 1) {
         n.extra <- length(levels(dataset$fYearMonth))
         if (n.used + n.extra <= n.eff / 5) {
           covariate <- c(covariate, "fYearMonth")
-          form <- c(form, "f(fYearMonth, model = 'iid')")
+          form <- c(form, "f(fYearMonth, model = \"iid\", constr = TRUE,
+  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.25, 0.01)))
+)")
           n.used <- n.used + n.extra
         }
       }
@@ -175,7 +175,9 @@ observation"
         n.extra <- length(levels(dataset$fYearLocation))
         if (n.used + n.extra <= n.eff / 5) {
           covariate <- c(covariate, "fYearLocation")
-          form <- c(form, "f(fYearLocation, model = 'iid')")
+          form <- c(form, "f(fYearLocation, model = \"iid\", constr = TRUE,
+  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.25, 0.01)))
+)")
           n.used <- n.used + n.extra
         }
       }
@@ -210,7 +212,7 @@ observation"
         Fingerprint = get_file_fingerprint(model),
         FirstImportedYear = metadata$first_imported_year,
         LastImportedYear = metadata$last_imported_year,
-        AnalysisDate = analysis_date, Filename = filename,
+        AnalysisDate = analysis_date, Filename = filename, Months = n.month,
         Formula = paste(form, collapse = "+"), Status = "new"))
     }
   ) %>%

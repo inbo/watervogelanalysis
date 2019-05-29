@@ -1,0 +1,75 @@
+---
+title: "Standard analysis wintering waterbirds in Belgium"
+subtitle: "Static report"
+author: 
+  - 
+    name: "Thierry Onkelinx"
+    email: "thierry.onkelinx@inbo.be"
+  - 
+    name: "Koen Devos"
+    email: "koen.devos@inbo.be"
+link-citations: TRUE
+site: bookdown::bookdown_site
+output:
+  bookdown::pdf_book:
+    base_format: INBOmd::inbo_rapport
+    dpi: 300
+    fig.width: 150 / 25.4
+    fig.height: 100 / 25.4
+    floatbarrier: subsection
+    lang: english
+    lof: FALSE
+    lot: FALSE
+  bookdown::epub_book:
+    stylesheet: "css/inbo_rapport.css"
+    template: !expr INBOmd::inbo_rapport_css("epub")
+  bookdown::gitbook:
+    split_by: "section+number"
+    template: !expr INBOmd::inbo_rapport_css("html")
+    dpi: 300
+    fig.width: 150 / 25.4
+    fig.height: 100 / 25.4
+---
+
+```{r setup, include = FALSE}
+library(knitr)
+opts_chunk$set(
+  echo = FALSE, eval = TRUE, cache = FALSE,
+  warning = TRUE, error = TRUE, message = TRUE
+)
+library(tidyverse)
+library(scales)
+library(INBOtheme)
+if (interactive()) {
+  theme_set(theme_inbo(base_family = "Flanders Art Sans", base_size = 12))
+} else {
+  switch(
+    opts_knit$get("rmarkdown.pandoc.to"),
+    latex = {
+      opts_chunk$set(dev = "cairo_pdf")
+      theme_set(theme_inbo(base_family = "Flanders Art Sans", base_size = 8))
+      update_geom_defaults("point", list(size = 1.5))
+    },
+    epub3 = {
+      opts_chunk$set(dev = "png")
+      theme_set(theme_inbo(base_family = "Flanders Art Sans", base_size = 12))
+    }
+  )
+}
+change <- function(x) {
+  100 * (exp(x) - 1)
+}
+total_change <- function(x, duration) {
+  100 * (exp(x * duration) - 1)
+}
+center_index <- function(x, se, reference, p) {
+  exp(qnorm(p = p, mean = x - reference, sd = se))
+}
+p_population <- function(x, se, p) {
+  exp(qnorm(p = p, mean = x, sd = se))
+}
+```
+
+# Introduction
+
+To do

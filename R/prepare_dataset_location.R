@@ -20,12 +20,12 @@ prepare_dataset_location <- function(
   assert_that(is.string(scheme_id))
 
   # read the locations
-  location <- read_location(
+  read_location(
     result_channel = result_channel, flemish_channel = flemish_channel,
     walloon_repo = walloon_repo, first_date = first_date,
     latest_date = latest_date) %>%
     mutate(
-      fingerprint = pmap_chr(
+      local_id = pmap_chr(
         list(
           datasource = .data$datasource, external_code = .data$external_code,
           description = .data$description
@@ -40,25 +40,25 @@ prepare_dataset_location <- function(
     ) -> location
 
   # define and save location groups
-  # \\u0137 is the ASCII code for e umlaut
+  # \u00EB is the ASCII code for e umlaut
   tibble(
     description = c(
-      "Vlaanderen", "Walloni\\u0137", "Belgi\\u0137",
-      "Vogelrichtlijn Vlaanderen", "Vogelrichtlijn Walloni\\u0137",
-      "Vogelrichtlijn Belgi\\u0137"
+      "Vlaanderen", "Walloni\u00EB", "Belgi\u0EB",
+      "Vogelrichtlijn Vlaanderen", "Vogelrichtlijn Walloni\u00EB",
+      "Vogelrichtlijn Belgi\u00EB"
     ),
     Flanders = c(TRUE, NA, TRUE, TRUE, NA, TRUE),
     Wallonia = c(NA, TRUE, TRUE, NA, TRUE, TRUE),
     SPA = c(0, 0, 0, 1, 1, 1),
     Impute = c(
-      "Vlaanderen", "Walloni\\u0137", "Belgi\\u0137", "Vlaanderen",
-      "Walloni\\u0137", "Belgi\\u0137"
+      "Vlaanderen", "Walloni\u00EB", "Belgi\u00EB", "Vlaanderen",
+      "Walloni\u00EB", "Belgi\u00EB"
     ),
     SubsetMonths = c(FALSE, TRUE, TRUE, FALSE, TRUE, TRUE),
     scheme = scheme_id
   ) %>%
     mutate(
-      fingerprint = map2_chr(
+      local_id = map2_chr(
         .data$scheme,
         .data$description,
         ~sha1(c(scheme = .x, description = .y))
@@ -66,18 +66,18 @@ prepare_dataset_location <- function(
     ) -> location_group
   # get the fingerprint for imputation location.groups
   location_group %>%
-    select(Impute = "fingerprint", ImputeDescription = "description") %>%
+    select(Impute = "local_id", ImputeDescription = "description") %>%
     inner_join(location_group, by = c("ImputeDescription" = "Impute")) ->
     location_group
   # define locations per location_group
   location_group %>%
-    select(location_group = "fingerprint", "SPA", "Flanders", "Wallonia") %>%
+    select(location_group = "local_id", "SPA", "Flanders", "Wallonia") %>%
     gather(
       key = "Region", value = "Include", "Flanders", "Wallonia", na.rm = TRUE
     ) -> lg
-  l <- location %>%
-    select(location = "fingerprint", "Region", "SPA")
-  location_group_location <- lg %>%
+  location %>%
+    select(location = "local_id", "Region", "SPA") -> l
+  lg %>%
     filter(.data$SPA == 0) %>%
     inner_join(l, by = "Region") %>%
     select("location_group", "location") %>%
@@ -89,10 +89,10 @@ prepare_dataset_location <- function(
           by = "Region"
         ) %>%
         select("location_group", "location")
-    )
+    ) -> location_group_location
   # define datafield
   datafield_type <- tibble(description = "character")
-  datafield <- tibble(
+  tibble(
     Region = c("Flanders", "Wallonia"),
     table_name = c("DimLocationWV", "location"),
     primary_key = c("LocationWVCode", "LocationID"),
@@ -106,7 +106,7 @@ prepare_dataset_location <- function(
     ) %>%
     select(-"Region") %>%
     mutate(
-      fingerprint = pmap_chr(
+      local_id = pmap_chr(
         list(
           tn = .data$table_name, pk = .data$primary_key, ft = .data$datafield_type,
           ds = .data$datasource
@@ -120,40 +120,46 @@ prepare_dataset_location <- function(
           )
         }
       )
-    )
-  location <- datafield %>%
-    rename(datafield = "fingerprint") %>%
-    inner_join(location, by = "datasource")
+    ) -> datafield
+  datafield %>%
+    select("datasource", datafield = "local_id") %>%
+    inner_join(location, by = "datasource") -> location
 
-  store_location_group_location(
+  stored <- store_location_group_location(
     location_group_location = location_group_location %>%
       select(
         location_group_local_id = "location_group",
         location_local_id = "location"
       ),
     location_group = location_group %>%
-      select(local_id = "fingerprint", "description", "scheme"),
+      select("local_id", "description", "scheme"),
     location = location %>%
       select(
-        local_id = "fingerprint", datafield_local_id = "datafield",
-        "external_code", "description"
+        "local_id", datafield_local_id = "datafield", "external_code",
+        "description"
       ) %>%
       mutate(parent_local_id = NA_character_),
-    datafield = datafield %>%
-      select(
-        local_id = "fingerprint", "datasource", "table_name", "primary_key",
-        "datafield_type"
-      ),
+    datafield = datafield,
     conn = result_channel$con
   )
 
   # store the datasets in the git repository
+  stored$location %>%
+    select("local_id", "fingerprint", "datafield_local_id") %>%
+    inner_join(
+      datafield %>%
+        select("local_id", "table_name", "datafield_type", "primary_key"),
+      by = c("datafield_local_id" = "local_id")) %>%
+    inner_join(location, by = "local_id") -> location
   location %>%
     select(ID = "fingerprint", "StartDate", "EndDate") %>%
     write_vc(
       file = "location", sorting = c("ID", "StartDate"), stage = TRUE,
       root = raw_repo
     ) -> location_sha
+  stored$location_group %>%
+    select("local_id", "fingerprint") %>%
+    inner_join(location_group, by = "local_id") -> location_group
   location_group %>%
     select(ID = "fingerprint", "Impute", "SubsetMonths") %>%
     write_vc(
@@ -161,7 +167,17 @@ prepare_dataset_location <- function(
       root = raw_repo
     ) -> locationgroup_sha
   location_group_location %>%
-    select(LocationGroupID = "location_group", LocationID = "location") %>%
+    inner_join(
+      stored$location_group %>%
+        select("local_id", lgf = "fingerprint"),
+      by = c("location_group" = "local_id")
+    ) %>%
+    inner_join(
+      stored$location %>%
+        select("local_id", lf = "fingerprint"),
+      by = c("location" = "local_id")
+    ) %>%
+    select(LocationGroupID = "lgf", LocationID = "lf") %>%
     write_vc(
       file = "locationgrouplocation.txt", stage = TRUE, root = raw_repo,
       sorting = c("LocationGroupID", "LocationID")

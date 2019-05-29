@@ -37,7 +37,7 @@ read_observation <- function(species_id, first_year, latest_year, flemish_channe
     INNER JOIN DimSample AS s ON f.samplekey = s.samplekey
     WHERE
       %s <= f.SampleDate AND f.SampleDate <= %s AND f.TaxonWVKey = %s AND
-      analysesetcode LIKE 'MIDMA%%' AND s.CoverageCode IN ('V', 'O')",
+      a.AnalysesetCode LIKE 'MIDMA%%' AND s.CoverageCode IN ('V', 'O')",
     sprintf("%i-10-01", first_year - 1) %>%
       dbQuoteString(conn = flemish_channel),
     sprintf("%i-06-30", latest_year) %>%

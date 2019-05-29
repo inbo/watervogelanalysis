@@ -1,0 +1,145 @@
+# Summarising tables
+
+```{r helper-functions}
+trend_class <- function(lcl, ucl, treshold) {
+  ifelse(
+    ucl < 0, 
+    ifelse(
+      ucl < -abs(treshold), 
+      "--", 
+      ifelse(lcl < -abs(treshold), "-", "-≈")
+    ), 
+    ifelse(
+      lcl > 0,
+      ifelse(
+        lcl > abs(treshold), 
+        "++", 
+        ifelse(ucl < abs(treshold), "+≈", "+")
+      ),
+      ifelse(
+        ucl < abs(treshold),
+        ifelse(lcl > -abs(treshold), "≈", "?-"),
+        ifelse(lcl > -abs(treshold), "?+", "?")
+      )
+    )
+  ) %>%
+    factor(levels = c("++", "+", "+≈", "≈", "-≈", "-", "--", "?+", "?-", "?"))
+}
+trend <- function(mean, duration = 1, round = 1) {
+  round(100 * exp(mean * duration) - 100, round)
+}
+estimate <- function(mean, round = 1) {
+  round(exp(mean), round)
+}
+publication <- function(mean, magnitude) {
+  magnitude <- magnitude - 2
+  round(exp(mean) / 10 ^ magnitude) * 10 ^ magnitude
+}
+```
+
+## Average yearly change over the last twelve year based on monthly totals
+
+```{r monthly-trend-12-yearly}
+results %>%
+  filter(ModelType == "imputed trend: Total ~ Year + Month", Duration == 12, 
+         Parameter == "cYear") %>%
+  transmute(Area = LocationGroup, Species = scientific_name, 
+            Class = trend_class(LCL, UCL, log(0.75) / Duration),
+            Estimate = trend(Estimate, 1, 1),
+            LCL = trend(LCL, 1, 1),
+            UCL = trend(UCL, 1, 1)) %>%
+  arrange(Class, desc(Estimate)) %>%
+  datatable(rownames = FALSE)
+```
+
+## Average total change over the last twelve year based on monthly totals
+
+```{r monthly-trend-12-total}
+results %>%
+  filter(ModelType == "imputed trend: Total ~ Year + Month", Duration == 12, 
+         Parameter == "cYear") %>%
+  transmute(Area = LocationGroup, Species = scientific_name, 
+            Class = trend_class(LCL, UCL, log(0.75) / Duration),
+            Estimate = trend(Estimate, Duration, 0),
+            LCL = trend(LCL, Duration, 0),
+            UCL = trend(UCL, Duration, 0)) %>%
+  arrange(Class, desc(Estimate)) %>%
+  datatable(rownames = FALSE)
+```
+
+## Average yearly change over the entire dataset based on monthly totals
+
+```{r monthly-trend-total-yearly}
+results %>%
+  filter(ModelType == "imputed trend: Total ~ Year + Month", Duration == max(Duration), 
+         Parameter == "cYear") %>%
+  transmute(Area = LocationGroup, Species = scientific_name, 
+            Class = trend_class(LCL, UCL, log(0.75) / Duration),
+            Estimate = trend(Estimate, 1, 1),
+            LCL = trend(LCL, 1, 1),
+            UCL = trend(UCL, 1, 1)) %>%
+  arrange(Class, desc(Estimate)) %>%
+  datatable(rownames = FALSE)
+```
+
+## Average total change over the entire dataset based on monthly totals
+
+```{r monthly-trend-total-total}
+results %>%
+  filter(ModelType == "imputed trend: Total ~ Year + Month", Duration == max(Duration), 
+         Parameter == "cYear") %>%
+  transmute(Area = LocationGroup, Species = scientific_name, 
+            Class = trend_class(LCL, UCL, log(0.75) / Duration),
+            Estimate = trend(Estimate, Duration, 0),
+            LCL = trend(LCL, Duration, 0),
+            UCL = trend(UCL, Duration, 0)) %>%
+  arrange(Class, desc(Estimate)) %>%
+  datatable(rownames = FALSE)
+```
+
+## Detailed winter maximum averaged of the last five years
+
+```{r wintermax-detailed}
+results %>%
+  filter(ModelType == "imputed average: Total ~ cPeriod", 
+         Parameter == "(Intercept)") %>%
+  transmute(Area = LocationGroup, Species = scientific_name, 
+            Estimate = estimate(Estimate, 0),
+            LCL = estimate(LCL, 0),
+            UCL = estimate(UCL, 0)) %>%
+  arrange(desc(Estimate)) %>%
+  datatable(rownames = FALSE)
+```
+
+## Winter maximum averaged of the last five years, rounded for publication
+
+```{r wintermax-publication}
+results %>%
+  filter(ModelType == "imputed average: Total ~ cPeriod", 
+         Parameter == "(Intercept)") %>%
+  mutate(
+    Magnitude = ceiling(log10(exp(UCL))),
+    Magnitude = Magnitude - (1.5 * 10 ^ Magnitude > exp(UCL))
+  ) %>%
+  transmute(Area = LocationGroup, Species = scientific_name, 
+            Estimate = publication(Estimate, Magnitude),
+            LCL = publication(LCL, Magnitude),
+            UCL = publication(UCL, Magnitude)) %>%
+  arrange(desc(Estimate)) %>%
+  datatable(rownames = FALSE)
+```
+
+## Percentage change in averaged winter maximum between the last two five year periods
+
+```{r wintermax-change}
+results %>%
+  filter(ModelType == "imputed average: Total ~ cPeriod", 
+         Parameter == "cPeriod") %>%
+  transmute(Area = LocationGroup, Species = scientific_name, 
+            Class = trend_class(LCL, UCL, log(0.75)),
+            Estimate = trend(Estimate, 1, 1),
+            LCL = trend(LCL, 1, 1),
+            UCL = trend(UCL, 1, 1)) %>%
+  arrange(Class, desc(Estimate)) %>%
+  datatable(rownames = FALSE)
+```
