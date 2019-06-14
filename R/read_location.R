@@ -16,30 +16,41 @@ read_location <- function(
   datasource_id <- datasource_id_flanders(result_channel = result_channel)
 
   sprintf(
-    "WITH cte_survey AS (
-      SELECT LocationWVKey
-      FROM FactAnalyseSetOccurrence
-      WHERE %s <= SampleDate AND SampleDate <= %s
+    "WITH cte_spa AS (
+      SELECT
+        LocationWVKey,
+          MAX(
+          CASE
+            WHEN LocationGroupTypeCode = 'EVRL'
+            THEN 1 ELSE 0 END
+          ) AS SPA
+      FROM FactLocationGroup
       GROUP BY LocationWVKey
     ),
-    cte AS (
-      SELECT
-        l.LocationWVCode AS external_code,
-        l.locationWVNaam AS description,
-        l.StartDate,
-        l.EndDate,
-        CASE
-          WHEN f.LocationGroupTypeCode = 'EVRL'
-          THEN 1 ELSE 0 END AS SPA
-      FROM cte_survey AS c
-      INNER JOIN DimLocationWV AS l ON c.LocationWVKey = l.LocationWVKey
-      LEFT JOIN FactLocationGROUP AS f ON l.LocationWVCode = f.LocationWVCode
-      WHERE l.LocationWVCode <> '-'
+    cte_parent AS (
+      SELECT DISTINCT
+          CAST(
+            COALESCE(ParentLocationWVKey, LocationWVKey) AS VARCHAR
+          ) AS external_code
+      FROM DimLocationWVParent
+    ),
+    cte_survey AS (
+      SELECT DISTINCT LocationWVKey
+      FROM FactAnalyseSetOccurrence
+      WHERE %s <= SampleDate AND SampleDate <= %s
     )
 
-    SELECT external_code, description, StartDate, EndDate, MAX(SPA) AS SPA
-    FROM cte
-    GROUP BY external_code, description, StartDate, EndDate",
+    SELECT
+        cp.external_code,
+        lp.locationWVNaam AS description,
+        lp.StartDate,
+        lp.EndDate,
+        cs.SPA
+      FROM DimLocationWV AS lp
+      INNER JOIN cte_survey AS cv ON cv.LocationWVKey = lp.LocationWVKey
+      INNER JOIN cte_parent AS cp ON cp.external_code = lp.LocationWVKey
+      LEFT JOIN cte_spa AS cs ON cs.LocationWVKey = lp.LocationWVKey
+    ",
     format(first_date, "%Y-%m-%d") %>%
       dbQuoteString(conn = flemish_channel),
     format(latest_date, "%Y-%m-%d") %>%
