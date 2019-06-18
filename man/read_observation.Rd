@@ -16,10 +16,17 @@ read_observation(species_id, first_year, latest_year, flemish_channel)
 \item{flemish_channel}{a DBI connection to the Flemish database}
 }
 \value{
-A \code{data.frame} with observations. \code{Complete= 1} indicates that the entire location was surveyed.
+A \code{data.frame} with observations. The function only returns observations based on parent locations. Following rules apply for each combination of parent location, year and month.
+\enumerate{
+\item If the parent location has an observation, then return this observation.
+\item If some child location have observation, then return the sum of counts.
+\item If neither of the parent or child location has observations, then the counts are missing.
+}
+
+\code{Complete = 1} indicates that the entire location was surveyed. In case of child locations, all child locations were surveyed in full. \code{Complete = 0} indicates the location was only partially surveyed.
 }
 \description{
-The selection uses several constraints. The user defined constraints are \code{first.winter} and \code{species.covered}. Following contraints are imposed at the same time as the user defined contraints:
+The selection uses several constraints. The user defined constraints are \code{first.winter} and  species.covered`. Following contraints are imposed at the same time as the user defined contraints:
 \itemize{
 \item The observation is validated
 \item The observation is a midmonthly observation

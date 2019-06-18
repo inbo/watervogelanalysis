@@ -39,15 +39,10 @@ read_specieslist <- function(result_channel, flemish_channel, walloon_repo,
              year()) %>%
     group_by(.data$euringcode, .data$TaxonWVKey, .data$ScientificName,
              .data$nl) %>%
-    summarise(NBNKey = na.omit(.data$NBNKey), n = sum(.data$n),
+    summarise(NBNKey = sort(.data$NBNKey)[1], n = sum(.data$n),
               First = min(.data$First)) %>%
     ungroup() -> species_flanders
 
-  if (any(is.na(species_flanders$NBNKey))) {
-    species_flanders %>%
-      filter(is.na(.data$NBNKey)) %>%
-      anti_join(species_flanders, by = "euringcode")
-  }
   if (any(is.na(species_flanders$NBNKey))) {
     species_flanders %>%
       filter(is.na(.data$NBNKey)) %>%
