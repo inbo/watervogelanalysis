@@ -31,7 +31,8 @@ read_observation <- function(species_id, first_year, latest_year, flemish_channe
       f.OccurrenceKey AS ObservationID,
       YEAR(f.SampleDate) + IIF(MONTH(f.SampleDate) >= 7, 1, 0) AS Year,
       MONTH(f.SampleDate) AS Month,
-      l.LocationWVKey AS external_code,
+      l.LocationWVCode AS external_code,
+      l.LocationWVKey,
       f.TaxonCount AS Count,
       'FactAnalyseSetOccurrence' AS TableName,
       CASE WHEN s.CoverageCode = 'V' THEN 1
@@ -54,13 +55,15 @@ read_observation <- function(species_id, first_year, latest_year, flemish_channe
     arrange(desc(.data$Count)) %>%
     slice(1) %>%
     ungroup() -> raw_observation
-  "SELECT LocationWVKey, ParentLocationWVKey AS external_code
-  FROM DimLocationWVParent
+  "SELECT
+    p.LocationWVKey, p.ParentLocationWVKey, l.LocationWVCode AS extrenal_code
+  FROM DimLocationWVParent AS p
+  INNER JOIN DimLocationWV AS l ON p.ParentLocationWVKey = l.LocationWVKey
   WHERE ParentLocationWVKey IS NOT NULL" %>%
     dbGetQuery(conn = flemish_channel) -> parents
   parents %>%
-    add_count(.data$external_code, name = "target") %>%
-    inner_join(raw_observation, by = c("LocationWVKey" = "external_code")) %>%
+    add_count(.data$ParentLocationWVKey, name = "target") %>%
+    inner_join(raw_observation, by = "LocationWVKey") %>%
     add_count(external_code, Year, Month, name = "current") %>%
     group_by(external_code, Year, Month, TableName) %>%
     summarise(
@@ -72,6 +75,7 @@ read_observation <- function(species_id, first_year, latest_year, flemish_channe
     anti_join(raw_observation, by = c("external_code", "Year", "Month")) %>%
     bind_rows(
       raw_observation %>%
-        anti_join(parents, c("external_code" = "LocationWVKey"))
+        anti_join(parents, by = "LocationWVKey") %>%
+        select(-"LocationWVKey")
     )
 }
