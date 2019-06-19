@@ -80,7 +80,7 @@ prepare_analysis <- function(analysis_path = ".", raw_repo, seed = 19790402,
       n2k_manifest() -> manifest
     store_manifest_yaml(
       manifest, base = analysis_path, project = "watervogels",
-      docker = "inbobmk/rn2k:0.3",
+      docker = "inbobmk/rn2k:0.4",
       dependencies = c("inbo/n2khelper@v0.4.3", "inbo/n2kanalysis@v0.2.7",
                        "inbo/n2kupdate@v0.1.1")
     )
