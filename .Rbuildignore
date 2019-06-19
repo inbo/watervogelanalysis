@@ -4,6 +4,8 @@
 ^\.lintr$
 ^wercker\.yml$
 ^inst/output$
-^inst/rapport/_bookdown_files$
-^inst/rapport/css$
-^inst/rapport/results.Rds$
+^inst/.*/figure$
+^inst/.*/.*.log$
+^inst/.*/.*_files$
+^inst/.*/css$
+^inst/.*/.*.Rds$
