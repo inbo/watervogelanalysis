@@ -24,7 +24,7 @@ select_relevant_analysis <- function(observation){
 
   # select locations with observation from at least 10 different years
   observation %>%
-    filter(!is.na(Count)) %>%
+    filter(!is.na(.data$Count)) %>%
     distinct(.data$Year, .data$LocationID) %>%
     count(.data$LocationID) %>%
     filter(.data$n >= 10) %>%
@@ -53,7 +53,7 @@ select_relevant_analysis <- function(observation){
 
   # select locations with observation from at least 10 different years
   observation %>%
-    filter(!is.na(Count)) %>%
+    filter(!is.na(.data$Count)) %>%
     distinct(.data$Year, .data$LocationID) %>%
     count(.data$LocationID) %>%
     filter(.data$n >= 10) %>%

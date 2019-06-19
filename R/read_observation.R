@@ -19,9 +19,10 @@
 #' @export
 #' @importFrom assertthat assert_that is.count
 #' @importFrom DBI dbQuoteString dbQuoteLiteral dbGetQuery
-#' @importFrom dplyr %>% group_by arrange slice ungroup desc
+#' @importFrom dplyr %>% group_by arrange slice ungroup desc add_count
 #' @importFrom rlang .data
-read_observation <- function(species_id, first_year, latest_year, flemish_channel) {
+read_observation <- function(
+  species_id, first_year, latest_year, flemish_channel) {
   assert_that(is.count(species_id), is.count(first_year), is.count(latest_year))
   species_id <- as.integer(species_id)
   latest_year <- as.integer(latest_year)
@@ -64,12 +65,13 @@ read_observation <- function(species_id, first_year, latest_year, flemish_channe
   parents %>%
     add_count(.data$ParentLocationWVKey, name = "target") %>%
     inner_join(raw_observation, by = "LocationWVKey") %>%
-    add_count(external_code, Year, Month, name = "current") %>%
-    group_by(external_code, Year, Month, TableName) %>%
+    add_count(.data$external_code, .data$Year, .data$Month,
+              name = "current") %>%
+    group_by(.data$external_code, .data$Year, .data$Month, .data$TableName) %>%
     summarise(
-      Count = sum(Count),
-      Complete = min(Complete, current == target),
-      ObservationID = min(ObservationID)
+      Count = sum(.data$Count),
+      Complete = min(.data$Complete, .data$current == .data$target),
+      ObservationID = min(.data$ObservationID)
     ) %>%
     ungroup() %>%
     anti_join(raw_observation, by = c("external_code", "Year", "Month")) %>%

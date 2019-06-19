@@ -48,8 +48,7 @@ prepare_dataset_observation <- function(
   ) %>%
     mutate(
       DatasourceID = flanders_id,
-      ObservationID = as.character(.data$ObservationID),
-      external_code = as.character(.data$external_code)
+      ObservationID = as.character(.data$ObservationID)
     ) -> observation_flemish
 
   wallonia_id <- datasource_id_wallonia(result_channel = result_channel)
