@@ -47,9 +47,6 @@ mt %>%
     sprintf("## %s\n\n", LocationGroup)
     )
   ) -> mt
-p_population <- function(x, se, p) {
-  exp(qnorm(p = p, mean = x, sd = se))
-}
 results %>%
   filter(ModelType == "yearly imputed index: Total ~ Year + Month",
          grepl("total:", Parameter)) %>%
@@ -57,24 +54,15 @@ results %>%
             winter = as.character(Parameter) %>% 
               str_remove("total: ") %>%
               as.integer(),
-            p05 = p_population(Estimate, SE, 0.05),
-            p10 = p_population(Estimate, SE, 0.1),
-            p30 = p_population(Estimate, SE, 0.3),
-            p50 = p_population(Estimate, SE, 0.5),
-            p70 = p_population(Estimate, SE, 0.7),
-            p90 = p_population(Estimate, SE, 0.9),
-            p95 = p_population(Estimate, SE, 0.95)) -> index
+            Estimate = exp(Estimate), 
+            SE
+            ) -> index
 results %>%
   filter(ModelType == "imputed average: Total ~ cPeriod", 
          Parameter == "(Intercept)") %>%
   transmute(id, 
-            p05 = p_population(Estimate, SE, 0.05),
-            p10 = p_population(Estimate, SE, 0.1),
-            p30 = p_population(Estimate, SE, 0.3),
-            p50 = p_population(Estimate, SE, 0.5),
-            p70 = p_population(Estimate, SE, 0.7),
-            p90 = p_population(Estimate, SE, 0.9),
-            p95 = p_population(Estimate, SE, 0.95)) -> avg_wintermax
+            Estimate = exp(Estimate),
+            SE) -> avg_wintermax
 results %>%
   filter(
     ModelType == "inla nbinomial: Year * (Month + Location)",

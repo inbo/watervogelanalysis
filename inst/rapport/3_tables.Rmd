@@ -1,34 +1,6 @@
 # (PART) Summarising tables {-}
 
 ```{r helper-functions}
-trend_class <- function(lcl, ucl, treshold) {
-  ifelse(
-    ucl < 0, 
-    ifelse(
-      ucl < -abs(treshold), 
-      "--", 
-      ifelse(lcl < -abs(treshold), "-", "-~")
-    ), 
-    ifelse(
-      lcl > 0,
-      ifelse(
-        lcl > abs(treshold), 
-        "++", 
-        ifelse(ucl < abs(treshold), "+~", "+")
-      ),
-      ifelse(
-        ucl < abs(treshold),
-        ifelse(lcl > -abs(treshold), "~", "?-"),
-        ifelse(lcl > -abs(treshold), "?+", "?")
-      )
-    )
-  ) %>%
-    factor(
-      levels = c("++", "+", "+~", "~", "-~", "-", "--", "?+", "?-", "?"),
-      labels = c("`++`", "`+`", "`+~`", "`~`", "`-~`", "`-`", "`--`", "`?+`", 
-                 "`?-`", "`?`")
-    )
-}
 estimate <- function(mean, round = 1) {
   round(exp(mean), round)
 }
@@ -46,15 +18,17 @@ publication <- function(mean, magnitude) {
 results %>%
   filter(ModelType == "imputed trend: Total ~ Year + Month", Duration == 12, 
          Parameter == "cYear") %>%
-  mutate(Class = trend_class(LCL, UCL, log(0.75) / Duration)) %>%
+  mutate(Class = classification(LCL, UCL, log(0.75) / Duration[1])) %>%
   mutate_at(c("Estimate", "LCL", "UCL"), change) %>%
   transmute(
     Area = LocationGroup, Species = scientific_name, 
     Estimate, Class,
-    Change = sprintf("%+.0f%% (%+.0f%%; %+.0f%%)", Estimate, LCL, 
-                     ifelse(UCL > 1e6, Inf, UCL))
+    Change = sprintf("%+.0f%% (%+.0f%%; %+.0f%%)", 
+                     ifelse(Estimate > 1e5, Inf, Estimate), LCL, 
+                     ifelse(UCL > 1e5, Inf, UCL))
   ) %>%
   arrange(Area, Class, desc(Estimate)) %>%
+  mutate(Class = format(Class, type = "markdown")) %>%
   select(-Estimate) %>%
   group_by(Area) %>%
   nest() -> tab
@@ -82,15 +56,18 @@ results %>%
   group_by(SpeciesGroup) %>%
   filter(Duration == max(Duration)) %>%
   ungroup() %>%
-  mutate(Class = trend_class(LCL, UCL, log(0.75) / Duration)) %>%
+  group_by(Duration) %>%
+  mutate(Class = classification(LCL, UCL, log(0.75) / Duration[1])) %>%
   mutate_at(c("Estimate", "LCL", "UCL"), change) %>%
   transmute(
     Area = LocationGroup, Species = scientific_name, 
     Class, Estimate,
-    Change = sprintf("%+.0f%% (%+.0f%%; %+.0f%%)", Estimate, LCL, 
-                     ifelse(UCL > 1e6, Inf, UCL))
+    Change = sprintf("%+.0f%% (%+.0f%%; %+.0f%%)", 
+                     ifelse(Estimate > 1e5, Inf, Estimate), LCL, 
+                     ifelse(UCL > 1e5, Inf, UCL))
   ) %>%
   arrange(Area, Class, desc(Estimate)) %>%
+  mutate(Class = format(Class, type = "markdown")) %>%
   select(-Estimate) %>%
   group_by(Area) %>%
   nest() -> tab
@@ -118,7 +95,7 @@ results %>%
   filter(ModelType == "imputed trend: Total ~ Year + Month", Duration == 12, 
          Parameter == "cYear") %>%
   mutate(
-    Class = trend_class(LCL, UCL, log(0.75) / Duration),
+    Class = classification(LCL, UCL, log(0.75) / Duration[1]),
     Estimate = total_change(Estimate, Duration),
     LCL = total_change(LCL, Duration),
     UCL = total_change(UCL, Duration)
@@ -126,10 +103,12 @@ results %>%
   transmute(
     Area = LocationGroup, Species = scientific_name, 
     Class, Estimate,
-    Change = sprintf("%+.0f%% (%+.0f%%; %+.0f%%)", Estimate, LCL, 
-                     ifelse(UCL > 1e6, Inf, UCL))
+    Change = sprintf("%+.0f%% (%+.0f%%; %+.0f%%)", 
+                     ifelse(Estimate > 1e5, Inf, Estimate), LCL, 
+                     ifelse(UCL > 1e5, Inf, UCL))
   ) %>%
   arrange(Area, Class, desc(Estimate)) %>%
+  mutate(Class = format(Class, type = "markdown")) %>%
   select(-Estimate) %>%
   group_by(Area) %>%
   nest() -> tab
@@ -156,9 +135,9 @@ results %>%
          Parameter == "cYear") %>%
   group_by(SpeciesGroup) %>%
   filter(Duration == max(Duration)) %>%
-  ungroup() %>%
+  group_by(Duration) %>%
   mutate(
-    Class = trend_class(LCL, UCL, log(0.75) / Duration),
+    Class = classification(LCL, UCL, log(0.75) / Duration[1]),
     Estimate = total_change(Estimate, Duration),
     LCL = total_change(LCL, Duration),
     UCL = total_change(UCL, Duration)
@@ -166,10 +145,12 @@ results %>%
   transmute(
     Area = LocationGroup, Species = scientific_name, 
     Class, Estimate,
-    Change = sprintf("%+.0f%% (%+.0f%%; %+.0f%%)", Estimate, LCL, 
-                     ifelse(UCL > 1e6, Inf, UCL))
+    Change = sprintf("%+.0f%% (%+.0f%%; %+.0f%%)", 
+                     ifelse(Estimate > 1e5, Inf, Estimate), LCL, 
+                     ifelse(UCL > 1e5, Inf, UCL))
   ) %>%
   arrange(Area, Class, desc(Estimate)) %>%
+  mutate(Class = format(Class, type = "markdown")) %>%
   select(-Estimate) %>%
   group_by(Area) %>%
   nest() -> tab
@@ -235,12 +216,14 @@ results %>%
          Parameter == "cPeriod") %>%
   transmute(
     Area = LocationGroup, Species = scientific_name, 
-    Class = trend_class(LCL, UCL, log(0.75)),
+    Class = classification(LCL, UCL, log(0.75)),
     Estimate,
-    Change = sprintf("%+.0f%% (%+.0f%%; %+.0f%%)", change(Estimate), 
-                     change(LCL), ifelse(UCL > 20, Inf, change(UCL)))
+    Change = sprintf("%+.0f%% (%+.0f%%; %+.0f%%)", 
+                     ifelse(change(Estimate) > 1e5, Inf, change(Estimate)), 
+                     change(LCL), ifelse(change(UCL) > 1e5, Inf, change(UCL)))
   ) %>%
   arrange(Area, Class, desc(Estimate)) %>%
+  mutate(Class = format(Class, type = "markdown")) %>%
   select(-Estimate) %>%
   group_by(Area) %>%
   nest() -> tab

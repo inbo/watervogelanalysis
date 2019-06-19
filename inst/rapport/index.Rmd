@@ -40,6 +40,7 @@ opts_chunk$set(
 library(tidyverse)
 library(scales)
 library(INBOtheme)
+library(effectclass)
 if (interactive()) {
   theme_set(theme_inbo(base_family = "Flanders Art Sans", base_size = 12))
 } else {
