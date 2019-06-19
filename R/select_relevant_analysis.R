@@ -24,6 +24,7 @@ select_relevant_analysis <- function(observation){
 
   # select locations with observation from at least 10 different years
   observation %>%
+    filter(!is.na(Count)) %>%
     distinct(.data$Year, .data$LocationID) %>%
     count(.data$LocationID) %>%
     filter(.data$n >= 10) %>%
@@ -52,6 +53,7 @@ select_relevant_analysis <- function(observation){
 
   # select locations with observation from at least 10 different years
   observation %>%
+    filter(!is.na(Count)) %>%
     distinct(.data$Year, .data$LocationID) %>%
     count(.data$LocationID) %>%
     filter(.data$n >= 10) %>%
@@ -98,5 +100,4 @@ select_relevant_analysis <- function(observation){
            fYearMonth = interaction(.data$fYear, .data$Month, drop = TRUE),
            fYearLocation = interaction(.data$fYear, factor(.data$LocationID),
                                       drop = TRUE))
-    select(-"LocationGroupID")
 }

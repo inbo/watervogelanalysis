@@ -31,7 +31,7 @@ read_location <- function(
       SELECT DISTINCT
           CAST(
             COALESCE(ParentLocationWVKey, LocationWVKey) AS VARCHAR
-          ) AS external_code
+          ) AS parent
       FROM DimLocationWVParent
     ),
     cte_survey AS (
@@ -41,14 +41,14 @@ read_location <- function(
     )
 
     SELECT
-        cp.external_code,
+        lp.LocationWVCode AS external_code,
         lp.locationWVNaam AS description,
         lp.StartDate,
         lp.EndDate,
         cs.SPA
       FROM DimLocationWV AS lp
       INNER JOIN cte_survey AS cv ON cv.LocationWVKey = lp.LocationWVKey
-      INNER JOIN cte_parent AS cp ON cp.external_code = lp.LocationWVKey
+      INNER JOIN cte_parent AS cp ON cp.parent = lp.LocationWVKey
       LEFT JOIN cte_spa AS cs ON cs.LocationWVKey = lp.LocationWVKey
     ",
     format(first_date, "%Y-%m-%d") %>%
