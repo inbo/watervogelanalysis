@@ -70,15 +70,11 @@ selection$data[[1]] %>%
 selection$data[[1]] %>%
   filter(type == "imputed total") %>%
   ggplot(aes(x = winter)) +
-  geom_ribbon(data = this_index, aes(ymin = p05, ymax = p95), alpha = 0.2, 
-              fill = inbo.steun.geelgroen) +
-  geom_ribbon(data = this_index, aes(ymin = p10, ymax = p90), alpha = 0.2, 
-              fill = inbo.steun.geelgroen) +
-  geom_ribbon(data = this_index, aes(ymin = p30, ymax = p70), alpha = 0.2, 
-              fill = inbo.steun.geelgroen) +
+  stat_fan(data = this_index, aes(y = Estimate, link_sd = SE), 
+              fill = inbo.steun.geelgroen, link = "log") +
   geom_ribbon(aes(ymin = LCL, ymax = UCL), alpha = 0.2) +
   geom_line(aes(y = Estimate)) +
-  geom_line(data = this_index, aes(y = p50), colour = inbo.steun.geelgroen) +
+  geom_line(data = this_index, aes(y = Estimate), colour = inbo.steun.geelgroen) +
   facet_wrap(~month, scales = "free_y") +
   scale_y_continuous(paste("Monthly total after imputation", extra_lab), 
                      limits = c(0, NA)) +
@@ -100,24 +96,27 @@ ggplot(this_wm, aes(x = Parameter, y = Estimate, ymin = LCL, ymax = UCL)) +
 (ref:wm-{{id}}-2) Winter maximum after imputation with indication of the average over the last five years for _`r selection$scientific_name[1]`_ in `r selection$LocationGroup[1]`.
 
 ```{r wm-{{id}}-plot2, fig.cap = "(ref:wm-{{id}}-2)"}
-ggplot(this_wm) +
-  geom_rect(data = this_avg_wm, alpha = 0.2, fill = inbo.steun.geelgroen,
-            aes(xmin = start, xmax = end, ymin = p05, ymax = p95)) +
-  geom_rect(data = this_avg_wm, alpha = 0.2, fill = inbo.steun.geelgroen,
-            aes(xmin = start, xmax = end, ymin = p10, ymax = p90)) +
-  geom_rect(data = this_avg_wm, alpha = 0.2, fill = inbo.steun.geelgroen,
-            aes(xmin = start, xmax = end, ymin = p30, ymax = p70)) +
-  geom_ribbon(aes(x = Parameter, ymin = LCL, ymax = UCL), alpha = 0.2) +
-  geom_line(aes(x = Parameter, y = Estimate)) +
-  geom_segment(data = this_avg_wm, colour = inbo.steun.geelgroen,
-               aes(x = start, xend = end, y = p50, yend = p50)) +
+tibble(
+  Parameter = this_avg_wm$start:this_avg_wm$end,
+  Estimate = this_avg_wm$Estimate,
+  SE = this_avg_wm$SE
+) -> this_avg_wm
+ggplot(this_wm, aes(x = Parameter, y = Estimate)) +
+  stat_fan(data = this_avg_wm, aes(link_sd = SE), fill = inbo.steun.geelgroen) +
+  geom_ribbon(aes(ymin = LCL, ymax = UCL), alpha = 0.2) +
+  geom_line() +
+  geom_line(data = this_avg_wm, colour = inbo.steun.geelgroen) +
   scale_y_continuous(paste("Winter maximum after imputation", extra_lab)) +
   theme(axis.title.x = element_blank())
 ```
 
-(ref:location-{{id}}) Histogram of the relative importance of the sites for _`r selection$scientific_name[1]`_ in `r selection$LocationGroup[1]`.
+```{r results = "asis"}
+if (nrow(this_location)) {
+  cat("### Importance of locations")
+}
+```
 
-`r if (nrow(this_location)) {cat("### Importance of locations")}`
+(ref:location-{{id}}) Histogram of the relative importance of the sites for _`r selection$scientific_name[1]`_ in `r selection$LocationGroup[1]`.
 
 ```{r location-{{id}}, fig.cap = "(ref:location-{{id}})"}
 if (nrow(this_location)) {
@@ -146,7 +145,7 @@ this_location %>%
 }
 ```
 
-`r if(nrow(this_imputations)) {cat("### Imputations")}`
+### Imputations
 
 ```{r imputations-{{id}}, warnings = FALSE, echo = FALSE, message = FALSE}
 if (nrow(this_imputations)) {

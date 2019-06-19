@@ -39,7 +39,7 @@ get_manifest <- function(hash, local) {
     return(x)
   }
   x <- read_manifest(base = aws_base, project = project, hash = hash)
-  store_manifest(x, base = aws_base, project = project)
+  store_manifest(x, base = local_base, project = project)
   return(slot(x, "Manifest"))
 }
 sprintf("%s/manifest", project) %>%
@@ -78,15 +78,11 @@ while (any(is.na(aws_manifest$Level))) {
   ) -> aws_manifest
 }
 
-get_species <- function(x, local) {
+get_species <- function(x) {
   message(x, " getting species group and location group")
-  if (local) {
-    base <- local_base
-    y <- try(read_model(x, base = base, project = project))
-    if (inherits(y, "try-error")) {
-      y <- NULL
-    }
-  } else {
+  base <- local_base
+  y <- try(read_model(x, base = base, project = project))
+  if (inherits(y, "try-error")) {
     y <- NULL
   }
   if (is.null(y)) {
@@ -105,15 +101,16 @@ get_species <- function(x, local) {
     select(SpeciesGroupID, LocationGroupID)
 }
 aws_manifest %>%
-  arrange(desc(Level), desc(LastModified)) %>%
+  filter(is.na(Parent)) %>%
+  arrange(desc(LastModified)) %>%
   group_by(hash) %>%
   slice(1) %>%
   ungroup() %>%
-  mutate(meta = map2(Fingerprint, local, ~get_species(x = .x, local = .y)))  %>%
+  mutate(meta = map(Fingerprint, get_species))  %>%
   unnest() -> manifest_species_location
 manifest_species_location %>%
   filter(is.na(SpeciesGroupID)) %>%
-  select(Key, hash, local, LastModified) %>%
+  select(Key, hash, LastModified) %>%
   saveRDS("problem_manifest.Rds")
 manifest_species_location %>%
   filter(!is.na(SpeciesGroupID)) %>%
@@ -124,7 +121,6 @@ manifest_species_location %>%
   inner_join(x = aws_manifest, by = "hash") %>%
   saveRDS("manifests.Rds")
 ```
-
 
 ```{r import-data, eval = !file.exists("stored.Rds"), results = "hide", message = FALSE}
 library(aws.s3)
@@ -177,6 +173,7 @@ tbl(result_channel, "scheme") %>%
   spread(language, common_name) %>%
   mutate_at(c("SpeciesGroup", "scientific_name", "Nederlands"), factor) ->
   species_list
+saveRDS(species_list, "speciesgroup.Rds")
 
 tbl(result_channel, "scheme") %>%
   filter(description == "Watervogels") %>%
@@ -186,19 +183,20 @@ tbl(result_channel, "scheme") %>%
   collect() %>%
   mutate(LocationGroup = str_replace(LocationGroup, "\\\\u0137", "ë") %>%
            factor()) -> location_group
+saveRDS(location_group, "locationgroup.Rds")
 
 relevant <- readRDS("manifests.Rds")
 relevant %>%
   distinct(hash, LastModified, LocationGroupID, SpeciesGroupID) %>%
-  inner_join(location_group, by = "LocationGroupID") %>%
   inner_join(species_list, by = "SpeciesGroupID") %>%
+  inner_join(location_group, by = "LocationGroupID") %>%
   arrange(desc(LastModified)) %>%
-  group_by(SpeciesGroup, LocationGroup) %>%
+  group_by(SpeciesGroup, LocationGroupID) %>%
   slice(1) %>%
   ungroup() %>%
   semi_join(x = relevant, by = "hash") %>%
-  inner_join(location_group, by = "LocationGroupID") %>%
   inner_join(species_list, by = "SpeciesGroupID") %>%
+  inner_join(location_group, by = "LocationGroupID") %>%
   select(-SpeciesGroupID, -LocationGroupID) -> relevant
 saveRDS(relevant, "relevant.Rds")
 
@@ -444,7 +442,13 @@ file.path(local_base, project, "result") %>%
 required_results[required_results %in% prepared_results] %>%
   lapply(readRDS) %>%
   bind_rows() %>%
-  inner_join(relevant, by = c("FileFingerprint" = "Fingerprint")) %>%
+  inner_join(
+    relevant %>%
+      select(Fingerprint, Key, LastModified), 
+    by = c("FileFingerprint" = "Fingerprint")
+  ) %>%
+  inner_join(readRDS("speciesgroup.Rds"), by = "SpeciesGroupID") %>%
+  inner_join(readRDS("locationgroup.Rds"), by = "LocationGroupID") %>%
   saveRDS("results.Rds")
 ```
 

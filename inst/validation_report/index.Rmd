@@ -42,6 +42,7 @@ opts_chunk$set(
 library(pander)
 library(tidyverse)
 library(scales)
+library(effectclass)
 library(INBOtheme)
 theme_set(theme_inbo(base_family = "Flanders Art Sans", base_size = 12))
 if (!interactive() && opts_knit$get("rmarkdown.pandoc.to") != "html") {
