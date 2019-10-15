@@ -28,9 +28,9 @@ selection$data[[1]] %>%
     if (max(qnorm(0.95, index$Estimate, index$SE)) > log(1e4)) {
       index %>%
         mutate(Estimate = Estimate - log(1e3)) -> index
-      ylab <- "Average population (x 1000)"
+      ylab <- "seasonal average (x 1000)"
     } else {
-      ylab <- "Average population"
+      ylab <- "seasonal average"
     }
     start_year <- min(index$Parameter, na.rm = TRUE)
     end_year <- max(index$Parameter, na.rm = TRUE)
@@ -38,6 +38,16 @@ selection$data[[1]] %>%
       ggplot(aes(x = Parameter, y = exp(Estimate), link_sd = SE)) +
       stat_fan(link = "log") +
       geom_line() +
+      scale_x_continuous(
+        breaks = function(x) {
+          if (diff(x) < 5) {
+            x[1]:x[2]
+          } else {
+            pretty(x)
+          }
+        },
+        expand = expand_scale(mult = c(0, 0.05), add = c(2, 0))
+      ) +
       scale_y_continuous(ylab, limits = c(0, NA)) +
       theme(axis.title.x = element_blank())
   }
@@ -68,14 +78,19 @@ if (length(selection$data)) {
   breaks <- log(c(1 / rev(breaks), 1, breaks))
   ggplot(
     indices, 
-    aes(x = From, y = To, colour = Estimate, ymin = LCL, ymax = UCL)
+    aes(y = From, x = To, colour = Estimate, ymin = LCL, ymax = UCL)
   ) +
     stat_effect(threshold = log(0.75)) +
     coord_fixed() +
+    scale_x_continuous(breaks = pretty) +
+    scale_y_continuous("Reference", breaks = pretty) +
     scale_colour_gradient2("Change", breaks = breaks, limits = limits,
                          labels = sprintf("%+.0f%%", change(breaks))) +
     scale_effect() +
-    theme(legend.key.size = unit(0.8, "lines"))
+    theme(
+      axis.title.x = element_blank(),
+      legend.key.size = unit(0.8, "lines")
+    )
 }
 ```
 
@@ -99,6 +114,10 @@ if (nrow(index)) {
     geom_hline(yintercept = reference, linetype = 2) +
     stat_fan(link = "log") +
     geom_line() +
+    scale_x_continuous(
+      breaks = pretty, 
+      expand = expand_scale(mult = c(0, 0.05), add = c(2, 0))
+    ) +
     scale_y_continuous(ylab, labels = percent) +
     theme(axis.title.x = element_blank())
 }
@@ -124,6 +143,10 @@ if (nrow(index)) {
     geom_hline(yintercept = reference, linetype = 2) +
     stat_fan(link = "log") +
     geom_line() +
+    scale_x_continuous(
+      breaks = pretty, 
+      expand = expand_scale(mult = c(0, 0.05), add = c(2, 0))
+    ) +
     scale_y_continuous(ylab, labels = percent) +
     theme(axis.title.x = element_blank())
 }

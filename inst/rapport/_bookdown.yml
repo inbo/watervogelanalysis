@@ -1,5 +1,5 @@
 book_filename: "wintering_waterbirds_belgium.Rmd"
-output_dir: "../output"
+output_dir: "../output/standard"
 delete_merged_file: TRUE
 download: ["pdf", "epub"]
 language:

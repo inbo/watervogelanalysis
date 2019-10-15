@@ -1,4 +1,4 @@
-# (PART) Summarising tables {-}
+# (PART) Summarising tables {- #p:summarising-tables}
 
 ```{r helper-functions}
 estimate <- function(mean, round = 1) {
@@ -10,9 +10,9 @@ publication <- function(mean, magnitude) {
 }
 ```
 
-# Average yearly change based on monthly totals
+# Average yearly change based on monthly totals {#ch:yearly-change}
 
-## Yearly change over the last twelve years
+## Yearly change over the last twelve years {#s:yearly-change-12}
 
 ```{r monthly-trend-12-yearly, results = "asis"}
 results %>%
@@ -28,26 +28,29 @@ results %>%
                      ifelse(UCL > 1e5, Inf, UCL))
   ) %>%
   arrange(Area, Class, desc(Estimate)) %>%
-  mutate(Class = format(Class, type = "markdown")) %>%
+  mutate(
+    Species = paste0("_", Species, "_"),
+    Class = format(Class, type = "markdown")
+  ) %>%
   select(-Estimate) %>%
   group_by(Area) %>%
-  nest() -> tab
+  nest() -> tab_ya12
 junk <- sapply(
-  seq_along(tab$Area),
+  seq_along(tab_ya12$Area),
   function(i) {
-    cat("###", as.character(tab$Area[i]), "\n\n")
+    cat("###", as.character(tab_ya12$Area[i]), "\n\n")
     print(kable(
-      tab$data[[i]], format = "pandoc", align = "lcc",
+      tab_ya12$data[[i]], format = "pandoc", align = "lcc",
       label = paste0("monthly-trend-12-yearly", 
-                     str_replace(tab$Area[i], " ", "-"), sep = "-"),
+                     str_replace(tab_ya12$Area[i], " ", "-"), sep = "-"),
       caption = paste("Average yearly change over the last twelve year based on
-                      monthly totals for", tab$Area[i])))
+                      monthly totals for", tab_ya12$Area[i])))
     cat("\n\n")
   }
 )
 ```
 
-## Yearly change over the entire dataset
+## Yearly change over the entire dataset {#s:yearly-change-tot}
 
 ```{r monthly-trend-all-yearly, results = "asis"}
 results %>%
@@ -56,8 +59,13 @@ results %>%
   group_by(SpeciesGroup) %>%
   filter(Duration == max(Duration)) %>%
   ungroup() %>%
-  group_by(Duration) %>%
-  mutate(Class = classification(LCL, UCL, log(0.75) / Duration[1])) %>%
+  mutate(
+    Class = pmap(
+      list(LCL, UCL, log(0.75) / Duration),
+      classification
+    ) %>%
+      effectclass:::unlist.effectclass()
+  ) %>%
   mutate_at(c("Estimate", "LCL", "UCL"), change) %>%
   transmute(
     Area = LocationGroup, Species = scientific_name, 
@@ -67,26 +75,29 @@ results %>%
                      ifelse(UCL > 1e5, Inf, UCL))
   ) %>%
   arrange(Area, Class, desc(Estimate)) %>%
-  mutate(Class = format(Class, type = "markdown")) %>%
+  mutate(
+    Species = paste0("_", Species, "_"),
+    Class = format(Class, type = "markdown")
+  ) %>%
   select(-Estimate) %>%
   group_by(Area) %>%
-  nest() -> tab
+  nest() -> tab_yatot
 junk <- sapply(
-  seq_along(tab$Area),
+  seq_along(tab_yatot$Area),
   function(i) {
-    cat("###", as.character(tab$Area[i]), "\n\n")
+    cat("###", as.character(tab_yatot$Area[i]), "\n\n")
     print(kable(
-      tab$data[[i]], format = "pandoc", align = "lcc",
+      tab_yatot$data[[i]], format = "pandoc", align = "lcc",
       label = paste0("monthly-trend-all-yearly-total", 
-                     str_replace(tab$Area[i], " ", "-"), sep = "-"),
+                     str_replace(tab_yatot$Area[i], " ", "-"), sep = "-"),
       caption = paste("Average yearly change over the entire dataset based on
-                      monthly totals for", tab$Area[i])))
+                      monthly totals for", tab_yatot$Area[i])))
     cat("\n\n")
   }
 )
 ```
 
-# Total linear change based on monthly totals
+# Total linear change based on monthly totals {#ch:total-change}
 
 ## Total change over the last twelve years
 
@@ -108,20 +119,23 @@ results %>%
                      ifelse(UCL > 1e5, Inf, UCL))
   ) %>%
   arrange(Area, Class, desc(Estimate)) %>%
-  mutate(Class = format(Class, type = "markdown")) %>%
+  mutate(
+    Species = paste0("_", Species, "_"),
+    Class = format(Class, type = "markdown")
+  ) %>%
   select(-Estimate) %>%
   group_by(Area) %>%
-  nest() -> tab
+  nest() -> tab_yt12
 junk <- sapply(
-  seq_along(tab$Area),
+  seq_along(tab_yt12$Area),
   function(i) {
-    cat("###", as.character(tab$Area[i]), "\n\n")
+    cat("###", as.character(tab_yt12$Area[i]), "\n\n")
     print(kable(
-      tab$data[[i]], format = "pandoc", align = "lcc",
+      tab_yt12$data[[i]], format = "pandoc", align = "lcc",
       label = paste0("monthly-trend-12-total", 
-                     str_replace(tab$Area[i], " ", "-"), sep = "-"),
+                     str_replace(tab_yt12$Area[i], " ", "-"), sep = "-"),
       caption = paste("Average total change over the last twelve year based on
-                      monthly totals for", tab$Area[i])))
+                      monthly totals for", tab_yt12$Area[i])))
     cat("\n\n")
   }
 )
@@ -135,9 +149,13 @@ results %>%
          Parameter == "cYear") %>%
   group_by(SpeciesGroup) %>%
   filter(Duration == max(Duration)) %>%
-  group_by(Duration) %>%
+  ungroup() %>%
   mutate(
-    Class = classification(LCL, UCL, log(0.75) / Duration[1]),
+    Class = pmap(
+      list(LCL, UCL, log(0.75) / Duration),
+      classification
+    ) %>%
+      effectclass:::unlist.effectclass(),
     Estimate = total_change(Estimate, Duration),
     LCL = total_change(LCL, Duration),
     UCL = total_change(UCL, Duration)
@@ -150,28 +168,31 @@ results %>%
                      ifelse(UCL > 1e5, Inf, UCL))
   ) %>%
   arrange(Area, Class, desc(Estimate)) %>%
-  mutate(Class = format(Class, type = "markdown")) %>%
+  mutate(
+    Species = paste0("_", Species, "_"),
+    Class = format(Class, type = "markdown")
+  ) %>%
   select(-Estimate) %>%
   group_by(Area) %>%
-  nest() -> tab
+  nest() -> tab_yttot
 junk <- sapply(
-  seq_along(tab$Area),
+  seq_along(tab_yttot$Area),
   function(i) {
-    cat("###", as.character(tab$Area[i]), "\n\n")
+    cat("###", as.character(tab_yttot$Area[i]), "\n\n")
     print(kable(
-      tab$data[[i]], format = "pandoc", align = "lcc",
+      tab_yttot$data[[i]], format = "pandoc", align = "lcc",
       label = paste0("monthly-trend-all-total", 
-                     str_replace(tab$Area[i], " ", "-"), sep = "-"),
+                     str_replace(tab_yttot$Area[i], " ", "-"), sep = "-"),
       caption = paste("Average total change over the entire dataset based on
-                      monthly totals for", tab$Area[i])))
+                      monthly totals for", tab_yttot$Area[i])))
     cat("\n\n")
   }
 )
 ```
 
-# Winter maxima
+# Winter maxima {#ch:wintermaxima}
 
-## Average winter maximum over the last five years
+## Average winter maximum over the last five years {#s:wintermaxima}
 
 ```{r wintermax, results = "asis"}
 results %>%
@@ -186,29 +207,33 @@ results %>%
     pU = publication(UCL, Magnitude)
   ) %>%
   mutate_at(c("Estimate", "LCL", "UCL"), estimate) %>%
-  transmute(Area = LocationGroup, Species = scientific_name, Estimate,
-            Detail = sprintf("%.0f (%.0f; %.0f)", Estimate, LCL, UCL),
-            "For publication" = sprintf("%.0f (%.0f; %.0f)", pX, pL, pU)) %>%
+  transmute(
+    Area = LocationGroup, 
+    Species = paste0("_", scientific_name, "_"), 
+    Estimate,
+    Detail = sprintf("%.0f (%.0f; %.0f)", Estimate, LCL, UCL),
+    "For publication" = sprintf("%.0f (%.0f; %.0f)", pX, pL, pU)
+  ) %>%
   arrange(desc(Estimate)) %>%
   select(-Estimate) %>%
   group_by(Area) %>%
-  nest() -> tab
+  nest() -> tab_wm5
 junk <- sapply(
-  seq_along(tab$Area),
+  seq_along(tab_wm5$Area),
   function(i) {
-    cat("###", as.character(tab$Area[i]), "\n\n")
+    cat("###", as.character(tab_wm5$Area[i]), "\n\n")
     print(kable(
-      tab$data[[i]], format = "pandoc", align = "lcc",
+      tab_wm5$data[[i]], format = "pandoc", align = "lcc",
       label = paste0("wintermax", 
-                     str_replace(tab$Area[i], " ", "-"), sep = "-"),
+                     str_replace(tab_wm5$Area[i], " ", "-"), sep = "-"),
       caption = paste("Average winter maximum over the last five years for", 
-                      tab$Area[i])))
+                      tab_wm5$Area[i])))
     cat("\n\n")
   }
 )
 ```
 
-## Change in average winter maximum over the last two five-year periods
+## Change in average winter maximum over the last two five-year periods {#s:wintermaxima-delta}
 
 ```{r wintermax-change, results = "asis"}
 results %>%
@@ -223,20 +248,23 @@ results %>%
                      change(LCL), ifelse(change(UCL) > 1e5, Inf, change(UCL)))
   ) %>%
   arrange(Area, Class, desc(Estimate)) %>%
-  mutate(Class = format(Class, type = "markdown")) %>%
+  mutate(
+    Species = paste0("_", Species, "_"),
+    Class = format(Class, type = "markdown")
+  ) %>%
   select(-Estimate) %>%
   group_by(Area) %>%
-  nest() -> tab
+  nest() -> tab_wmdelta
 junk <- sapply(
-  seq_along(tab$Area),
+  seq_along(tab_wmdelta$Area),
   function(i) {
-    cat("###", as.character(tab$Area[i]), "\n\n")
+    cat("###", as.character(tab_wmdelta$Area[i]), "\n\n")
     print(kable(
-      tab$data[[i]], format = "pandoc", align = "lcc",
+      tab_wmdelta$data[[i]], format = "pandoc", align = "lcc",
       label = paste0("wintermax-change", 
-                     str_replace(tab$Area[i], " ", "-"), sep = "-"),
+                     str_replace(tab_wmdelta$Area[i], " ", "-"), sep = "-"),
       caption = paste("Change in average wintermax over the last two five-year 
-                      periods for", tab$Area[i])))
+                      periods for", tab_wmdelta$Area[i])))
     cat("\n\n")
   }
 )

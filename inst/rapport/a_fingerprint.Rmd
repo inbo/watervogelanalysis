@@ -4,7 +4,7 @@
 
 # Analysis fingerprints
 
-```{r fingerprint}
+```{r fingerprint, results='asis'}
 results %>%
   filter(Status == "converged", grepl("imputed (ave|tre|ind)", ModelType)) %>%
   distinct(species = scientific_name, area = LocationGroup, model = ModelType, 
@@ -14,9 +14,29 @@ results %>%
                         ifelse(grepl("trend", model), "linear", "wintermax"))
          ) %>%
   mutate_at(c("file", "status"), as.character) %>%
-  mutate_at(c("file", "status"), str_trunc, 10) %>%
+  mutate_at(c("file", "status"), str_trunc, 30) %>%
   arrange(species, area, model, span) %>%
-  kable(format = "pandoc")
+  group_by(species) %>%
+  nest() -> tab
+junk <- sapply(
+  seq_along(tab$species),
+  function(i) {
+    sprintf("## _%1$s_\n
+(ref:fingerprint-%2$s) Analysis fingerprints for _%1$s_.",
+      as.character(tab$species[i]),
+      str_replace_all(as.character(tab$species[i]), " ", "-")
+    ) %>%
+      cat()
+    print(kable(
+      tab$data[[i]], format = "pandoc", align = "lcc",
+      label = paste("fingerprints", 
+                     str_replace(tab$species[i], " ", "-"), sep = "-"),
+      caption = sprintf("(ref:fingerprint-%s)", 
+                        str_replace_all(as.character(tab$species[i]), " ", "-"))
+    ))
+    cat("\n\n")
+  }
+)
 ```
 
 

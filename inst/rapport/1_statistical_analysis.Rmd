@@ -1,0 +1,112 @@
+# Statistical analysis
+
+## Interpretation of effects {#s:interpretation}
+
+We compare the 95% credible intervals with a reference, upper and lower threshold to classify the strength of the effect into 10 classes.
+The change of a linear trend is converted into a change over the length of the data.
+The change of an index is the actual change between the two years.
+The reference is set to 0 (no change).
+The credible interval of a significant effect does not contain 0.
+We selected a change of -25% (3/4 of the initial value) as the lower threshold.
+We use the complement^[$\log(3/4) = -0.2877$ and $\log(4/3) = 0.2877$] of that (+33% or 4/3 of the initial value) as the upper threshold.
+A -25% or +33% change over 5 years is equivalent to an average yearly change of -5.6% or +5.9% in case of a linear trend.
+
+```{r threshold-yearly}
+data.frame(
+  duration = c(1, 5, 10, 12, 20, 30)
+) %>%
+  mutate(
+    decrease = log(0.75) / duration,
+    increase = -log(0.75) / duration
+  ) %>%
+  mutate_at(
+    c("decrease", "increase"), 
+    function(x) {
+      sprintf("%+.2f%%", 100 * (exp(x) - 1))
+    }
+  ) %>%
+  kable(caption = "Average yearly change over a period required to yield a total decrease to 3/4 or total increase to 4/3 of the initial value.")
+```
+
+Below are the symbols, interpretations and rules for each of the 10 classes.
+
+- `++` **strong increase**: A significant positive trend and significantly stronger than the upper threshold.
+- `+~` **moderate increase**: A significant positive trend and significantly weaker than the upper threshold.
+- `+` **increase**: A significant positive trend, not significantly different from the upper threshold.
+- `~` **stable**: A non-significant trend and significantly between the lower and upper threshold.
+- `-` **increase**: A significant negative trend, not significantly different from the lower threshold.
+- `-~` **moderate decrease**: A significant negative trend and significantly weaker than the lower threshold.
+- `--` **strong decrease**: A significant negative trend and significantly stronger than the lower threshold.
+- `?+` **potential increase**: A non-significant trend, significantly above the lower threshold.
+- `?-` **potential decrease**: A non-significant trend, significantly above the upper threshold.
+- `?` **unknown**: A non-significant trend, both the lower and upper threshold are probable.
+
+One of the benefits is that we distinguish `~` (stable) and `?` (unknown). 
+Both are not significant.
+The main difference between both cases is the uncertainty.
+We set the thresholds at important changes.
+If the uncertainty is large, then the credible interval contains both the lower and the upper threshold.
+So we have no clue what is happening, hence the unknown class.
+If the uncertainty is small, then the credible interval contains neither the lower nor the upper threshold.
+In this case we do known that the change is less extreme that the thresholds.
+So if there is a change, it will be smaller than important changes (the thresholds).
+This is informative, even though the change is not significant.
+
+## Overview tables
+
+Part \@ref(p:summarising-tables) contains several tables with effects listing the results for all species with sufficient data.
+Chapter \@ref(ch:yearly-change) displays the average yearly change in seasonal population average assuming a linear trend.
+Section \@ref(s:yearly-change-12) contains the results using only the last twelve years of the data, while section \@ref(s:yearly-change-tot) uses the full data of the species.
+The tables contain the scientific name of the species, the class of the effect (see section \@ref(s:interpretation)) and the estimated change and its 95% credible interval.
+The tables are sorted along a decreasing trend.
+Species with uncertain trend are listed at the bottom of the tables.
+The number is chapter \@ref(ch:total-change) refer to exactly the same trends as in chapter \@ref(ch:yearly-change), expect that the trends are expressed as a total change over the range of the data instead of a an average yearly change.
+Please note that when using the full dataset, the time range depends on the species.
+
+Chapter \@ref(ch:wintermaxima) displays results using the winter maxima.
+Section \@ref(ch:wintermaxima) contains the average winter maximum over the last five year.
+These tables contain both a detailed number and a number for publication.
+The detailed number is the actual estimate from the model.
+The number for publication is a rounded version of the detailed number, with the level of rounding depending on the uncertainty of the detailed number.
+We strongly recommend to use the number of publication including the credible interval.
+Section \@ref(s:wintermaxima-delta) estimate the relative change in average winter maxima over the last two five-year periods.
+This changed is classified along the guidelines in section \@ref(s:interpretation).
+
+## Figures
+
+Each modelled species gets its own chapter with results in part \@ref(p:species).
+The results are split into sections per group of sites.
+All results are display in a standardized graphical format without comments or interpretation.
+
+### Seasonal average
+
+The results start with a figure showing the estimated seasonal average number of birds.
+This is the estimated monthly population, corrected for the overall seasonal pattern.
+The line displays the point estimate for each year.
+This is the most likely value for the total number of birds in an average month.
+The three ribbons display the uncertainty around this point estimate.
+They are, from small/dark to wide/light, the 30%, 60% and 90% credible intervals.
+
+### Indices and index raster
+
+An index is a change compared to a baseline.
+This baseline is typically the estimate for some reference winter.
+E.g we use 2014 as a baseline and compare 2015 with 2013 or 2016 with 2014.
+However we cannot use the figure with 2014 as baseline to compare 2015 with 2016.
+For that we need a figure with either 2015 or 2016 as baseline.
+
+The last two plots of the section display the index using the first and last available year as the reference.
+Plotting all other years would require a large amount of figures.
+Therefore we summarise the indices for all possible combinations on a raster.
+The x axis holds the winter we want to interpret.
+The y axis holds the reference winter.
+The dots given the relative change from the baseline (y axis) to the other winter (x axis).
+Their colour indicates the strength of the change.
+Stronger changes have darker dots, white dots indicate no change.
+Red dots indicate a decrease from the baseline, blue dots an increase.
+A baseline with all red (blue) dots indicates the winter with the largest (smallest) numbers.
+The shape of the dots indicates the classification of the effect (see section \@ref(s:interpretation)).
+The equivalent positive and negative classes are collapsed into a single class. 
+`++` and `--` become `**`, `+` and `-` become `*`, `+~` and `-~` become `*~` and finally `?+` and `?-` become `?*`.
+Informative dots (significant or non-significant but stable) get solid shapes.
+Uncertain estimates get an open shape.

@@ -17,7 +17,7 @@ output:
     fig.width: 150 / 25.4
     fig.height: 100 / 25.4
     floatbarrier: subsection
-    lang: english
+    style: Flanders
     lof: FALSE
     lot: FALSE
   bookdown::epub_book:
@@ -46,9 +46,12 @@ if (interactive()) {
 } else {
   switch(
     opts_knit$get("rmarkdown.pandoc.to"),
+    html = {
+      theme_set(theme_inbo(base_family = "Flanders Art Sans", base_size = 10))
+    },
     latex = {
       opts_chunk$set(dev = "cairo_pdf")
-      theme_set(theme_inbo(base_family = "Flanders Art Sans", base_size = 8))
+      theme_set(theme_inbo(base_family = "Flanders Art Sans", base_size = 9))
       update_geom_defaults("point", list(size = 1.5))
     },
     epub3 = {
