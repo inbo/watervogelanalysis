@@ -30,8 +30,8 @@ read_observation <- function(
   sprintf("
     SELECT
       f.OccurrenceKey AS ObservationID,
-      YEAR(f.SampleDate) + IIF(MONTH(f.SampleDate) >= 7, 1, 0) AS Year,
-      MONTH(f.SampleDate) AS Month,
+      d.YearNumber + IIF(d.MonthNumber >= 7, 1, 0) AS Year,
+      d.MonthNumber AS Month,
       l.LocationWVCode AS external_code,
       l.LocationWVKey,
       f.TaxonCount AS Count,
@@ -42,6 +42,7 @@ read_observation <- function(
     INNER JOIN DimLocationWV AS l ON l.locationwvkey = f.locationwvkey
     INNER JOIN DimAnalyseSet AS a ON  a.analysesetkey = f.analysesetkey
     INNER JOIN DimSample AS s ON f.samplekey = s.samplekey
+    INNER JOIN DimDate AS d ON f.SampleDatekey = d.Datekey
     WHERE
       %s <= f.SampleDate AND f.SampleDate <= %s AND f.TaxonWVKey = %s AND
       a.AnalysesetCode LIKE 'MIDMA%%' AND s.CoverageCode IN ('V', 'O')",
@@ -53,7 +54,7 @@ read_observation <- function(
   ) %>%
     dbGetQuery(conn = flemish_channel) %>%
     group_by(.data$Year, .data$Month, .data$external_code) %>%
-    arrange(desc(.data$Count)) %>%
+    arrange(desc(.data$Complete), desc(.data$Count), .data$ObservationID) %>%
     slice(1) %>%
     ungroup() -> raw_observation
   "SELECT
