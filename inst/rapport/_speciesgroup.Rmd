@@ -28,9 +28,9 @@ selection$data[[1]] %>%
     if (max(qnorm(0.95, index$Estimate, index$SE)) > log(1e4)) {
       index %>%
         mutate(Estimate = Estimate - log(1e3)) -> index
-      ylab <- "seasonal average (x 1000)"
+      ylab <- "Seasonal average (x 1000)"
     } else {
-      ylab <- "seasonal average"
+      ylab <- "Seasonal average"
     }
     start_year <- min(index$Parameter, na.rm = TRUE)
     end_year <- max(index$Parameter, na.rm = TRUE)
@@ -38,16 +38,7 @@ selection$data[[1]] %>%
       ggplot(aes(x = Parameter, y = exp(Estimate), link_sd = SE)) +
       stat_fan(link = "log") +
       geom_line() +
-      scale_x_continuous(
-        breaks = function(x) {
-          if (diff(x) < 5) {
-            x[1]:x[2]
-          } else {
-            pretty(x)
-          }
-        },
-        expand = expand_scale(mult = c(0, 0.05), add = c(2, 0))
-      ) +
+      scale_x_continuous(pretty) +
       scale_y_continuous(ylab, limits = c(0, NA)) +
       theme(axis.title.x = element_blank())
   }
@@ -86,7 +77,7 @@ if (length(selection$data)) {
     scale_y_continuous("Reference", breaks = pretty) +
     scale_colour_gradient2("Change", breaks = breaks, limits = limits,
                          labels = sprintf("%+.0f%%", change(breaks))) +
-    scale_effect() +
+    scale_effect("Classification") +
     theme(
       axis.title.x = element_blank(),
       legend.key.size = unit(0.8, "lines")
@@ -114,10 +105,7 @@ if (nrow(index)) {
     geom_hline(yintercept = reference, linetype = 2) +
     stat_fan(link = "log") +
     geom_line() +
-    scale_x_continuous(
-      breaks = pretty, 
-      expand = expand_scale(mult = c(0, 0.05), add = c(2, 0))
-    ) +
+    scale_x_continuous(breaks = pretty) +
     scale_y_continuous(ylab, labels = percent) +
     theme(axis.title.x = element_blank())
 }
@@ -143,10 +131,7 @@ if (nrow(index)) {
     geom_hline(yintercept = reference, linetype = 2) +
     stat_fan(link = "log") +
     geom_line() +
-    scale_x_continuous(
-      breaks = pretty, 
-      expand = expand_scale(mult = c(0, 0.05), add = c(2, 0))
-    ) +
+    scale_x_continuous(breaks = pretty) +
     scale_y_continuous(ylab, labels = percent) +
     theme(axis.title.x = element_blank())
 }

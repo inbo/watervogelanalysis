@@ -1,6 +1,6 @@
 ---
 title: "Standard analysis wintering waterbirds in Belgium"
-subtitle: "Static report"
+subtitle: "Standard report"
 author: 
   - 
     name: "Thierry Onkelinx"
@@ -47,7 +47,7 @@ if (interactive()) {
   switch(
     opts_knit$get("rmarkdown.pandoc.to"),
     html = {
-      theme_set(theme_inbo(base_family = "Flanders Art Sans", base_size = 10))
+      theme_set(theme_inbo(base_family = "Flanders Art Sans", base_size = 12))
     },
     latex = {
       opts_chunk$set(dev = "cairo_pdf")
