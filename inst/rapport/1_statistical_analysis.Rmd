@@ -1,5 +1,216 @@
 # Statistical analysis
 
+## Selection of the raw data
+
+In order to get stable models, we have to restrict the data to only those sites and periods which are relevant for the species.
+Keeping so-called structural zero's would flatten the trend.
+A site is considered relevant for a species when a species is observed during at least three different winters and during at least four combinations of winter and month.
+Some species might emerge or disappear during the time frame of the monitoring.
+In such case we will remove every winter prior to the emergence and after the disappearance from the dataset.
+Because we will impute missing observation, we require that the observers collected data during at least ten different years at a site.
+Otherwise the final results will be highly dominated by sparsely visited sites.
+
+The Flemish dataset contains data for the six winter months (October through March), whereas the Walloon data is limits to four winter months (November through February).
+The results at the Belgian level will be therefore restricted to the four winter months.
+Some species migrate only during a shorter part of the winter to Belgium.
+We further limit the data to those months where the average counts are at least 5% of the month with the largest average counts.
+
+## Imputing missing observations
+
+The final analysis is on the trend of the total wintering population.
+A simple summation of all observed birds underestimates this total population when some of the data is missing.
+To solve this problem, we have to impute the missing counts.
+First we fit a model to the available observations.
+This model allows us to predict the number of birds at given site, winter and month.
+Then we use this model to generate plausible values for the missing observations.
+The augmented data (observations + imputed values) has counts for every combination of site, winter and month.
+We aggregate this augmented data into a montly population total $T_{wm}$ by summation of the counts of every site $s$ for each combination of winter $w$ and month $m$.
+All further analyses use these monthly population totals.
+
+$$T_{ws} = \sum^S_{s = 1}Y_{swm}$$
+
+### Imputation model
+
+The model estimates the number of birds $Y_{swm}$ at site $s$, winter $w$ and month $m$.
+We assume that the number of birds follows a negative binomial distribution with mean $\mu_{swm}$ and overdispersion parameter $n$.
+
+$$Y_{swm} \sim NB(\mu_{swm}, n)$$
+
+The mean $\mu_{swm}$ is the link to the linear predictor by 
+
+$$\log(\mu_{swm}) = \eta_{swm}$$
+
+The linear predictor $\eta_{swm}$ depends on six terms:
+
+1. $\beta_0$ is the global average at the reference month.
+1. $\beta_m$ is the global effect of a given month relative to the reference month.
+There are $m - 1$ parameters, since one month is used as the reference.
+1. $b_s$ is the relative effect of site $s$.
+It follows a zero mean Gaussian distribution with variance $\sigma^2_{s}$.
+1. $b_w$ is the relative effect of winter $w$. 
+We use a first order random walk in order to take into account the temporal autocorrelation.
+The difference between two consecutive year follows a zero mean Gaussian distribtuion with variance $\sigma^2_w$.
+1. $b_{wm}$ is the relative effect of the combination of winter $w$ and month $m$. 
+This effect models deviations from the global seasonal pattern in a given year $w$.
+It follows a zero mean Gaussian distribution with variance $\sigma^2_{wm}$.
+1. $b_{sw}$ is the relative effect of the combination of site $s$ and winter $w$. 
+The effect captures a deviating trend at site $s$.
+It follows a zero mean Gaussian distribution with variance $\sigma^2_{sw}$.
+
+$$\eta_{swm} = \beta_0 + \beta_m + b_s + b_w + b_{wm} + b_{sw}$$
+
+$$b_{s} \sim \mathcal{N}(0, \sigma^2_{s})$$
+
+$$b_w - b_{w - 1} = \Delta_{b_w} \sim \mathcal{N}(0, \sigma^2_w)$$
+
+$$b_{wm} \sim \mathcal{N}(0, \sigma^2_{wm})$$
+
+$$b_{sw} \sim \mathcal{N}(0, \sigma^2_{sw})$$
+
+We fit the model in R using INLA.
+As INLA using a Bayesian approach, we need to specify priors for the (hyper-)parameters.
+
+- $\beta_0$ and $\beta_m$ get a Gaussian prior $\mathcal{N}(0, 1000)$.
+- $\sigma^2_s$ gets a penalised complexity prior so that $Prob(\sigma_s > 1) = 0.001$.
+- $\sigma^2_w$ gets a penalised complexity prior so that $Prob(\sigma_w > 0.1) = 0.01$.
+- $\sigma^2_{sw}$ gets a penalised complexity prior so that $Prob(\sigma_{sw} > 0.25) = 0.01$.
+- $\sigma^2_{wm}$ gets a penalised complexity prior so that $Prob(\sigma_{wm} > 0.25) = 0.01$.
+- $n$ gets a penalised complexity prior so that $n \sim \Gamma(1/7, 1/7)$.
+
+### Multiple imputation
+
+We use the imputation model to generate plausible values for the missing observations.
+Althought the predictions of the imputation model are the most plausible values, we cannot use them as this would reduce the variability in the data.
+Then more missing values, would lead to less variability and thus smaller credible intervals compared to a complete data set.
+This is ofcourse non sense.
+
+Instead we impute the missing data with a random value based on the prediction distribution of the imputation model.
+This takes both the natural variability and the model uncertainty into account.
+Then the variability is the data will be larger than the variability in the observed data.
+The increase of the variability depends on a) the number of missing observations and b) the model uncertainty of the imputation model.
+More missing data or a poorer model fit (more uncertainty) will lead to more variability and thus wider credible intervals.
+
+With the missing values replaced by imputation set $l$, the dataset is complete. 
+So we can apply the analysis that we wanted to do in the first place.
+The analysis results in a set of coefficients ${\gamma_a}_l$ and their standard error ${\sigma_a}_l$. 
+Of course, this set will depend on the imputed values of the imputation set $l$. 
+Another imputation set has different imputed values and will hence lead to different coefficients.
+
+Therefore the imputation, aggregation and analysis is repeated for $L = 100$ different imputation sets, resulting in $L$ sets of coefficients and their standard errors. 
+They are aggregated by the formulas below. 
+The coefficient will be the average of the coefficient in all imputation sets. 
+The standard error of a coefficient is the square root of a sum of two parts. 
+The first part is the average of the squared standard error in all imputation sets.
+The second part is the variance of the coefficient among the imputation sets, multiplied by a correction factor $1 + \frac{1}{L}$. 
+
+$$\bar{\gamma}_a = \frac{\sum_{l = 1}^L{\gamma_a}_l}{L}$$
+$$\bar{\sigma}_a = \sqrt{\frac{\sum_{l = 1}^J {{\sigma_a^2}_l}}{L} + (1 + \frac{1}{L}) 
+\frac{\sum_{l = 1}^L({\gamma_a}_l - \bar{\gamma}_a) ^ 2}{L - 1}}$$
+
+## Analyses on monthly population totals
+
+### Non-linear seasonal population average
+
+The model estimates the monthly population total of birds $T_{wm}$ at winter $w$ and month $m$.
+We assume that the montly population total  follows a negative binomial distribution with mean $\mu_{wm}$ and overdispersion parameter $n$.
+
+$$T_{wm} \sim NB(\mu_{wm}, n)$$
+The mean $\mu_{wm}$ is the link to the linear predictor by 
+
+$$\log(\mu_{wm}) = \eta_{wm}$$
+
+The linear predictor $\eta_{swm}$ depends on three terms:
+
+1. $\beta_0$ is the global average at the reference winter.
+We use the last winter in the data as reference.
+1. $b_w$ is the relative effect of winter $w$. 
+We use a first order random walk in order to take into account the temporal autocorrelation.
+The difference between two consecutive year follows a zero mean Gaussian distribtuion with variance $\sigma^2_w$.
+1. $b_{m}$ is the relative effect of month $m$. 
+This effect models the global seasonal pattern $w$.
+It follows a zero mean Gaussian distribution with variance $\sigma^2_{m}$.
+
+$$\eta_{swm} = \beta_0 + b_w + b_m$$
+
+$$b_w - b_{w - 1} = \Delta_{b_w} \sim \mathcal{N}(0, \sigma^2_w)$$
+
+$$b_{m} \sim \mathcal{N}(0, \sigma^2_{m})$$
+
+The seasonal population average in winter $w$ ($S_w$) is the combination of the global intercept ($\beta_0$) and the effect of winter $w$ ($b_w$).
+This is conceptually similar to the geometric mean of the monthly population totals $T_{wm}$, corrected for the global seasonal pattern.
+When the seasonal pattern is stable over the time series, the credible interval on the seasonal population will be more narrow than that of the geometric mean.
+This analysis is always run on the entire time series.
+
+$$S_w = e^{\beta_0 + b_w}$$
+
+The index $I_{ir}$ for winter $i$ using winter $r$ as reference is the seasonal population average for winter $i$ ($S_i$) divided by the seasonal population average for winter $r$ ($S_r$).
+
+$$I_{ir} = \frac{S_i}{S_r}$$
+We can substute $S_w$ with the formula we gave above, resulting in
+
+$$I_{ir} = \frac{e^{\beta_0 + b_{w_i}}}{e^{\beta_0 + b_{w_r}}}$$
+
+which we can simplify to
+
+$$I_{ir} = \frac{e ^{b_{w_i}}}{e^{b_{w_r}}}  = e ^{b_{w_i} - b_{w_r}}$$
+
+Note that the index only depends on the difference in winter effects.
+The index at reference winter is by default exact $e^0 = 1$ and pointless to calculate or display.
+
+### Linear trend in seasonal population average
+
+The model estimates the monthly population total of birds $T_{wm}$ at winter $w$ and month $m$.
+We assume that the montly population total  follows a negative binomial distribution with mean $\mu_{wm}$ and overdispersion parameter $n$.
+
+$$T_{wm} \sim NB(\mu_{wm}, n)$$
+The mean $\mu_{wm}$ is the link to the linear predictor by 
+
+$$\log(\mu_{wm}) = \eta_{wm}$$
+
+The linear predictor $\eta_{swm}$ depends on three terms:
+
+1. $\beta_0$ is the global average at the reference winter.
+We use the last winter in the data as reference.
+1. $\beta_w$ is the linear trend along the winters.
+1. $b_{m}$ is the relative effect of month $m$. 
+This effect models the global seasonal pattern $w$.
+It follows a zero mean Gaussian distribution with variance $\sigma^2_{m}$.
+
+$$\eta_{swm} = \beta_0 + \beta_1 w + b_m$$
+
+$$b_{m} \sim \mathcal{N}(0, \sigma^2_{m})$$
+
+$e^{\beta_w}$ estimates the average yearly change.
+$e^{W\beta_w}$ estimates the total linear change over a periode $W$.
+We run the analysis both on the last twelve years ($W = 12$) of the time series and on the full length of the time series.
+
+### Average winter maximum
+
+The winter maximum $X_w$ is the largest monthly population total $T_{wm}$ of winter $w$.
+We model the winter maxima of the latest ten winters.
+We assume that the winter maximum follows a negative binomial distribution with mean $\mu_w$ and overdispersion parameter $n$.
+
+$$X_w = \max(T_{wm})$$
+
+$$X_w \sim NB(\mu_w, n)$$
+The mean $\mu_w$ is the link to the linear predictor by 
+
+$$\log(\mu_w) = \eta_w$$
+
+The linear predictor $\eta_w$ depends on two terms:
+
+1. $\beta_0$ is the global average at the reference period.
+We use the last five winters in the data as the reference period.
+1. $\beta_1$ is the change in average winter maximum between the last two five-winter periods.
+$P = 0$ when $w$ is within the last period of five winters.
+$P = -1$ when $w$ is within the last but one period of five winters.
+
+$$\eta_w = \beta_0 + \beta_1P$$
+
+$e^{\beta_0}$ estimates the average winter maximum over the last five winters.
+It is equivalent to the geometric mean of the winter maxima.
+$e^{\beta_1}$ estimates the change in average winter maximum between the last two five-winter periods.
+
 ## Interpretation of effects {#s:interpretation}
 
 We compare the 95% credible intervals with a reference, upper and lower threshold to classify the strength of the effect into 10 classes.
@@ -29,6 +240,7 @@ data.frame(
 ```
 
 Below are the symbols, interpretations and rules for each of the 10 classes.
+Fig. \@ref(fig:effect-class) illustrates these rules.
 
 - `++` **strong increase**: A significant positive trend and significantly stronger than the upper threshold.
 - `+~` **moderate increase**: A significant positive trend and significantly weaker than the upper threshold.
@@ -52,6 +264,30 @@ In this case we do known that the change is less extreme that the thresholds.
 So if there is a change, it will be smaller than important changes (the thresholds).
 This is informative, even though the change is not significant.
 
+```{r effect-class, fig.cap = "Illustration of the classification of effect based on their credible interval. The dashed line is the reference (no effect). The dotted lines indicate the lower and upper threshold."}
+tribble(
+  ~lcl, ~ucl,
+  0.5, 0.74,
+  0.5, 0.99,
+  0.5, 1.32,
+  0.5, 1.5,
+  0.76, 0.99,
+  0.76, 1.32,
+  0.76, 1.5,
+  1.01, 1.32,
+  1.01, 1.5,
+  1.34, 1.5
+) %>%
+  mutate(
+    class = classification(log(lcl), log(ucl), threshold = log(3/4))
+  ) %>%
+  ggplot(aes(x = class, ymin = lcl - 1, ymax = ucl - 1)) +
+  geom_errorbar() +
+  geom_hline(yintercept = c(1, 3/4, 4/3) - 1, linetype = c(2, 3, 3)) +
+  scale_y_continuous(labels = percent) +
+  coord_flip()
+```
+
 ## Overview tables
 
 Part \@ref(p:summarising-tables) contains several tables with effects listing the results for all species with sufficient data.
@@ -64,7 +300,7 @@ The number is chapter \@ref(ch:total-change) refer to exactly the same trends as
 Please note that when using the full dataset, the time range depends on the species.
 
 Chapter \@ref(ch:wintermaxima) displays results using the winter maxima.
-Section \@ref(ch:wintermaxima) contains the average winter maximum over the last five year.
+Section \@ref(s:wintermaxima) contains the average winter maximum over the last five year.
 These tables contain both a detailed number and a number for publication.
 The detailed number is the actual estimate from the model.
 The number for publication is a rounded version of the detailed number, with the level of rounding depending on the uncertainty of the detailed number.
