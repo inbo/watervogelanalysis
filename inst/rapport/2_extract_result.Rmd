@@ -55,7 +55,7 @@ sprintf("%s/manifest", project) %>%
       str_remove("\\.manifest"),
     manifest = map2(hash, local, get_manifest)
   ) %>%
-  unnest() -> aws_manifest
+  unnest(cols = manifest) -> aws_manifest
 
 aws_manifest %>%
   mutate(Level = ifelse(is.na(Parent), 1, NA)) -> aws_manifest
