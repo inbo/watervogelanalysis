@@ -10,7 +10,8 @@ Description: Imports the data from the Flemish and Walloon monitoring
     schemes of the wintering birds. Prepares analysis datasets and runs
     the analysis.
 License: GPL-3
-URL: https://inbo.github.io/watervogelanalysis
+URL: https://inbo.github.io/watervogelanalysis/
+BugReports: https://github.com/inbo/watervogelanalysis/issues
 Depends:
     R (>= 3.5.0)
 Imports:

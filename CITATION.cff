@@ -18,5 +18,5 @@ license: GPL-3.0
 type: software
 identifiers:
 - type: url
-  value: https://inbo.github.io/watervogelanalysis
+  value: https://inbo.github.io/watervogelanalysis/
 keywords: R package

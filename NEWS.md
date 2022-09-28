@@ -1,4 +1,4 @@
 # watervogelanalysis 0.4.0
 
 * Added a `NEWS.md` file to track changes to the package.
-* Add [`checklist`](https://inbo.github.io/checklist) infrastructure.
+* Add [`checklist`](https://inbo.github.io/checklist/) infrastructure.
