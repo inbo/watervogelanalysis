@@ -7,7 +7,7 @@
 #' @inheritParams prepare_analysis_imputation
 #' @inheritParams prepare_analysis_model
 #' @inheritParams prepare_dataset
-prepare_analysis_aggregate_wintermax <- function(
+prepare_analysis_agg_max <- function(
   aggregation, analysis_path, seed = 19790402, verbose = TRUE) {
   assert_that(
     inherits(aggregation, "data.frame"), has_name(aggregation, "Parent"),

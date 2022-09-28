@@ -55,10 +55,10 @@ prepare_analysis <- function(analysis_path = ".", raw_repo, seed = 19790402,
     analysis <- prepare_analysis_model(
       aggregation = aggregation, analysis_path = analysis_path,
       seed = seed, verbose = verbose)
-    aggregation_wintermax <- prepare_analysis_aggregate_wintermax(
+    aggregation_wintermax <- prepare_analysis_agg_max(
       aggregation = aggregation, analysis_path = analysis_path, seed = seed,
       verbose = verbose)
-    analysis_wintermax <- prepare_analysis_model_wintermax(
+    analysis_wintermax <- prepare_analysis_model_max(
       aggregation = aggregation_wintermax, analysis_path = analysis_path,
       seed = seed, verbose = verbose)
     imputations %>%

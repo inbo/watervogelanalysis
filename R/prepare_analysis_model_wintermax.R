@@ -1,12 +1,12 @@
 #' Generate the models to apply on the aggregated sets
 #' @inheritParams prepare_analysis
-#' @param aggregation the output of \code{prepare_analysis_aggregate}
+#' @param aggregation the output of `prepare_analysis_aggregate()`
 #' @export
 #' @importFrom assertthat assert_that is.flag noNA
 #' @importFrom n2kanalysis n2k_model_imputed get_file_fingerprint store_model
 #' @importFrom dplyr arrange
 #' @importFrom rlang .data
-prepare_analysis_model_wintermax <- function(aggregation, analysis_path,
+prepare_analysis_model_max <- function(aggregation, analysis_path,
                                              seed = 19790402, verbose = TRUE) {
   set.seed(seed)
   assert_that(inherits(aggregation, "data.frame"), is.flag(verbose),
