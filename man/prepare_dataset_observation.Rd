@@ -4,8 +4,16 @@
 \alias{prepare_dataset_observation}
 \title{Read the observations for the raw datasource, save them to the git repository and the results database}
 \usage{
-prepare_dataset_observation(this_species, location, location_group_id,
-  flemish_channel, walloon_repo, result_channel, raw_repo, dataset)
+prepare_dataset_observation(
+  this_species,
+  location,
+  location_group_id,
+  flemish_channel,
+  walloon_repo,
+  result_channel,
+  raw_repo,
+  dataset
+)
 }
 \arguments{
 \item{this_species}{the species in this species group}

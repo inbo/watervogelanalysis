@@ -4,8 +4,15 @@
 \alias{prepare_dataset_location}
 \title{Read the locations for the raw datasource, save them to the git repository and the results database}
 \usage{
-prepare_dataset_location(result_channel, flemish_channel, walloon_repo,
-  raw_repo, scheme_id, first_date, latest_date = as.POSIXct(Sys.time()))
+prepare_dataset_location(
+  result_channel,
+  flemish_channel,
+  walloon_repo,
+  raw_repo,
+  scheme_id,
+  first_date,
+  latest_date = as.POSIXct(Sys.time())
+)
 }
 \arguments{
 \item{result_channel}{An open RODBC connection to the results database}

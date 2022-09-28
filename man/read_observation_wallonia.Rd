@@ -4,8 +4,7 @@
 \alias{read_observation_wallonia}
 \title{Read the Wallon observations from a species}
 \usage{
-read_observation_wallonia(species_id, first_year, latest_year,
-  walloon_repo)
+read_observation_wallonia(species_id, first_year, latest_year, walloon_repo)
 }
 \arguments{
 \item{species_id}{The id of the species}

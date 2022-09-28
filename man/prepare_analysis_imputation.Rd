@@ -4,8 +4,14 @@
 \alias{prepare_analysis_imputation}
 \title{Create the analysis dataset based on the available raw data}
 \usage{
-prepare_analysis_imputation(speciesgroupspecies, location, analysis_path,
-  raw_repo, seed = 19790402, verbose = TRUE)
+prepare_analysis_imputation(
+  speciesgroupspecies,
+  location,
+  analysis_path,
+  raw_repo,
+  seed = 19790402,
+  verbose = TRUE
+)
 }
 \arguments{
 \item{speciesgroupspecies}{a data.frame with the current species group and the associates species}

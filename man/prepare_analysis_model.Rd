@@ -4,8 +4,12 @@
 \alias{prepare_analysis_model}
 \title{Generate the models to apply on the aggregated sets}
 \usage{
-prepare_analysis_model(aggregation, analysis_path, seed = 19790402,
-  verbose = TRUE)
+prepare_analysis_model(
+  aggregation,
+  analysis_path,
+  seed = 19790402,
+  verbose = TRUE
+)
 }
 \arguments{
 \item{aggregation}{the output of \code{prepare_analysis_aggregate}}

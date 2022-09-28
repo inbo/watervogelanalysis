@@ -4,8 +4,15 @@
 \alias{prepare_dataset_species}
 \title{Read the species for the raw datasource, save them to the results database}
 \usage{
-prepare_dataset_species(raw_repo, result_channel, flemish_channel,
-  walloon_repo, scheme_id, first_date, latest_date)
+prepare_dataset_species(
+  raw_repo,
+  result_channel,
+  flemish_channel,
+  walloon_repo,
+  scheme_id,
+  first_date,
+  latest_date
+)
 }
 \arguments{
 \item{raw_repo}{a git_repository object to write the output to}

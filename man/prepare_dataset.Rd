@@ -4,10 +4,17 @@
 \alias{prepare_dataset}
 \title{Prepare the raw datasets and save them to the git repository}
 \usage{
-prepare_dataset(scheme_id, raw_repo, result_channel, walloon_repo,
-  flemish_channel, develop = FALSE, verbose = TRUE,
-  first_year = 1992, latest_year = as.integer(format(Sys.time(),
-  "\%Y")))
+prepare_dataset(
+  scheme_id,
+  raw_repo,
+  result_channel,
+  walloon_repo,
+  flemish_channel,
+  develop = FALSE,
+  verbose = TRUE,
+  first_year = 1992,
+  latest_year = as.integer(format(Sys.time(), "\%Y"))
+)
 }
 \arguments{
 \item{scheme_id}{the id of the scheme}
