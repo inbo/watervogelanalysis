@@ -24,20 +24,14 @@ Imports:
     n2kanalysis (>= 0.2.6),
     n2khelper (>= 0.4.3),
     n2kupdate (>= 0.1.1),
-    plyr,
     purrr,
     rlang,
     tibble,
     tidyr
-Suggests:
-    testthat
-Remotes:
-    inbo/git2rdata,
-    inbo/n2kanalysis,
-    inbo/n2khelper,
-    inbo/n2kupdate
+Additional_repositories: https://inbo.r-universe.dev
 Encoding: UTF-8
 Language: en-GB
 LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.2.1
+URL: https:://inbo.github.io/watervogelanalysis

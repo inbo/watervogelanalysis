@@ -1,0 +1,34 @@
+{
+  "title": "watervogelanalysis: Analysis of the Wintering Birds",
+  "version": "0.3.2",
+  "description": "Imports the data from the Flemish and Walloon monitoring schemes of the wintering birds. Prepares analysis datasets and runs the analysis.",
+  "creators": [
+    {
+      "name": "Onkelinx, Thierry",
+      "orcid": "https://orcid.org/0000-0001-8804-4216"
+    }
+  ],
+  "upload_type": "software",
+  "access_right": "open",
+  "license": "GPL-3.0",
+  "communities": [
+    {
+      "identifier": "inbo"
+    }
+  ],
+  "contributors": [
+    {
+      "name": "Research Institute for Nature and Forest",
+      "type": "RightsHolder"
+    },
+    {
+      "name": "Onkelinx, Thierry",
+      "type": "ContactPerson",
+      "orcid": "https://orcid.org/0000-0001-8804-4216"
+    }
+  ],
+  "language": "eng",
+  "keywords": [
+    "R package"
+  ]
+}
