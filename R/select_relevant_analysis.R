@@ -31,7 +31,7 @@ select_relevant_analysis <- function(observation) {
     return(observation)
   }
 
-  # select locations with at least 4 prescences
+  # select locations with at least 4 presences
   observation %>%
     filter(.data$Count > 0) %>%
     count(.data$LocationID) %>%
@@ -42,8 +42,9 @@ select_relevant_analysis <- function(observation) {
   }
 
   # select months with have on average at least 5% of the top month
-  observation <- select_factor_threshold(observation = observation,
-                                         variable = "Month", threshold = 0.05)
+  observation <- select_factor_threshold(
+    observation = observation, variable = "Month", threshold = 0.05
+  )
   if (nrow(observation) == 0) {
     return(observation)
   }
@@ -60,17 +61,14 @@ select_relevant_analysis <- function(observation) {
     return(observation)
   }
 
-  # select locations with at least 4 prescences
+  # select locations with at least 4 presences
   observation %>%
     filter(.data$Count > 0) %>%
     count(.data$LocationID) %>%
     filter(.data$n >= 4) %>%
     semi_join(x = observation, by = "LocationID") -> observation
-  if (nrow(observation) == 0) {
-    return(observation)
-  }
 
-  # select locations with prescences in at least 3 years
+  # select locations with presences in at least 3 years
   observation %>%
     filter(.data$Count > 0) %>%
     distinct(.data$Year, .data$LocationID) %>%
@@ -81,7 +79,7 @@ select_relevant_analysis <- function(observation) {
     return(observation)
   }
 
-  # remove time periodes without prescences at the start or end
+  # remove time periods without presences at the start or end
   observation %>%
     filter(.data$Count > 0) %>%
     summarise(start = min(.data$Year), end = max(.data$Year)) -> obs_range
@@ -91,7 +89,6 @@ select_relevant_analysis <- function(observation) {
   if (nrow(observation) == 0) {
     return(observation)
   }
-  observation$Month
   observation %>%
     mutate(Missing = is.na(.data$Count), Month = droplevels(.data$Month),
            fYear = factor(.data$Year), cYear = .data$Year - max(.data$Year),
