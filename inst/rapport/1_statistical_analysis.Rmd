@@ -24,7 +24,7 @@ First we fit a model to the available observations.
 This model allows us to predict the number of birds at given site, winter and month.
 Then we use this model to generate plausible values for the missing observations.
 The augmented data (observations + imputed values) has counts for every combination of site, winter and month.
-We aggregate this augmented data into a montly population total $T_{wm}$ by summation of the counts of every site $s$ for each combination of winter $w$ and month $m$.
+We aggregate this augmented data into a monthly population total $T_{wm}$ by summation of the counts of every site $s$ for each combination of winter $w$ and month $m$.
 All further analyses use these monthly population totals.
 
 $$T_{ws} = \sum^S_{s = 1}Y_{swm}$$
@@ -49,7 +49,7 @@ There are $m - 1$ parameters, since one month is used as the reference.
 It follows a zero mean Gaussian distribution with variance $\sigma^2_{s}$.
 1. $b_w$ is the relative effect of winter $w$. 
 We use a first order random walk in order to take into account the temporal autocorrelation.
-The difference between two consecutive year follows a zero mean Gaussian distribtuion with variance $\sigma^2_w$.
+The difference between two consecutive year follows a zero mean Gaussian distribution with variance $\sigma^2_w$.
 1. $b_{wm}$ is the relative effect of the combination of winter $w$ and month $m$. 
 This effect models deviations from the global seasonal pattern in a given year $w$.
 It follows a zero mean Gaussian distribution with variance $\sigma^2_{wm}$.
@@ -80,9 +80,9 @@ As INLA using a Bayesian approach, we need to specify priors for the (hyper-)par
 ### Multiple imputation
 
 We use the imputation model to generate plausible values for the missing observations.
-Althought the predictions of the imputation model are the most plausible values, we cannot use them as this would reduce the variability in the data.
+Although the predictions of the imputation model are the most plausible values, we cannot use them as this would reduce the variability in the data.
 Then more missing values, would lead to less variability and thus smaller credible intervals compared to a complete data set.
-This is ofcourse non sense.
+This is of course non sense.
 
 Instead we impute the missing data with a random value based on the prediction distribution of the imputation model.
 This takes both the natural variability and the model uncertainty into account.
@@ -112,7 +112,7 @@ $$\bar{\sigma}_a = \sqrt{\frac{\sum_{l = 1}^J {{\sigma_a^2}_l}}{L} + (1 + \frac{
 ### Non-linear seasonal population average
 
 The model estimates the monthly population total of birds $T_{wm}$ at winter $w$ and month $m$.
-We assume that the montly population total  follows a negative binomial distribution with mean $\mu_{wm}$ and overdispersion parameter $n$.
+We assume that the monthly population total  follows a negative binomial distribution with mean $\mu_{wm}$ and overdispersion parameter $n$.
 
 $$T_{wm} \sim NB(\mu_{wm}, n)$$
 The mean $\mu_{wm}$ is the link to the linear predictor by 
@@ -146,7 +146,7 @@ $$S_w = e^{\beta_0 + b_w}$$
 The index $I_{ir}$ for winter $i$ using winter $r$ as reference is the seasonal population average for winter $i$ ($S_i$) divided by the seasonal population average for winter $r$ ($S_r$).
 
 $$I_{ir} = \frac{S_i}{S_r}$$
-We can substute $S_w$ with the formula we gave above, resulting in
+We can substitute $S_w$ with the formula we gave above, resulting in
 
 $$I_{ir} = \frac{e^{\beta_0 + b_{w_i}}}{e^{\beta_0 + b_{w_r}}}$$
 
@@ -160,7 +160,7 @@ The index at reference winter is by default exact $e^0 = 1$ and pointless to cal
 ### Linear trend in seasonal population average
 
 The model estimates the monthly population total of birds $T_{wm}$ at winter $w$ and month $m$.
-We assume that the montly population total  follows a negative binomial distribution with mean $\mu_{wm}$ and overdispersion parameter $n$.
+We assume that the monthly population total  follows a negative binomial distribution with mean $\mu_{wm}$ and overdispersion parameter $n$.
 
 $$T_{wm} \sim NB(\mu_{wm}, n)$$
 The mean $\mu_{wm}$ is the link to the linear predictor by 
@@ -181,7 +181,7 @@ $$\eta_{swm} = \beta_0 + \beta_1 w + b_m$$
 $$b_{m} \sim \mathcal{N}(0, \sigma^2_{m})$$
 
 $e^{\beta_w}$ estimates the average yearly change.
-$e^{W\beta_w}$ estimates the total linear change over a periode $W$.
+$e^{W\beta_w}$ estimates the total linear change over a period $W$.
 We run the analysis both on the last twelve years ($W = 12$) of the time series and on the full length of the time series.
 
 ### Average winter maximum

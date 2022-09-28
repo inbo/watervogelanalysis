@@ -1,4 +1,4 @@
-#' Read the Wallon observations from a species
+#' Read the Walloon observations from a species
 #'
 #' All available imported data is used.
 #' @inheritParams read_observation

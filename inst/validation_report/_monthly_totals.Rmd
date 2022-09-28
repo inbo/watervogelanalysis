@@ -51,7 +51,7 @@ selection$data[[1]] %>%
   theme(axis.title.x = element_blank())
 ```
 
-(ref:mt-{{id}}-2) Imputed montly totals in a single plot for _`r selection$scientific_name[1]`_ in `r selection$LocationGroup[1]`.
+(ref:mt-{{id}}-2) Imputed monthly totals in a single plot for _`r selection$scientific_name[1]`_ in `r selection$LocationGroup[1]`.
 
 ```{r mt-{{id}}-plot2, fig.cap = "(ref:mt-{{id}}-2)"}
 selection$data[[1]] %>%
@@ -64,7 +64,7 @@ selection$data[[1]] %>%
   theme(axis.title.x = element_blank())
 ```
 
-(ref:mt-{{id}}-3) Montly totals (blue) combined with the yearly average (green) for _`r selection$scientific_name[1]`_ in `r selection$LocationGroup[1]`.
+(ref:mt-{{id}}-3) Monthly totals (blue) combined with the yearly average (green) for _`r selection$scientific_name[1]`_ in `r selection$LocationGroup[1]`.
 
 ```{r mt-{{id}}-plot3, fig.cap = "(ref:mt-{{id}}-3)"}
 selection$data[[1]] %>%

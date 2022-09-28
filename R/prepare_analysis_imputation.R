@@ -1,6 +1,6 @@
 #' Create the analysis dataset based on the available raw data
 #'
-#' The analysis dataset is saved to a rda file with the SHA-1 as name.
+#' The analysis dataset is saved to a `.rda` file with the SHA-1 as name.
 #' @param speciesgroupspecies a data.frame with the current species group and
 #' the associates species.
 #' @param location a data.frame with the locations and location groups

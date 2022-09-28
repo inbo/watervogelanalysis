@@ -1,5 +1,5 @@
-#' Read the observations for the raw datasource, save them to the git repository
-#' and the results database
+#' Read the observations for the raw data source, save them to the git
+#' repository and the results database
 #' @param this_species the species in this species group
 #' @param location a data frame with the full list of locations
 #' @param location_group_id the ID of the location group

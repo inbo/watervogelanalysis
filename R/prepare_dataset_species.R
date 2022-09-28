@@ -1,4 +1,4 @@
-#' Read the species for the raw datasource, save them to the results database
+#' Read the species for the raw data source, save them to the results database
 #' @return the species group constraint information
 #' @inheritParams prepare_dataset
 #' @inheritParams connect_flemish_source

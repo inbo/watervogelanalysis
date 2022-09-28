@@ -1,4 +1,4 @@
-#' Read the locations for the raw datasource, save them to the git repository
+#' Read the locations for the raw data source, save them to the git repository
 #' and the results database
 #' @return a data.frame with the locations
 #' @inheritParams connect_flemish_source
