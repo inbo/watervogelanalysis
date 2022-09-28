@@ -2,15 +2,14 @@ Package: watervogelanalysis
 Title: Analysis of the Wintering Birds
 Version: 0.3.2
 Authors@R: c(
-  person(
-    "Thierry", "Onkelinx", role = c("aut", "cre"), 
-    email = "thierry.onkelinx@inbo.be", 
-    comment = c(ORCID = "0000-0001-8804-4216")),
-  person(
-    "Research Institute for Nature and Forest",
-    role = c("cph", "fnd"), email = "info@inbo.be"))
-Description: Imports the data from the Flemish and Walloon monitoring schemes of
-    the wintering birds. Prepares analysis datasets and runs the analysis.
+    person("Thierry", "Onkelinx", , "thierry.onkelinx@inbo.be", role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0001-8804-4216")),
+    person("Research Institute for Nature and Forest", , , "info@inbo.be", role = c("cph", "fnd"))
+  )
+Description: Imports the data from the Flemish and Walloon monitoring
+    schemes of the wintering birds. Prepares analysis datasets and runs
+    the analysis.
+License: GPL-3
 Depends:
     R (>= 3.5.0)
 Imports:
@@ -33,12 +32,12 @@ Imports:
 Suggests:
     testthat
 Remotes:
-  inbo/git2rdata,
-  inbo/n2khelper,
-  inbo/n2kanalysis,
-  inbo/n2kupdate
-License: GPL-3
+    inbo/git2rdata,
+    inbo/n2kanalysis,
+    inbo/n2khelper,
+    inbo/n2kupdate
 Encoding: UTF-8
+Language: en-GB
 LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 6.1.1
