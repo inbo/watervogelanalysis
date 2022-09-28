@@ -46,7 +46,7 @@ selection$data[[1]] %>%
   geom_ribbon(alpha = 0.2, aes(group = type)) +
   geom_line(aes(colour = type)) +
   facet_wrap(~month, scales = "free_y") +
-  scale_y_continuous(paste("Monthly total after imputation", extra_lab), 
+  scale_y_continuous(paste("Monthly total after imputation", extra_lab),
                      limits = c(0, NA)) +
   theme(axis.title.x = element_blank())
 ```
@@ -59,7 +59,7 @@ selection$data[[1]] %>%
   ggplot(aes(x = winter, y = Estimate, ymin = LCL, ymax = UCL)) +
   geom_ribbon(alpha = 0.2, aes(fill = month)) +
   geom_line(aes(colour = month)) +
-  scale_y_continuous(paste("Monthly total after imputation", extra_lab), 
+  scale_y_continuous(paste("Monthly total after imputation", extra_lab),
                      limits = c(0, NA)) +
   theme(axis.title.x = element_blank())
 ```
@@ -70,13 +70,15 @@ selection$data[[1]] %>%
 selection$data[[1]] %>%
   filter(type == "imputed total") %>%
   ggplot(aes(x = winter)) +
-  stat_fan(data = this_index, aes(y = Estimate, link_sd = SE), 
+  stat_fan(data = this_index, aes(y = Estimate, link_sd = SE),
               fill = inbo.steun.geelgroen, link = "log") +
   geom_ribbon(aes(ymin = LCL, ymax = UCL), alpha = 0.2) +
   geom_line(aes(y = Estimate)) +
-  geom_line(data = this_index, aes(y = Estimate), colour = inbo.steun.geelgroen) +
+  geom_line(
+    data = this_index, aes(y = Estimate), colour = inbo_steun_geelgroen
+  ) +
   facet_wrap(~month, scales = "free_y") +
-  scale_y_continuous(paste("Monthly total after imputation", extra_lab), 
+  scale_y_continuous(paste("Monthly total after imputation", extra_lab),
                      limits = c(0, NA)) +
   theme(axis.title.x = element_blank())
 ```
@@ -134,13 +136,13 @@ this_location %>%
   arrange(desc(Estimate)) %>%
   head(20) %>%
   transmute(
-    location, 
-    effect = sprintf("%.1f%% (%.1f%%; %.1f%%)", 100 * Estimate, 100 * LCL, 
+    location,
+    effect = sprintf("%.1f%% (%.1f%%; %.1f%%)", 100 * Estimate, 100 * LCL,
                      100 * UCL)) %>%
   pandoc.table(
-    caption = sprintf("Most important sites for _%s_ in %s.", 
+    caption = sprintf("Most important sites for _%s_ in %s.",
                       selection$scientific_name[1],
-                      selection$LocationGroup[1]), 
+                      selection$LocationGroup[1]),
     split.cells = 60, split.table = Inf)
 }
 ```
@@ -157,7 +159,7 @@ if (nrow(this_imputations)) {
       ~ggplot(.x, aes(x = year, y = Estimate, ymin = LCL, ymax = UCL)) +
         geom_errorbar(data = filter(.x, !is.na(LCL))) +
         geom_line() +
-        geom_point(aes(colour = factor(is.na(LCL), levels = c(TRUE, FALSE), 
+        geom_point(aes(colour = factor(is.na(LCL), levels = c(TRUE, FALSE),
                                        labels = c("observed", "imputed")))) +
         facet_wrap(~month, scales = "free_y") +
         labs(y = "count", title = .y, colour = "status") +

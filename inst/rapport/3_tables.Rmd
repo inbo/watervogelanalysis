@@ -16,15 +16,15 @@ publication <- function(mean, magnitude) {
 
 ```{r monthly-trend-12-yearly, results = "asis"}
 results %>%
-  filter(ModelType == "imputed trend: Total ~ Year + Month", Duration == 12, 
+  filter(ModelType == "imputed trend: Total ~ Year + Month", Duration == 12,
          Parameter == "cYear") %>%
   mutate(Class = classification(LCL, UCL, log(0.75) / Duration[1])) %>%
   mutate_at(c("Estimate", "LCL", "UCL"), change) %>%
   transmute(
-    Area = LocationGroup, Species = scientific_name, 
+    Area = LocationGroup, Species = scientific_name,
     Estimate, Class,
-    Change = sprintf("%+.0f%% (%+.0f%%; %+.0f%%)", 
-                     ifelse(Estimate > 1e5, Inf, Estimate), LCL, 
+    Change = sprintf("%+.0f%% (%+.0f%%; %+.0f%%)",
+                     ifelse(Estimate > 1e5, Inf, Estimate), LCL,
                      ifelse(UCL > 1e5, Inf, UCL))
   ) %>%
   arrange(Area, Class, desc(Estimate)) %>%
@@ -41,7 +41,7 @@ junk <- sapply(
     cat("###", as.character(tab_ya12$Area[i]), "\n\n")
     print(kable(
       tab_ya12$data[[i]], format = "pandoc", align = "lcc",
-      label = paste0("monthly-trend-12-yearly", 
+      label = paste0("monthly-trend-12-yearly",
                      str_replace(tab_ya12$Area[i], " ", "-"), sep = "-"),
       caption = paste("Average yearly change over the last twelve year based on
                       monthly totals for", tab_ya12$Area[i])))
@@ -54,7 +54,7 @@ junk <- sapply(
 
 ```{r monthly-trend-all-yearly, results = "asis"}
 results %>%
-  filter(ModelType == "imputed trend: Total ~ Year + Month", 
+  filter(ModelType == "imputed trend: Total ~ Year + Month",
          Parameter == "cYear") %>%
   group_by(SpeciesGroup) %>%
   filter(Duration == max(Duration)) %>%
@@ -68,10 +68,10 @@ results %>%
   ) %>%
   mutate_at(c("Estimate", "LCL", "UCL"), change) %>%
   transmute(
-    Area = LocationGroup, Species = scientific_name, 
+    Area = LocationGroup, Species = scientific_name,
     Class, Estimate,
-    Change = sprintf("%+.0f%% (%+.0f%%; %+.0f%%)", 
-                     ifelse(Estimate > 1e5, Inf, Estimate), LCL, 
+    Change = sprintf("%+.0f%% (%+.0f%%; %+.0f%%)",
+                     ifelse(Estimate > 1e5, Inf, Estimate), LCL,
                      ifelse(UCL > 1e5, Inf, UCL))
   ) %>%
   arrange(Area, Class, desc(Estimate)) %>%
@@ -88,7 +88,7 @@ junk <- sapply(
     cat("###", as.character(tab_yatot$Area[i]), "\n\n")
     print(kable(
       tab_yatot$data[[i]], format = "pandoc", align = "lcc",
-      label = paste0("monthly-trend-all-yearly-total", 
+      label = paste0("monthly-trend-all-yearly-total",
                      str_replace(tab_yatot$Area[i], " ", "-"), sep = "-"),
       caption = paste("Average yearly change over the entire dataset based on
                       monthly totals for", tab_yatot$Area[i])))
@@ -103,7 +103,7 @@ junk <- sapply(
 
 ```{r monthly-trend-12-yearly-total, results = "asis"}
 results %>%
-  filter(ModelType == "imputed trend: Total ~ Year + Month", Duration == 12, 
+  filter(ModelType == "imputed trend: Total ~ Year + Month", Duration == 12,
          Parameter == "cYear") %>%
   mutate(
     Class = classification(LCL, UCL, log(0.75) / Duration[1]),
@@ -112,10 +112,10 @@ results %>%
     UCL = total_change(UCL, Duration)
   ) %>%
   transmute(
-    Area = LocationGroup, Species = scientific_name, 
+    Area = LocationGroup, Species = scientific_name,
     Class, Estimate,
-    Change = sprintf("%+.0f%% (%+.0f%%; %+.0f%%)", 
-                     ifelse(Estimate > 1e5, Inf, Estimate), LCL, 
+    Change = sprintf("%+.0f%% (%+.0f%%; %+.0f%%)",
+                     ifelse(Estimate > 1e5, Inf, Estimate), LCL,
                      ifelse(UCL > 1e5, Inf, UCL))
   ) %>%
   arrange(Area, Class, desc(Estimate)) %>%
@@ -132,7 +132,7 @@ junk <- sapply(
     cat("###", as.character(tab_yt12$Area[i]), "\n\n")
     print(kable(
       tab_yt12$data[[i]], format = "pandoc", align = "lcc",
-      label = paste0("monthly-trend-12-total", 
+      label = paste0("monthly-trend-12-total",
                      str_replace(tab_yt12$Area[i], " ", "-"), sep = "-"),
       caption = paste("Average total change over the last twelve year based on
                       monthly totals for", tab_yt12$Area[i])))
@@ -145,7 +145,7 @@ junk <- sapply(
 
 ```{r monthly-trend-all-yearly-total, results = "asis"}
 results %>%
-  filter(ModelType == "imputed trend: Total ~ Year + Month", 
+  filter(ModelType == "imputed trend: Total ~ Year + Month",
          Parameter == "cYear") %>%
   group_by(SpeciesGroup) %>%
   filter(Duration == max(Duration)) %>%
@@ -161,10 +161,10 @@ results %>%
     UCL = total_change(UCL, Duration)
   ) %>%
   transmute(
-    Area = LocationGroup, Species = scientific_name, 
+    Area = LocationGroup, Species = scientific_name,
     Class, Estimate,
-    Change = sprintf("%+.0f%% (%+.0f%%; %+.0f%%)", 
-                     ifelse(Estimate > 1e5, Inf, Estimate), LCL, 
+    Change = sprintf("%+.0f%% (%+.0f%%; %+.0f%%)",
+                     ifelse(Estimate > 1e5, Inf, Estimate), LCL,
                      ifelse(UCL > 1e5, Inf, UCL))
   ) %>%
   arrange(Area, Class, desc(Estimate)) %>%
@@ -181,7 +181,7 @@ junk <- sapply(
     cat("###", as.character(tab_yttot$Area[i]), "\n\n")
     print(kable(
       tab_yttot$data[[i]], format = "pandoc", align = "lcc",
-      label = paste0("monthly-trend-all-total", 
+      label = paste0("monthly-trend-all-total",
                      str_replace(tab_yttot$Area[i], " ", "-"), sep = "-"),
       caption = paste("Average total change over the entire dataset based on
                       monthly totals for", tab_yttot$Area[i])))
@@ -196,7 +196,7 @@ junk <- sapply(
 
 ```{r wintermax, results = "asis"}
 results %>%
-  filter(ModelType == "imputed average: Total ~ cPeriod", 
+  filter(ModelType == "imputed average: Total ~ cPeriod",
          Parameter == "(Intercept)") %>%
   mutate(
     UCL = ifelse(UCL > 20, Inf, UCL),
@@ -208,8 +208,8 @@ results %>%
   ) %>%
   mutate_at(c("Estimate", "LCL", "UCL"), estimate) %>%
   transmute(
-    Area = LocationGroup, 
-    Species = paste0("_", scientific_name, "_"), 
+    Area = LocationGroup,
+    Species = paste0("_", scientific_name, "_"),
     Estimate,
     Detail = sprintf("%.0f (%.0f; %.0f)", Estimate, LCL, UCL),
     "For publication" = sprintf("%.0f (%.0f; %.0f)", pX, pL, pU)
@@ -224,9 +224,9 @@ junk <- sapply(
     cat("###", as.character(tab_wm5$Area[i]), "\n\n")
     print(kable(
       tab_wm5$data[[i]], format = "pandoc", align = "lcc",
-      label = paste0("wintermax", 
+      label = paste0("wintermax",
                      str_replace(tab_wm5$Area[i], " ", "-"), sep = "-"),
-      caption = paste("Average winter maximum over the last five years for", 
+      caption = paste("Average winter maximum over the last five years for",
                       tab_wm5$Area[i])))
     cat("\n\n")
   }
@@ -237,14 +237,14 @@ junk <- sapply(
 
 ```{r wintermax-change, results = "asis"}
 results %>%
-  filter(ModelType == "imputed average: Total ~ cPeriod", 
+  filter(ModelType == "imputed average: Total ~ cPeriod",
          Parameter == "cPeriod") %>%
   transmute(
-    Area = LocationGroup, Species = scientific_name, 
+    Area = LocationGroup, Species = scientific_name,
     Class = classification(LCL, UCL, log(0.75)),
     Estimate,
-    Change = sprintf("%+.0f%% (%+.0f%%; %+.0f%%)", 
-                     ifelse(change(Estimate) > 1e5, Inf, change(Estimate)), 
+    Change = sprintf("%+.0f%% (%+.0f%%; %+.0f%%)",
+                     ifelse(change(Estimate) > 1e5, Inf, change(Estimate)),
                      change(LCL), ifelse(change(UCL) > 1e5, Inf, change(UCL)))
   ) %>%
   arrange(Area, Class, desc(Estimate)) %>%
@@ -261,9 +261,9 @@ junk <- sapply(
     cat("###", as.character(tab_wmdelta$Area[i]), "\n\n")
     print(kable(
       tab_wmdelta$data[[i]], format = "pandoc", align = "lcc",
-      label = paste0("wintermax-change", 
+      label = paste0("wintermax-change",
                      str_replace(tab_wmdelta$Area[i], " ", "-"), sep = "-"),
-      caption = paste("Change in average wintermax over the last two five-year 
+      caption = paste("Change in average wintermax over the last two five-year
                       periods for", tab_wmdelta$Area[i])))
     cat("\n\n")
   }

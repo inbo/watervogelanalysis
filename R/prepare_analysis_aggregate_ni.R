@@ -8,12 +8,8 @@
 #' @inheritParams prepare_dataset
 #' @param imputations a data.frame with the imputations per location group
 prepare_analysis_aggregate_ni <- function(
-  analysis_path,
-  imputations,
-  raw_repo,
-  seed = 19790402,
-  verbose = TRUE
-){
+  analysis_path, imputations, raw_repo, seed = 19790402, verbose = TRUE
+) {
   set.seed(seed)
   assert_that(inherits(imputations, "data.frame"))
   assert_that(has_name(imputations, "SpeciesGroup"))
@@ -79,9 +75,11 @@ prepare_analysis_aggregate_ni <- function(
             overwrite = FALSE
           )
           analysis@AnalysisMetadata %>%
-            select("SchemeID", "SpeciesGroupID", "LocationGroupID", "FirstImportedYear",
-              "LastImportedYear", "Duration", "LastAnalysedYear", "AnalysisDate",
-              "Status", "StatusFingerprint", "FileFingerprint", "ResultDatasourceID"
+            select(
+              "SchemeID", "SpeciesGroupID", "LocationGroupID",
+              "FirstImportedYear", "LastImportedYear", "Duration",
+              "LastAnalysedYear", "AnalysisDate", "Status", "StatusFingerprint",
+              "FileFingerprint", "ResultDatasourceID"
             )
         }
       ) %>%

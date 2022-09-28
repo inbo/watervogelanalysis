@@ -14,12 +14,12 @@ index %>%
   select(LocationGroupID, SpeciesGroupID, Reference = Estimate) %>%
   inner_join(index, by = c("LocationGroupID", "SpeciesGroupID")) %>%
   transmute(
-    LocationGroup, 
+    LocationGroup,
     genus = str_replace(scientific_name, "([[:alpha:]]*) .*", "\\1"),
     species = str_replace(scientific_name, "[[:alpha:]]* (.*)", "\\1") %>%
-      str_replace(" ", "\n"), 
+      str_replace(" ", "\n"),
     year = as.integer(as.character(Parameter)),
-    p05 = p_index(Estimate, SE, Reference, 0.05), 
+    p05 = p_index(Estimate, SE, Reference, 0.05),
     p10 = p_index(Estimate, SE, Reference, 0.1),
     p30 = p_index(Estimate, SE, Reference, 0.3),
     p50 = p_index(Estimate, SE, Reference, 0.5),

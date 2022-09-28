@@ -51,14 +51,16 @@ selection$data[[1]] %>%
 if (length(selection$data)) {
   selection$data[[1]] %>%
     filter(grepl("^index", Parameter)) %>%
-    tidyr::extract(Parameter, into = c("To", "From"), convert = TRUE, 
+    tidyr::extract(Parameter, into = c("To", "From"), convert = TRUE,
                    regex = "index: ([[:digit:]]*)-([[:digit:]]*)") -> indices
   indices %>%
     mutate(Estimate = -Estimate) %>%
     rename(Old = From, From = To) %>%
     rename(To = Old) %>%
     bind_rows(indices) -> indices
-  breaks <- c(100/99, 50/49, 20/19, 10/9, 5/4, 4/3, 3/2, 2, 3, 5, 10, 20)
+  breaks <- c(
+    100 / 99, 50 / 49, 20 / 19, 10 / 9, 5 / 4, 4 / 3, 3 / 2, 2, 3, 5, 10, 20
+  )
   n <- sum(breaks <= exp(max(indices$Estimate))) + 1
   breaks <- tail(head(breaks, n), 4)
   if (length(breaks) == 1) {
@@ -68,7 +70,7 @@ if (length(selection$data)) {
   }
   breaks <- log(c(1 / rev(breaks), 1, breaks))
   ggplot(
-    indices, 
+    indices,
     aes(y = From, x = To, colour = Estimate, ymin = LCL, ymax = UCL)
   ) +
     stat_effect(threshold = log(0.75)) +

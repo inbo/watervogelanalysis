@@ -3,7 +3,8 @@
 #' @inheritParams prepare_dataset
 #' @export
 #' @importFrom git2rdata read_vc
-#' @importFrom dplyr %>% mutate select distinct filter group_by do bind_rows inner_join
+#' @importFrom dplyr %>% bind_rows distinct do filter group_by inner_join mutate
+#' select
 #' @importFrom tidyr unnest_
 #' @importFrom rlang .data
 #' @importFrom lubridate ymd year round_date

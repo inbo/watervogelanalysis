@@ -3,17 +3,17 @@
 ```{r helper-functions}
 trend_class <- function(lcl, ucl, treshold) {
   ifelse(
-    ucl < 0, 
+    ucl < 0,
     ifelse(
-      ucl < -abs(treshold), 
-      "--", 
+      ucl < -abs(treshold),
+      "--",
       ifelse(lcl < -abs(treshold), "-", "-≈")
-    ), 
+    ),
     ifelse(
       lcl > 0,
       ifelse(
-        lcl > abs(treshold), 
-        "++", 
+        lcl > abs(treshold),
+        "++",
         ifelse(ucl < abs(treshold), "+≈", "+")
       ),
       ifelse(
@@ -41,9 +41,9 @@ publication <- function(mean, magnitude) {
 
 ```{r monthly-trend-12-yearly}
 results %>%
-  filter(ModelType == "imputed trend: Total ~ Year + Month", Duration == 12, 
+  filter(ModelType == "imputed trend: Total ~ Year + Month", Duration == 12,
          Parameter == "cYear") %>%
-  transmute(Area = LocationGroup, Species = scientific_name, 
+  transmute(Area = LocationGroup, Species = scientific_name,
             Class = trend_class(LCL, UCL, log(0.75) / Duration),
             Estimate = trend(Estimate, 1, 1),
             LCL = trend(LCL, 1, 1),
@@ -56,9 +56,9 @@ results %>%
 
 ```{r monthly-trend-12-total}
 results %>%
-  filter(ModelType == "imputed trend: Total ~ Year + Month", Duration == 12, 
+  filter(ModelType == "imputed trend: Total ~ Year + Month", Duration == 12,
          Parameter == "cYear") %>%
-  transmute(Area = LocationGroup, Species = scientific_name, 
+  transmute(Area = LocationGroup, Species = scientific_name,
             Class = trend_class(LCL, UCL, log(0.75) / Duration),
             Estimate = trend(Estimate, Duration, 0),
             LCL = trend(LCL, Duration, 0),
@@ -71,9 +71,11 @@ results %>%
 
 ```{r monthly-trend-total-yearly}
 results %>%
-  filter(ModelType == "imputed trend: Total ~ Year + Month", Duration == max(Duration), 
-         Parameter == "cYear") %>%
-  transmute(Area = LocationGroup, Species = scientific_name, 
+  filter(
+    ModelType == "imputed trend: Total ~ Year + Month",
+    Duration == max(Duration), Parameter == "cYear"
+  ) %>%
+  transmute(Area = LocationGroup, Species = scientific_name,
             Class = trend_class(LCL, UCL, log(0.75) / Duration),
             Estimate = trend(Estimate, 1, 1),
             LCL = trend(LCL, 1, 1),
@@ -86,9 +88,11 @@ results %>%
 
 ```{r monthly-trend-total-total}
 results %>%
-  filter(ModelType == "imputed trend: Total ~ Year + Month", Duration == max(Duration), 
-         Parameter == "cYear") %>%
-  transmute(Area = LocationGroup, Species = scientific_name, 
+  filter(
+    ModelType == "imputed trend: Total ~ Year + Month",
+    Duration == max(Duration), Parameter == "cYear"
+  ) %>%
+  transmute(Area = LocationGroup, Species = scientific_name,
             Class = trend_class(LCL, UCL, log(0.75) / Duration),
             Estimate = trend(Estimate, Duration, 0),
             LCL = trend(LCL, Duration, 0),
@@ -101,9 +105,9 @@ results %>%
 
 ```{r wintermax-detailed}
 results %>%
-  filter(ModelType == "imputed average: Total ~ cPeriod", 
+  filter(ModelType == "imputed average: Total ~ cPeriod",
          Parameter == "(Intercept)") %>%
-  transmute(Area = LocationGroup, Species = scientific_name, 
+  transmute(Area = LocationGroup, Species = scientific_name,
             Estimate = estimate(Estimate, 0),
             LCL = estimate(LCL, 0),
             UCL = estimate(UCL, 0)) %>%
@@ -115,13 +119,13 @@ results %>%
 
 ```{r wintermax-publication}
 results %>%
-  filter(ModelType == "imputed average: Total ~ cPeriod", 
+  filter(ModelType == "imputed average: Total ~ cPeriod",
          Parameter == "(Intercept)") %>%
   mutate(
     Magnitude = ceiling(log10(exp(UCL))),
     Magnitude = Magnitude - (1.5 * 10 ^ Magnitude > exp(UCL))
   ) %>%
-  transmute(Area = LocationGroup, Species = scientific_name, 
+  transmute(Area = LocationGroup, Species = scientific_name,
             Estimate = publication(Estimate, Magnitude),
             LCL = publication(LCL, Magnitude),
             UCL = publication(UCL, Magnitude)) %>%
@@ -133,9 +137,9 @@ results %>%
 
 ```{r wintermax-change}
 results %>%
-  filter(ModelType == "imputed average: Total ~ cPeriod", 
+  filter(ModelType == "imputed average: Total ~ cPeriod",
          Parameter == "cPeriod") %>%
-  transmute(Area = LocationGroup, Species = scientific_name, 
+  transmute(Area = LocationGroup, Species = scientific_name,
             Class = trend_class(LCL, UCL, log(0.75)),
             Estimate = trend(Estimate, 1, 1),
             LCL = trend(LCL, 1, 1),

@@ -2,7 +2,8 @@
 % Please edit documentation in R/prepare_dataset_location.R
 \name{prepare_dataset_location}
 \alias{prepare_dataset_location}
-\title{Read the locations for the raw datasource, save them to the git repository and the results database}
+\title{Read the locations for the raw datasource, save them to the git repository
+and the results database}
 \usage{
 prepare_dataset_location(
   result_channel,
@@ -33,5 +34,6 @@ prepare_dataset_location(
 a data.frame with the locations
 }
 \description{
-Read the locations for the raw datasource, save them to the git repository and the results database
+Read the locations for the raw datasource, save them to the git repository
+and the results database
 }

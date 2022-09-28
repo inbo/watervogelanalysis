@@ -1,6 +1,7 @@
+library(fs)
 library(watervogelanalysis)
 prepare_analysis(
-  analysis.path = "~/analysis",
+  analysis.path = path("~", "analysis"),
   raw.connection = n2khelper::git_connection(
     repo.path = "~/n2k/ssh/rawdata", #nolint
     local.path = "watervogel",

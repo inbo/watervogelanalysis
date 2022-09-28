@@ -1,16 +1,24 @@
 #' Create the analysis dataset based on the available raw data
 #'
 #' The analysis dataset is saved to a rda file with the SHA-1 as name.
-#' @param speciesgroupspecies a data.frame with the current species group and the associates species
+#' @param speciesgroupspecies a data.frame with the current species group and
+#' the associates species.
 #' @param location a data.frame with the locations and location groups
-#' @param analysis_path Path to store the analysis files. Must be either an existing local file path or an object of the \code{s3_bucket} class.
-#' @param seed the seed for the random number generator. Defaults to 19790402 which refers to "Council Directive 79/409/EEC of 2 April 1979 on the conservation of wild birds".
+#' @param analysis_path Path to store the analysis files.
+#' Must be either an existing local file path or an object of the `s3_bucket`
+#' class.
+#' @param seed the seed for the random number generator.
+#' Defaults to 19790402 which refers to "Council Directive 79/409/EEC of 2 April
+#' 1979 on the conservation of wild birds".
 #' @inheritParams prepare_dataset
-#' @return A data.frame with the species id number of rows in the analysis dataset, number of precenses in the analysis datset and SHA-1 of the analysis dataset or NULL if not enough data.
+#' @return A data.frame with the species id number of rows in the analysis
+#' dataset, number of presences in the analysis dataset and SHA-1 of the
+#' analysis dataset or NULL if not enough data.
 #' @importFrom git2rdata read_vc recent_commit
 #' @importFrom n2kanalysis n2k_inla get_file_fingerprint store_model
 #' @importFrom assertthat assert_that has_name noNA is.flag
-#' @importFrom dplyr %>% inner_join mutate select filter ungroup arrange bind_rows do group_by
+#' @importFrom dplyr %>% arrange bind_rows do filter group_by inner_join mutate
+#' select ungroup
 #' @export
 prepare_analysis_imputation <- function(
   speciesgroupspecies, location, analysis_path, raw_repo, seed = 19790402,
@@ -136,49 +144,49 @@ observation"
       if (length(levels(dataset$fYear)) < 2) {
         stop("Single year datasets not handled")
       }
-      n.eff <- dataset %>%
+      n_eff <- dataset %>%
         filter(.data$Count > 0) %>%
         nrow()
 
-      n.used <- length(unique(dataset$Year))
-      n.month <- length(levels(dataset$Month))
-      n.location <- length(unique(dataset$LocationID))
+      n_used <- length(unique(dataset$Year))
+      n_month <- length(levels(dataset$Month))
+      n_location <- length(unique(dataset$LocationID))
       covariate <- "Year"
       form <- "f(Year, model = \"rw1\", scale.model = TRUE,
   hyper = list(theta = list(prior = \"pc.prec\", param = c(0.1, 0.01)))
 )"
       covariate <- c(covariate, "Month")
-      if (n.month > 1) {
+      if (n_month > 1) {
         form <- c(form, "Month")
-        n.used <- n.used + n.month
+        n_used <- n_used + n_month
       }
       covariate <- c(covariate, "LocationID")
-      if (n.location > 1) {
+      if (n_location > 1) {
         form <- c(form,
           "f(LocationID, model = \"iid\", constr = TRUE,
   hyper = list(theta = list(prior = \"pc.prec\", param = c(1, 0.01)))
 )"
         )
-        n.used <- n.used + n.location
+        n_used <- n_used + n_location
       }
-      if (n.month > 1) {
-        n.extra <- length(levels(dataset$fYearMonth))
-        if (n.used + n.extra <= n.eff / 5) {
+      if (n_month > 1) {
+        n_extra <- length(levels(dataset$fYearMonth))
+        if (n_used + n_extra <= n_eff / 5) {
           covariate <- c(covariate, "fYearMonth")
           form <- c(form, "f(fYearMonth, model = \"iid\", constr = TRUE,
   hyper = list(theta = list(prior = \"pc.prec\", param = c(0.25, 0.01)))
 )")
-          n.used <- n.used + n.extra
+          n_used <- n_used + n_extra
         }
       }
-      if (n.location > 1) {
-        n.extra <- length(levels(dataset$fYearLocation))
-        if (n.used + n.extra <= n.eff / 5) {
+      if (n_location > 1) {
+        n_extra <- length(levels(dataset$fYearLocation))
+        if (n_used + n_extra <= n_eff / 5) {
           covariate <- c(covariate, "fYearLocation")
           form <- c(form, "f(fYearLocation, model = \"iid\", constr = TRUE,
   hyper = list(theta = list(prior = \"pc.prec\", param = c(0.25, 0.01)))
 )")
-          n.used <- n.used + n.extra
+          n_used <- n_used + n_extra
         }
       }
       relevant <- c("DataFieldID", "ObservationID", covariate, "Count",
@@ -212,7 +220,7 @@ observation"
         Fingerprint = get_file_fingerprint(model),
         FirstImportedYear = metadata$first_imported_year,
         LastImportedYear = metadata$last_imported_year,
-        AnalysisDate = analysis_date, Filename = filename, Months = n.month,
+        AnalysisDate = analysis_date, Filename = filename, Months = n_month,
         Formula = paste(form, collapse = "+"), Status = "new"))
     }
   ) %>%

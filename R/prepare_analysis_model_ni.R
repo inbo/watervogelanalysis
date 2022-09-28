@@ -24,7 +24,7 @@ prepare_analysis_model_ni <- function(
   }
   tot_max <- lapply(
     seq_along(aggregation$FileFingerprint),
-    function(i){
+    function(i) {
       if (verbose) {
         message("  ", aggregation[i, "FileFingerprint"])
       }
@@ -44,7 +44,7 @@ prepare_analysis_model_ni <- function(
         parent = aggregation[i, "FileFingerprint"],
         parent.status = aggregation[i, "Status"],
         parent.statusfingerprint = aggregation[i, "StatusFingerprint"],
-        model.fun = function(form, data, ...){
+        model.fun = function(form, data, ...) {
           dplyr::summarise(
             data,
             Estimate = max(.data$Imputed),
@@ -52,7 +52,9 @@ prepare_analysis_model_ni <- function(
           )
         },
         package = "dplyr",
-        extractor =  function(x){x},
+        extractor =  function(x) {
+          x
+        },
         model.args = list()
       )
       store_model(
@@ -73,7 +75,7 @@ prepare_analysis_model_ni <- function(
   }
   monthly <- lapply(
     seq_along(aggregation$FileFingerprint),
-    function(i){
+    function(i) {
       if (verbose) {
         message("  ", aggregation[i, "FileFingerprint"])
       }
@@ -93,11 +95,13 @@ prepare_analysis_model_ni <- function(
         parent = aggregation[i, "FileFingerprint"],
         parent.status = aggregation[i, "Status"],
         parent.statusfingerprint = aggregation[i, "StatusFingerprint"],
-        model.fun = function(form, data, ...){
+        model.fun = function(form, data, ...) {
           rownames(data) <- sprintf("Year%i:Month%s", data$Year, data$fMonth)
           cbind(data["Imputed"], SE = 0)
         },
-        extractor =  function(x){x},
+        extractor =  function(x) {
+          x
+        },
         model.args = list()
       )
       store_model(

@@ -7,12 +7,12 @@ p_population <- function(x, se, p) {
 results %>%
   filter(ModelType == "yearly imputed index: Total ~ Year + Month") %>%
   transmute(
-    LocationGroup, 
+    LocationGroup,
     genus = str_replace(scientific_name, "([[:alpha:]]*) .*", "\\1"),
     species = str_replace(scientific_name, "[[:alpha:]]* (.*)", "\\1") %>%
-      str_replace(" ", "\n"), 
+      str_replace(" ", "\n"),
     year = as.integer(as.character(Parameter)),
-    p05 = p_population(Estimate, SE, 0.05), 
+    p05 = p_population(Estimate, SE, 0.05),
     p10 = p_population(Estimate, SE, 0.1),
     p30 = p_population(Estimate, SE, 0.3),
     p50 = p_population(Estimate, SE, 0.5),

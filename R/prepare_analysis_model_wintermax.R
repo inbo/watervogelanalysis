@@ -19,7 +19,7 @@ prepare_analysis_model_wintermax <- function(aggregation, analysis_path,
   }
   shortterm <- lapply(
     seq_along(aggregation$FileFingerprint),
-    function(i){
+    function(i) {
       if (verbose) {
         message("    ", aggregation[i, "FileFingerprint"])
       }
@@ -41,7 +41,7 @@ prepare_analysis_model_wintermax <- function(aggregation, analysis_path,
         parent.statusfingerprint = aggregation[i, "StatusFingerprint"],
         model.fun = INLA::inla,
         package = "INLA",
-        extractor =  function(model){
+        extractor =  function(model) {
           model$summary.fixed[, c("mean", "sd")]
         },
         filter = list("Year > max(Year) - 10"),

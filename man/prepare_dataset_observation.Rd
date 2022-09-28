@@ -2,7 +2,8 @@
 % Please edit documentation in R/prepare_dataset_observation.R
 \name{prepare_dataset_observation}
 \alias{prepare_dataset_observation}
-\title{Read the observations for the raw datasource, save them to the git repository and the results database}
+\title{Read the observations for the raw datasource, save them to the git repository
+and the results database}
 \usage{
 prepare_dataset_observation(
   this_species,
@@ -33,5 +34,6 @@ prepare_dataset_observation(
 \item{dataset}{a data frame with a}
 }
 \description{
-Read the observations for the raw datasource, save them to the git repository and the results database
+Read the observations for the raw datasource, save them to the git repository
+and the results database
 }

@@ -3,7 +3,7 @@
 ```{r montly-totals}
 results %>%
   filter(
-    ModelType == "aggregate imputed: max ~ Year", 
+    ModelType == "aggregate imputed: max ~ Year",
     !is.na(Parameter)
   ) %>%
   mutate(
@@ -11,20 +11,22 @@ results %>%
   ) -> wintermax
 results %>%
   filter(
-    ModelType == "aggregate imputed: sum ~ Year + Month", 
+    ModelType == "aggregate imputed: sum ~ Year + Month",
     !is.na(Parameter)
   ) %>%
-  extract(Parameter, c("type", "winter", "month"), "(.*): ([[:digit:]]*)-([[:alpha:]]*)", 
-          convert = TRUE) %>%
+  extract(
+    Parameter, c("type", "winter", "month"),
+    "(.*): ([[:digit:]]*)-([[:alpha:]]*)", convert = TRUE
+  ) %>%
   mutate(
     month = factor(
-      month, 
-      levels = c("October", "November", "December", "January", "February", 
+      month,
+      levels = c("October", "November", "December", "January", "February",
                  "March")
     )
   ) -> mt
 mt %>%
-  select(id, SpeciesGroup, scientific_name, LocationGroup, type, winter, month, 
+  select(id, SpeciesGroup, scientific_name, LocationGroup, type, winter, month,
          Estimate, LCL, UCL) %>%
   group_by(id, SpeciesGroup, scientific_name, LocationGroup) %>%
   nest() %>%
@@ -38,29 +40,31 @@ mt %>%
       select(scientific_name, wintermax = Estimate),
     by = "scientific_name"
   ) %>%
-  mutate_at(c("SpeciesGroup", "LocationGroup", "scientific_name"), 
+  mutate_at(c("SpeciesGroup", "LocationGroup", "scientific_name"),
             as.character) %>%
   arrange(desc(wintermax), SpeciesGroup, LocationGroup) %>%
   mutate(title = ifelse(
     SpeciesGroup != lag(SpeciesGroup, default = ""),
-    sprintf("# _%s_ (%s)\n\n## %s\n\n", scientific_name, SpeciesGroup, LocationGroup),
+    sprintf(
+      "# _%s_ (%s)\n\n## %s\n\n", scientific_name, SpeciesGroup, LocationGroup
+    ),
     sprintf("## %s\n\n", LocationGroup)
     )
   ) -> mt
 results %>%
   filter(ModelType == "yearly imputed index: Total ~ Year + Month",
          grepl("total:", Parameter)) %>%
-  transmute(id, 
-            winter = as.character(Parameter) %>% 
+  transmute(id,
+            winter = as.character(Parameter) %>%
               str_remove("total: ") %>%
               as.integer(),
-            Estimate = exp(Estimate), 
+            Estimate = exp(Estimate),
             SE
             ) -> index
 results %>%
-  filter(ModelType == "imputed average: Total ~ cPeriod", 
+  filter(ModelType == "imputed average: Total ~ cPeriod",
          Parameter == "(Intercept)") %>%
-  transmute(id, 
+  transmute(id,
             Estimate = exp(Estimate),
             SE) -> avg_wintermax
 results %>%
@@ -68,7 +72,7 @@ results %>%
     ModelType == "inla nbinomial: Year * (Month + Location)",
     grepl("location: ", Parameter)
   ) %>%
-  transmute(id, Parameter = str_remove(Parameter, "location: "), Estimate, LCL, 
+  transmute(id, Parameter = str_remove(Parameter, "location: "), Estimate, LCL,
             UCL) %>%
   left_join(location, by = c("Parameter" = "fingerprint")) %>%
   select(-Parameter) %>%
@@ -86,12 +90,12 @@ results %>%
     grepl("imputation: ", Parameter)
   ) %>%
   select(id, Parameter, Estimate, LCL, UCL, scientific_name, LocationGroup) %>%
-  extract(Parameter, c("fingerprint", "year", "month"), convert = TRUE, 
+  extract(Parameter, c("fingerprint", "year", "month"), convert = TRUE,
           "imputation: (.*):(.*):(.*)") %>%
   inner_join(location, by = "fingerprint") %>%
   mutate(month = factor(
-    month, 
-    levels = c("October", "November", "December", "January", "February", 
+    month,
+    levels = c("October", "November", "December", "January", "February",
                "March")),
     loc_id = str_remove_all(location, "([[:punct:]]|\\+|=|\\|)") %>%
       str_replace_all("(è|É|é|ê)", "e") %>%

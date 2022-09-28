@@ -1,6 +1,9 @@
 #' Add the raw data from Wallonia to the git repository
 #'
-#' This functions reads the files and performs some basic checks on them. See the details section for the required format of the files. The median date is used in case of multiple dates per visit id. The maximum is used in case of multiple observations per visit id.
+#' This functions reads the files and performs some basic checks on them.
+#' See the details section for the required format of the files.
+#' The median date is used in case of multiple dates per visit id.
+#' The maximum is used in case of multiple observations per visit id.
 #' @param location_file file with details on the location
 #' @param visit_file file with details on the visits to each location
 #' @param data_file file with observed species at each visit
@@ -11,7 +14,8 @@
 #' @export
 #' @importFrom assertthat assert_that is.string is.dir noNA
 #' @importFrom utils file_test read.table
-#' @importFrom dplyr select %>% inner_join mutate_at anti_join count add_count group_by summarise ungroup arrange filter semi_join
+#' @importFrom dplyr %>% add_count anti_join arrange count filter group_by
+#' inner_join mutate_at select semi_join summarise ungroup
 #' @importFrom rlang !! .data
 #' @importFrom git2rdata write_vc commit
 #' @importFrom stats median
@@ -20,7 +24,7 @@
 import_walloon_source_data <- function(
   location_file, visit_file, species_file, data_file, path = ".", walloon_repo,
   strict = TRUE
-){
+) {
   assert_that(is.string(location_file), is.string(visit_file),
               is.string(species_file), is.string(data_file), is.dir(path))
   location_file <- file.path(path, location_file)

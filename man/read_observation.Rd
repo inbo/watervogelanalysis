@@ -11,27 +11,40 @@ read_observation(species_id, first_year, latest_year, flemish_channel)
 
 \item{first_year}{first winter to import. defaults to 1992}
 
-\item{latest_year}{latest winter to import. Winter 2019 is defined as 2018-10-01 until 2019-03-31. Defaults the winter prior to last firsth of July. 2019-06-30 becomes 2018, 2019-07-01 becomes 2019}
+\item{latest_year}{latest winter to import.
+Winter 2019 is defined as 2018-10-01 until 2019-03-31.
+Defaults the winter prior to last firth of July.
+2019-06-30 becomes 2018, 2019-07-01 becomes 2019.}
 
 \item{flemish_channel}{a DBI connection to the Flemish database}
 }
 \value{
-A \code{data.frame} with observations. The function only returns observations based on parent locations. Following rules apply for each combination of parent location, year and month.
+A \code{data.frame} with observations.
+The function only returns observations based on parent locations.
+Following rules apply for each combination of parent location, year and
+month.
 \enumerate{
 \item If the parent location has an observation, then return this observation.
 \item If some child location have observation, then return the sum of counts.
-\item If neither of the parent or child location has observations, then the counts are missing.
+\item If neither of the parent or child location has observations,
+then the counts are missing.
 }
 
-\code{Complete = 1} indicates that the entire location was surveyed. In case of child locations, all child locations were surveyed in full. \code{Complete = 0} indicates the location was only partially surveyed.
+\code{Complete = 1} indicates that the entire location was surveyed.
+In case of child locations, all child locations were surveyed in full.
+\code{Complete = 0} indicates the location was only partially surveyed.
 }
 \description{
-The selection uses several constraints. The user defined constraints are \code{first.winter} and  species.covered`. Following contraints are imposed at the same time as the user defined contraints:
+The selection uses several constraints.
+The user defined constraints are \code{first.winter} and  \code{species.covered}.
+Following constraints are imposed at the same time as the user defined
+constraints:
 \itemize{
-\item The observation is validated
-\item The observation is a midmonthly observation
-\item The observation is not 'unobserved'
-\item The location is 'active' and the observation date is within the 'active' period of the location
-\item The observation is between october and march
+\item The observation is validated.
+\item The observation is a mid monthly observation.
+\item The observation is not 'unobserved'.
+\item The location is 'active' and the observation date is within the 'active'
+period of the location.
+\item The observation is between October and March.
 }
 }

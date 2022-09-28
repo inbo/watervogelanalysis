@@ -3,13 +3,14 @@
 #' @inheritParams prepare_dataset
 #' @inheritParams prepare_dataset_species
 #' @export
-#' @importFrom dplyr %>% filter semi_join count group_by summarise full_join anti_join inner_join mutate pull select ungroup
+#' @importFrom dplyr %>% anti_join count filter full_join group_by inner_join
+#' mutate pull select semi_join summarise ungroup
 #' @importFrom DBI dbQuoteString dbGetQuery
 #' @importFrom git2rdata read_vc
 #' @importFrom rlang .data
 #' @importFrom stats na.omit
 read_specieslist <- function(result_channel, flemish_channel, walloon_repo,
-                             first_date, latest_date){
+                             first_date, latest_date) {
   sprintf(
     "WITH cte_survey AS (
       SELECT f.TaxonWVKey, f.RecommendedTaxonTLI_Key AS NBNKey,

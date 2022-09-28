@@ -27,16 +27,23 @@ prepare_dataset(
 
 \item{flemish_channel}{a DBI connection to the Flemish database}
 
-\item{develop}{logical. Indicate whether the use the development database TRUE or the production database}
+\item{develop}{logical.
+Indicate whether the use the development database TRUE or the production
+database.}
 
 \item{verbose}{Display a progress bar when TRUE (default)}
 
 \item{first_year}{first winter to import. defaults to 1992}
 
-\item{latest_year}{latest winter to import. Winter 2019 is defined as 2018-10-01 until 2019-03-31. Defaults the winter prior to last firsth of July. 2019-06-30 becomes 2018, 2019-07-01 becomes 2019}
+\item{latest_year}{latest winter to import.
+Winter 2019 is defined as 2018-10-01 until 2019-03-31.
+Defaults the winter prior to last firth of July.
+2019-06-30 becomes 2018, 2019-07-01 becomes 2019.}
 }
 \description{
-The raw data is written to the git repository. All changes are always staged and committed. The commit is pushed when both username and password are provided.
+The raw data is written to the git repository.
+All changes are always staged and committed.
+The commit is pushed when both username and password are provided.
 }
 \examples{
 \dontrun{

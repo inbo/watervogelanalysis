@@ -55,17 +55,20 @@ prepare_analysis_aggregate_wintermax <- function(
   if (verbose) {
     message("Wintermaxima:")
     message("  aggregation")
-    stored <- lapply(
+    lapply(
       models[order(output$FileFingerprint)],
       function(x) {
         message("    ", get_file_fingerprint(x))
-        store_model(x, base = analysis_path, project = "watervogels",
-                    overwrite = FALSE)
+        store_model(
+          x, base = analysis_path, project = "watervogels", overwrite = FALSE
+        )
       }
     )
   } else {
-    stored <- lapply(models, store_model, base = analysis_path,
-                     project = "watervogels", overwrite = FALSE)
+    lapply(
+      models, store_model, base = analysis_path, project = "watervogels",
+      overwrite = FALSE
+    )
   }
   return(output)
 }

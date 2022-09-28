@@ -22,7 +22,7 @@ prepare_analysis_model <- function(aggregation, analysis_path, seed = 19790402,
   }
   yearly <- lapply(
     seq_along(aggregation$FileFingerprint),
-    function(i){
+    function(i) {
       if (verbose) {
         message("  ", aggregation[i, "FileFingerprint"])
       }
@@ -93,7 +93,7 @@ f(Month, model = \"iid\", constr = TRUE,
   }
   longterm <- lapply(
     seq_along(aggregation$FileFingerprint),
-    function(i){
+    function(i) {
       if (verbose) {
         message("  ", aggregation[i, "FileFingerprint"])
       }
@@ -118,7 +118,7 @@ f(Month, model = \"iid\", constr = TRUE,
         parent.statusfingerprint = aggregation[i, "StatusFingerprint"],
         model.fun = INLA::inla,
         package = "INLA",
-        extractor =  function(model){
+        extractor = function(model) {
           model$summary.fixed[, c("mean", "sd")]
         },
         mutate = list(cYear = "Year - max(Year)"),
@@ -135,7 +135,7 @@ f(Month, model = \"iid\", constr = TRUE,
   }
   shortterm <- lapply(
     seq_along(aggregation$FileFingerprint),
-    function(i){
+    function(i) {
       if (verbose) {
         message("  ", aggregation[i, "FileFingerprint"])
       }
@@ -160,7 +160,7 @@ f(Month, model = \"iid\", constr = TRUE,
         parent.statusfingerprint = aggregation[i, "StatusFingerprint"],
         model.fun = INLA::inla,
         package = "INLA",
-        extractor =  function(model){
+        extractor = function(model) {
           model$summary.fixed[, c("mean", "sd")]
         },
         filter = list("Year > max(Year) - 12"),

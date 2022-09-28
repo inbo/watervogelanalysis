@@ -7,10 +7,10 @@
 ```{r fingerprint, results='asis'}
 results %>%
   filter(Status == "converged", grepl("imputed (ave|tre|ind)", ModelType)) %>%
-  distinct(species = scientific_name, area = LocationGroup, model = ModelType, 
-           span = Duration, file = FileFingerprint, 
+  distinct(species = scientific_name, area = LocationGroup, model = ModelType,
+           span = Duration, file = FileFingerprint,
            status = StatusFingerprint) %>%
-  mutate(model = ifelse(grepl("yearly", model),  "non-linear", 
+  mutate(model = ifelse(grepl("yearly", model),  "non-linear",
                         ifelse(grepl("trend", model), "linear", "wintermax"))
          ) %>%
   mutate_at(c("file", "status"), as.character) %>%
@@ -29,9 +29,9 @@ junk <- sapply(
       cat()
     print(kable(
       tab$data[[i]], format = "pandoc", align = "lcc",
-      label = paste("fingerprints", 
+      label = paste("fingerprints",
                      str_replace(tab$species[i], " ", "-"), sep = "-"),
-      caption = sprintf("(ref:fingerprint-%s)", 
+      caption = sprintf("(ref:fingerprint-%s)",
                         str_replace_all(as.character(tab$species[i]), " ", "-"))
     ))
     cat("\n\n")

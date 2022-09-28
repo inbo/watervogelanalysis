@@ -1,6 +1,5 @@
 ```{r {{id}}-monthly-total}
 this_id <- "{{id}}"
-# this_id <- sample(monthly_population$id, 1)
 ```
 
 ```{r {{id}}-monthly-total-subset}

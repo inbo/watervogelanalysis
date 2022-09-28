@@ -6,8 +6,8 @@ wintermax %>%
   select(id, Wintermax = Estimate) %>%
   inner_join(results, by = "id") %>%
   filter(ModelType == "yearly imputed index: Total ~ Year + Month") %>%
-  transmute(loc_id, scientific_name = as.character(scientific_name), 
-            LocationGroup = as.character(LocationGroup), Wintermax, 
+  transmute(loc_id, scientific_name = as.character(scientific_name),
+            LocationGroup = as.character(LocationGroup), Wintermax,
             LastModified, Parameter, Estimate, SE, LCL, UCL, Status) %>%
   group_by(loc_id, Parameter) %>%
   arrange(desc(LastModified)) %>%
@@ -20,8 +20,8 @@ wintermax %>%
   nest() %>%
   ungroup() %>%
   mutate(title = ifelse(
-    lag(scientific_name, default = "") == scientific_name, 
-    sprintf("## %s\n\n", LocationGroup), 
+    lag(scientific_name, default = "") == scientific_name,
+    sprintf("## %s\n\n", LocationGroup),
     sprintf("# _%s_\n\n## %s\n\n", scientific_name, LocationGroup)
   )) -> species_index
 species_index %>%

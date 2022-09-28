@@ -20,13 +20,14 @@ tbl(result_channel, "scheme") %>%
 
 ```{r import-manifests, eval = !file.exists("manifests.Rds"), results = "hide", message = FALSE}
 library(aws.s3)
+library(fs)
 library(n2kanalysis)
 if (file.exists("stored.Rds")) {
   file.remove("stored.Rds") -> junk
 }
 project <- "watervogels"
 aws_base <- get_bucket("n2kmonitoring", prefix = project, max = 1)
-local_base <- normalizePath("~/analysis")
+local_base <- path("~", "analysis")
 file.path(local_base, project, "manifest") %>%
   list.files(full.names = TRUE) %>%
   str_remove(paste0(local_base, "/")) -> local_manifest
@@ -95,12 +96,12 @@ get_species <- function(x) {
     store_model(y, base = local_base, project = project)
   }
   if (is.null(y)) {
-    return(tibble(SpeciesGroupID = NA_character_, 
+    return(tibble(SpeciesGroupID = NA_character_,
                   LocationGroupID = NA_character_))
-  } 
+  }
   y %>%
     slot("AnalysisMetadata") %>%
-    select(SpeciesGroupID, LocationGroupID)
+    select(.data$SpeciesGroupID, .data$LocationGroupID)
 }
 aws_manifest %>%
   filter(is.na(Parent)) %>%
@@ -127,14 +128,14 @@ manifest_species_location %>%
 ```{r import-data, eval = !file.exists("stored.Rds"), results = "hide", message = FALSE}
 library(aws.s3)
 library(n2kanalysis)
-
+library(fs)
 if (file.exists("results.Rds")) {
   file.remove("results.Rds") -> junk
 }
 
 project <- "watervogels"
 aws_base <- get_bucket("n2kmonitoring", prefix = project, max = 1)
-local_base <- "~/analysis"
+local_base <- path("~", "analysis")
 
 result_channel <- n2khelper::connect_result(
   username = Sys.getenv("N2KRESULT_USERNAME"),
@@ -203,16 +204,16 @@ relevant %>%
 saveRDS(relevant, "relevant.Rds")
 
 local_copy <- function(hash, base, local_base, project) {
-  file.path(local_base, project, str_trunc(hash, 4, ellipsis = "")) %>%
+  fs::path(local_base, project, stringr::str_trunc(hash, 4, ellipsis = "")) %>%
     list.files(recursive = TRUE) %>%
-    str_subset(hash) -> available
+    stringr::str_subset(hash) -> available
   if (length(available)) {
     if (length(available) > 1) {
       stop("duplicates ", hash)
     }
-    file.path(project, str_trunc(hash, 4, ellipsis = ""), available) %>%
-      get_bucket(bucket = base) -> available.aws
-    if (length(available.aws)) {
+    fs::path(project, stringr::str_trunc(hash, 4, ellipsis = ""), available) %>%
+      get_bucket(bucket = base) -> available_aws
+    if (length(available_aws)) {
       message(hash, " no update")
       return(FALSE)
     }
@@ -222,7 +223,7 @@ local_copy <- function(hash, base, local_base, project) {
   if (inherits(x, "try-error")) {
     return(TRUE)
   }
-  x <- try(store_model(x, local_base, project, overwrite = TRUE, 
+  x <- try(store_model(x, local_base, project, overwrite = TRUE,
                        validate = FALSE))
   return(inherits(x, "try-error"))
 }
@@ -249,17 +250,21 @@ year_month <- function(z) {
 get_monthly_total <- function(x, hash) {
   if (is.null(x@Join)) {
     x@RawImputed@Data %>%
-      filter(!Missing) %>%
-      mutate(Parameter = sprintf("observed total: %i-%s", Year, Month)) %>%
-      group_by(Parameter) %>%
-      summarise(Estimate = sum(Count)) -> mt
+      filter(!.data$Missing) %>%
+      mutate(
+        Parameter = sprintf("observed total: %i-%s", .data$Year, .data$Month)
+      ) %>%
+      group_by(.data$Parameter) %>%
+      summarise(Estimate = sum(.data$Count)) -> mt
   } else {
     x@RawImputed@Data %>%
       semi_join(x@Join[[1]], by = "LocationID") %>%
-      filter(!Missing) %>%
-      mutate(Parameter = sprintf("observed total: %i-%s", Year, Month)) %>%
-      group_by(Parameter) %>%
-      summarise(Estimate = sum(Count)) -> mt
+      filter(!.data$Missing) %>%
+      mutate(
+        Parameter = sprintf("observed total: %i-%s", .data$Year, .data$Month)
+      ) %>%
+      group_by(.data$Parameter) %>%
+      summarise(Estimate = sum(.data$Count)) -> mt
   }
   mt %>%
     bind_rows(
@@ -289,8 +294,10 @@ get_monthly_total <- function(x, hash) {
 
 extract_results_mi <- function(x, hash) {
   x@AnalysisMetadata %>%
-  select(SpeciesGroupID, LocationGroupID, ModelType, Duration,
-         FileFingerprint, StatusFingerprint, Status) %>%
+  select(
+    .data$SpeciesGroupID, .data$LocationGroupID, .data$ModelType,
+    .data$Duration, .data$FileFingerprint, .data$StatusFingerprint, .data$Status
+  ) %>%
   inner_join(x@AnalysisRelation, by = c("FileFingerprint" = "Analysis")) ->
     result
   if (x@AnalysisMetadata$Status != "converged") {
@@ -301,16 +308,19 @@ extract_results_mi <- function(x, hash) {
       x@Results %>%
         mutate(
           FileFingerprint = hash,
-          Parameter = as.character(Parameter)
+          Parameter = as.character(.data$Parameter)
         ),
       by = "FileFingerprint"
     )
 }
 
-extract_results_ag <- function(x, hash) {
+extract_results_ag <- function(x, hash, aws_manifest) {
   x@AnalysisMetadata %>%
-    select(SpeciesGroupID, LocationGroupID, ModelType, Duration,
-           FileFingerprint, StatusFingerprint, Status) %>%
+    select(
+      .data$SpeciesGroupID, .data$LocationGroupID, .data$ModelType,
+      .data$Duration, .data$FileFingerprint, .data$StatusFingerprint,
+      .data$Status
+    ) %>%
     inner_join(x@AnalysisRelation, by = c("FileFingerprint" = "Analysis")) ->
     result
   if (x@AnalysisMetadata$Status != "converged") {
@@ -347,18 +357,21 @@ extract_results_ag <- function(x, hash) {
 
 extract_results_inla <- function(x, hash) {
   x@AnalysisMetadata %>%
-    select(SpeciesGroupID, LocationGroupID, ModelType, Duration,
-           FileFingerprint, StatusFingerprint, Status) %>%
+    select(
+      .data$SpeciesGroupID, .data$LocationGroupID, .data$ModelType,
+      .data$Duration, .data$FileFingerprint, .data$StatusFingerprint,
+      .data$Status
+    ) %>%
     inner_join(x@AnalysisRelation, by = c("FileFingerprint" = "Analysis")) ->
     result
-  if (x@AnalysisMetadata$Status != "converged") { 
+  if (x@AnalysisMetadata$Status != "converged") {
     return(result)
   }
   estimates <- tibble(Parameter = character(0))
   if (!is.null(x@Model$summary.random$LocationID)) {
     x@Model$summary.random$LocationID %>%
-      transmute(Parameter = paste("location:", ID), Estimate = mean, 
-                LCL = `0.025quant`, UCL = `0.975quant`, 
+      transmute(Parameter = paste("location:", .data$ID), Estimate = mean,
+                LCL = .data$`0.025quant`, UCL = .data$`0.975quant`,
                 FileFingerprint = hash) %>%
       bind_rows() -> estimates
   }
@@ -368,33 +381,40 @@ extract_results_inla <- function(x, hash) {
         mutate(LocationID = NA) -> x@RawImputed@Data
     }
     x@RawImputed@Data %>%
-      filter(Missing) %>%
-      select(LocationID, Year, Month) %>%
-      bind_cols(
+      filter(.data$Missing) %>%
+      select(.data$LocationID, .data$Year, .data$Month) %>%
+      dplyr::bind_cols(
         data.frame(
           Estimate = apply(x@RawImputed@Imputation, 1, median, na.rm = TRUE),
-          LCL = apply(x@RawImputed@Imputation, 1, quantile, 0.025, na.rm = TRUE),
+          LCL = apply(
+            x@RawImputed@Imputation, 1, quantile, 0.025, na.rm = TRUE
+          ),
           UCL = apply(x@RawImputed@Imputation, 1, quantile, 0.975, na.rm = TRUE)
         )
       ) -> imputations
     imputations %>%
-      group_by(LocationID) %>%
-      summarise(n = max(Estimate)) %>%
-      top_n(10, n) %>%
+      group_by(.data$LocationID) %>%
+      summarise(n = max(.data$Estimate)) %>%
+      dplyr::slice_maxtop_n(.data$n, n = 10) %>%
       bind_rows(
         x@RawImputed@Data %>%
-          filter(is.na(Count)) %>%
-          count(LocationID) %>%
-          top_n(10, n)
+          filter(is.na(.data$Count)) %>%
+          count(.data$LocationID) %>%
+          dplyr::slice_max(.data$n, n = 10)
       ) -> selected
     x@RawImputed@Data %>%
-      filter(!Missing) %>%
-      select(LocationID, Year, Month, Estimate = Count) %>%
+      filter(!.data$Missing) %>%
+      select(
+        .data$LocationID, .data$Year, .data$Month, Estimate = .data$Count
+      ) %>%
       bind_rows(imputations) %>%
       semi_join(selected, by = "LocationID") %>%
-      transmute(Parameter = sprintf("imputation: %s:%s:%s", LocationID, 
-                                    Year, Month),
-                Estimate, LCL, UCL, FileFingerprint = hash) %>%
+      transmute(
+        Parameter = sprintf(
+          "imputation: %s:%s:%s", .data$LocationID, .data$Year, .data$Month
+        ),
+        .data$Estimate, .data$LCL, .data$UCL, FileFingerprint = hash
+      ) %>%
       bind_rows(estimates) -> estimates
   }
   result %>%
@@ -426,8 +446,8 @@ store_results <- function(hash, base, project) {
   if (file.exists(target)) {
     message(" existing", appendLF = FALSE)
     readRDS(target) %>%
-      distinct(StatusFingerprint) %>%
-      pull(StatusFingerprint) -> status_fingerprint
+      distinct(.data$StatusFingerprint) %>%
+      pull(.data$StatusFingerprint) -> status_fingerprint
     if (x@AnalysisMetadata$StatusFingerprint == status_fingerprint) {
       message(" up to date")
       return(NULL)
@@ -441,9 +461,10 @@ store_results <- function(hash, base, project) {
   return(NULL)
 }
 
+library(fs)
 library(n2kanalysis)
 project <- "watervogels"
-local_base <- normalizePath("~/analysis")
+local_base <- path("~", "analysis")
 
 file.path(local_base, project, "result") %>%
   dir.create(showWarnings = FALSE)
@@ -462,7 +483,7 @@ required_results[required_results %in% prepared_results] %>%
   bind_rows() %>%
   inner_join(
     relevant %>%
-      select(Fingerprint, Key, LastModified), 
+      select(Fingerprint, Key, LastModified),
     by = c("FileFingerprint" = "Fingerprint")
   ) %>%
   inner_join(readRDS("speciesgroup.Rds"), by = "SpeciesGroupID") %>%
@@ -475,7 +496,7 @@ readRDS("results.Rds") -> results
 
 results %>%
   filter(Status != "error") %>%
-  mutate(id = as.character(scientific_name) %>% 
+  mutate(id = as.character(scientific_name) %>%
            str_replace_all(" ", "-"),
          LocationGroup = str_replace(LocationGroup, "België", "Belgium") %>%
            str_replace("Vlaanderen", "Flanders") %>%
@@ -486,7 +507,7 @@ results %>%
            interaction(id, sep = "-")
          ) -> results
 results %>%
-  filter(ModelType == "imputed average: Total ~ cPeriod", 
+  filter(ModelType == "imputed average: Total ~ cPeriod",
          Parameter == "(Intercept)") %>%
   select(id, LocationGroup, Estimate, LCL, UCL) %>%
   mutate_at(c("Estimate", "LCL", "UCL"), exp) %>%
@@ -495,7 +516,7 @@ results %>%
     Magnitude = Magnitude - ifelse(UCL < 2 * 10 ^ Magnitude, 1, 0)
   ) %>%
   mutate_at(
-    c(pEstimate = "Estimate", pLCL = "LCL", pUCL = "UCL"), 
+    c(pEstimate = "Estimate", pLCL = "LCL", pUCL = "UCL"),
     function(x, m) {
       round(x / 10 ^ m, 1) * 10 ^ m
     },
