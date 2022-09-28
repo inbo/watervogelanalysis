@@ -21,7 +21,7 @@ prepare_dataset(
 
 \item{raw_repo}{a git_repository object to write the output to}
 
-\item{result_channel}{An open RODBC connection to the results database}
+\item{result_channel}{An open \code{RODBC} connection to the results database}
 
 \item{walloon_repo}{a git_repository object to the Walloon source data}
 

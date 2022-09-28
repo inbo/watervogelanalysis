@@ -2,7 +2,7 @@
 % Please edit documentation in R/prepare_dataset_species.R
 \name{prepare_dataset_species}
 \alias{prepare_dataset_species}
-\title{Read the species for the raw datasource, save them to the results database}
+\title{Read the species for the raw data source, save them to the results database}
 \usage{
 prepare_dataset_species(
   raw_repo,
@@ -17,7 +17,7 @@ prepare_dataset_species(
 \arguments{
 \item{raw_repo}{a git_repository object to write the output to}
 
-\item{result_channel}{An open RODBC connection to the results database}
+\item{result_channel}{An open \code{RODBC} connection to the results database}
 
 \item{flemish_channel}{a DBI connection to the Flemish database}
 
@@ -33,5 +33,5 @@ prepare_dataset_species(
 the species group constraint information
 }
 \description{
-Read the species for the raw datasource, save them to the results database
+Read the species for the raw data source, save them to the results database
 }

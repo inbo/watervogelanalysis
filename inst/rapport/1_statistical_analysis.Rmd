@@ -125,7 +125,7 @@ The linear predictor $\eta_{swm}$ depends on three terms:
 We use the last winter in the data as reference.
 1. $b_w$ is the relative effect of winter $w$. 
 We use a first order random walk in order to take into account the temporal autocorrelation.
-The difference between two consecutive year follows a zero mean Gaussian distribtuion with variance $\sigma^2_w$.
+The difference between two consecutive year follows a zero mean Gaussian distribution with variance $\sigma^2_w$.
 1. $b_{m}$ is the relative effect of month $m$. 
 This effect models the global seasonal pattern $w$.
 It follows a zero mean Gaussian distribution with variance $\sigma^2_{m}$.

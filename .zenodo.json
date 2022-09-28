@@ -1,6 +1,6 @@
 {
   "title": "watervogelanalysis: Analysis of the Wintering Birds",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "Imports the data from the Flemish and Walloon monitoring schemes of the wintering birds. Prepares analysis datasets and runs the analysis.",
   "creators": [
     {

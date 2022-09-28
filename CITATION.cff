@@ -11,12 +11,12 @@ contact:
 - email: info@inbo.be
   name: Research Institute for Nature and Forest
 title: 'watervogelanalysis: Analysis of the Wintering Birds'
-version: 0.3.2
+version: 0.4.0
 abstract: Imports the data from the Flemish and Walloon monitoring schemes of the
   wintering birds. Prepares analysis datasets and runs the analysis.
 license: GPL-3.0
 type: software
 identifiers:
 - type: url
-  value: https:://inbo.github.io/watervogelanalysis
+  value: https://inbo.github.io/watervogelanalysis
 keywords: R package

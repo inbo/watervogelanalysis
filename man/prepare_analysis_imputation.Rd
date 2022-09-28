@@ -37,5 +37,5 @@ dataset, number of presences in the analysis dataset and SHA-1 of the
 analysis dataset or NULL if not enough data.
 }
 \description{
-The analysis dataset is saved to a rda file with the SHA-1 as name.
+The analysis dataset is saved to a \code{.rda} file with the SHA-1 as name.
 }

@@ -2,7 +2,7 @@
 % Please edit documentation in R/read_observation_wallonia.R
 \name{read_observation_wallonia}
 \alias{read_observation_wallonia}
-\title{Read the Wallon observations from a species}
+\title{Read the Walloon observations from a species}
 \usage{
 read_observation_wallonia(species_id, first_year, latest_year, walloon_repo)
 }

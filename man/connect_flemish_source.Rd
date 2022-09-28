@@ -2,13 +2,13 @@
 % Please edit documentation in R/connect_source.R
 \name{connect_flemish_source}
 \alias{connect_flemish_source}
-\title{Make an ODBC connection to the Flemish source data}
+\title{Make an \code{ODBC} connection to the Flemish source data}
 \usage{
 connect_flemish_source(result_channel)
 }
 \arguments{
-\item{result_channel}{An open RODBC connection to the results database}
+\item{result_channel}{An open \code{RODBC} connection to the results database}
 }
 \description{
-Make an ODBC connection to the Flemish source data
+Make an \code{ODBC} connection to the Flemish source data
 }
