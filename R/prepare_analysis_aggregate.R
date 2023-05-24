@@ -1,70 +1,65 @@
 #' Create aggregation objects for imputed counts
 #' @export
-#' @importFrom assertthat assert_that has_name
-#' @importFrom dplyr %>% filter select bind_rows mutate arrange
-#' @importFrom n2kanalysis n2k_aggregate store_model
+#' @importFrom assertthat assert_that has_name is.string noNA
+#' @importFrom dplyr filter mutate pull select
 #' @importFrom git2rdata read_vc
+#' @importFrom purrr map map_chr map_dfr pmap
+#' @importFrom n2kanalysis display n2k_aggregate store_model
 #' @inheritParams prepare_analysis_imputation
 #' @inheritParams prepare_dataset
 #' @param imputations a data.frame with the imputations per location group
-prepare_analysis_aggregate <- function(analysis_path, imputations, raw_repo,
-                                       seed = 19790402, verbose = TRUE) {
+prepare_analysis_aggregate <- function(
+  analysis_path, imputations, file_fingerprint, raw_repo, seed = 19790402,
+  verbose = TRUE
+) {
   set.seed(seed)
   assert_that(
-    inherits(imputations, "data.frame"), has_name(imputations, "speciesgroup"),
-    has_name(imputations, "Filename"), has_name(imputations, "LocationGroup"),
-    has_name(imputations, "Scheme"), has_name(imputations, "Fingerprint"),
-    length(unique(imputations$Fingerprint)) == 1)
-  imputations <- imputations %>%
-    arrange(.data$Fingerprint, .data$LocationGroup)
+    inherits(imputations, "data.frame"), has_name(imputations, "filename"),
+    has_name(imputations, "species_group_id"),
+    has_name(imputations, "location_group_id"),
+    has_name(imputations, "scheme_id"),
+    is.string(file_fingerprint), noNA(file_fingerprint)
+  )
 
-  location <- read_vc(file = "locationgrouplocation.txt", root = raw_repo)
+  location <- read_vc(file = "location/locationgroup_location", root = raw_repo)
   assert_that(
-    inherits(location, "data.frame"), has_name(location, "LocationGroupID"),
-    has_name(location, "LocationID"))
+    has_name(location, "locationgroup"), has_name(location, "location")
+  )
 
-  if (verbose) {
-    message("imputation: ", imputations$Fingerprint[1])
-  }
-  lapply(
-    imputations$LocationGroup,
-    function(lg) {
-      if (verbose) {
-        message("  locationgroup: ", lg)
-      }
-      metadata <- imputations %>%
-        filter(.data$LocationGroup == lg)
-      form <- ifelse(grepl("Month", metadata$Formula), "~Year + Month", "~Year")
-      analysis <- n2k_aggregate(
-        status = "waiting",
-        minimum = "Minimum",
-        result.datasource.id = metadata$ResultDatasourceID,
-        scheme.id = metadata$Scheme,
-        species.group.id = metadata$speciesgroup,
-        location.group.id = lg,
-        seed = seed,
-        model.type = "aggregate imputed: sum ~ Year + Month",
-        formula = form,
-        first.imported.year = metadata$FirstImportedYear,
-        last.imported.year = metadata$LastImportedYear,
-        analysis.date = metadata$AnalysisDate,
-        join = location %>%
-          filter(.data$LocationGroupID == lg) %>%
-          select("LocationID") %>%
-          as.data.frame(stringsAsFactors = FALSE),
-        fun = sum,
-        parent = imputations$Fingerprint[1]
+  display(verbose, paste("imputation:", file_fingerprint))
+  imputations |>
+    mutate(
+      join = map(
+        .data$location_group_id, ~filter(location, .data$locationgroup == .x)
+      ) |>
+        map(transmute, location = factor(.data$location)) |>
+        map(as.data.frame, stringsAsFactors = FALSE),
+      location_group_id = as.character(location_group_id),
+      analysis = pmap(
+        .l = list(
+          result_datasource_id = .data$result_datasource_id, join = .data$join,
+          species_group_id = .data$species_group_id,
+          analysis_date = .data$analysis_date, scheme_id = .data$scheme_id,
+          location_group_id = .data$location_group_id,
+          first_imported_year = .data$first_imported_year,
+          last_imported_year = .data$last_imported_year
+        ),
+        n2k_aggregate, status = "waiting", minimum = "minimum", seed = seed,
+        model_type = "aggregate imputed: sum ~ year + month",
+        formula = "~year + month", fun = sum, parent = file_fingerprint
+      ),
+      filename = map_chr(
+        .data$analysis, store_model, base = analysis_path,
+        project = "watervogels", overwrite = FALSE
       )
-      store_model(x = analysis, base = analysis_path, project = "watervogels",
-                  overwrite = FALSE)
-      analysis@AnalysisMetadata %>%
-        select(
-          "SchemeID", "SpeciesGroupID", "LocationGroupID", "FirstImportedYear",
-          "LastImportedYear", "Duration", "LastAnalysedYear", "AnalysisDate",
-          "Status", "StatusFingerprint", "FileFingerprint", "ResultDatasourceID"
-        )
-    }
-  ) %>%
-    bind_rows() %>%
-    mutate(Parent = imputations$Fingerprint[1])
+    ) |>
+    pull("analysis") |>
+    map_dfr(slot, "AnalysisMetadata") |>
+    select(
+      "result_datasource_id", "scheme_id", "species_group_id", "analysis_date",
+      "location_group_id", "first_imported_year", "last_imported_year",
+      "duration", "last_analysed_year", "status", "status_fingerprint",
+      "file_fingerprint"
+    ) |>
+    mutate(parent = file_fingerprint)
 }

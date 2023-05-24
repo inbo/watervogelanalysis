@@ -2,59 +2,78 @@
 #' @inheritParams prepare_analysis_imputation
 #' @inheritParams prepare_dataset
 #' @export
+#' @importFrom dplyr distinct inner_join transmute
+#' @importFrom fs path
 #' @importFrom git2rdata read_vc
-#' @importFrom dplyr %>% bind_rows distinct do filter group_by inner_join mutate
-#' select
-#' @importFrom tidyr unnest_
+#' @importFrom lubridate round_date year
+#' @importFrom n2kanalysis display
 #' @importFrom rlang .data
-#' @importFrom lubridate ymd year round_date
-#' @importFrom n2kanalysis n2k_manifest store_manifest_yaml
-prepare_analysis <- function(analysis_path = ".", raw_repo, seed = 19790402,
-                             verbose = TRUE) {
+prepare_analysis <- function(
+  analysis_path = ".", raw_repo, seed = 19790402, verbose = TRUE
+) {
   set.seed(seed)
-  read_vc(file = "location", root = raw_repo) %>%
-    mutate(
-      StartYear = round_date(.data$StartDate, unit = "year") %>%
+  path("location", "location") |>
+    read_vc(root = raw_repo) |>
+    transmute(
+      .data$id,
+      start_year = round_date(.data$start, unit = "year") |>
         year(),
-      EndYear = round_date(.data$EndDate, unit = "year") %>%
+      end_year = round_date(.data$end, unit = "year") |>
         year()
-    ) %>%
-    select("ID", "StartYear", "EndYear") -> location
-  read_vc(file = "locationgroup", root = raw_repo) %>%
-    select(LocationGroupID = "Impute", "SubsetMonths") %>%
-    distinct() %>%
-    inner_join(
-      read_vc(file = "locationgrouplocation", root = raw_repo),
-      by = "LocationGroupID"
-    ) %>%
-    inner_join(location, by = c("LocationID" = "ID")) -> location
+    ) -> location
 
-  if (verbose) {
-    message("Prepare imputations")
-  }
-
-  read_vc(file = "speciesgroupspecies", root = raw_repo) %>%
-    group_by(.data$speciesgroup) %>%
-    do(
-      Files = prepare_analysis_imputation(
-        speciesgroupspecies = .data, location = location, seed = seed,
-        analysis_path = analysis_path, raw_repo = raw_repo, verbose = verbose)
-    ) %>%
-    unnest(.data$Files) -> imputations
-  imputations %>%
-    filter(.data$Status != "insufficient_data") %>%
+  path("location", "locationgroup") |>
+    read_vc(root = raw_repo) |>
+    distinct(locationgroup = .data$impute, .data$subset_month) |>
     inner_join(
-      read_vc(file = "locationgroup.txt", root = raw_repo) %>%
-        select(LocationGroup = "ID", "Impute"),
-      by = "Impute"
+      path("location", "locationgroup_location") |>
+        read_vc(root = raw_repo),
+      by = "locationgroup"
+    ) |>
+    inner_join(location, by = c("location" = "id")) -> location
+
+  display(verbose, "Prepare imputations")
+
+  path("species", "speciesgroup_species") |>
+    read_vc(root = raw_repo) |>
+filter(speciesgroup == 65) |>
+    nest(.by = "speciesgroup") |>
+    transmute(
+      speciesgroup = map2(
+        .data$speciesgroup, .data$data, ~mutate(.y, speciesgroup = .x)
+      )
+    ) |>
+    pull("speciesgroup") -> test |>
+    map_dfr(
+      prepare_analysis_imputation, location = location,
+      seed = seed, analysis_path = analysis_path, raw_repo = raw_repo,
+      verbose = verbose
+    ) -> imputations
+  imputations |>
+    filter(.data$status != "insufficient_data") |>
+    mutate(impute = as.integer(.data$impute)) |>
+    inner_join(
+      x = read_vc(file = "location/locationgroup", root = raw_repo) |>
+        select("id", "impute"),
+      by = "impute", relationship = "many-to-many"
     ) -> relevant
-  for (impute in sort(unique(relevant$Fingerprint))) {
-    aggregation <- prepare_analysis_aggregate(
-      filter(relevant, .data$Fingerprint == impute), verbose = verbose,
-      analysis_path = analysis_path, seed = seed, raw_repo = raw_repo)
+  relevant |>
+    rename(location_group_id = "id") |>
+    arrange(.data$file_fingerprint) |>
+    nest(.by = "file_fingerprint", .key = "location_group") |>
+    mutate(
+      aggregation = map2(
+        .data$location_group, .data$file_fingerprint,
+        prepare_analysis_aggregate, verbose = verbose,
+        analysis_path = analysis_path, seed = seed, raw_repo = raw_repo
+      )
+    ) -> aggregations
+
+  for (fingerprint in sort(unique(relevant$file_fingerprint))) {
     analysis <- prepare_analysis_model(
       aggregation = aggregation, analysis_path = analysis_path,
-      seed = seed, verbose = verbose)
+      seed = seed, verbose = verbose
+    )
     aggregation_wintermax <- prepare_analysis_agg_max(
       aggregation = aggregation, analysis_path = analysis_path, seed = seed,
       verbose = verbose)

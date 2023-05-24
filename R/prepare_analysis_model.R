@@ -3,23 +3,44 @@
 #' @param aggregation the output of \code{prepare_analysis_aggregate}
 #' @export
 #' @importFrom assertthat assert_that is.flag noNA
+#' @importFrom dplyr arrange left_join
 #' @importFrom n2kanalysis n2k_model_imputed get_file_fingerprint store_model
-#' @importFrom dplyr %>% arrange left_join
-#' @importFrom rlang .data
-#' @importFrom INLA inla.make.lincombs
 #' @importFrom Matrix sparseMatrix
-prepare_analysis_model <- function(aggregation, analysis_path, seed = 19790402,
-                                   verbose = TRUE) {
+#' @importFrom rlang .data
+prepare_analysis_model <- function(
+  aggregation, analysis_path, seed = 19790402, verbose = TRUE
+) {
   set.seed(seed)
-  assert_that(inherits(aggregation, "data.frame"), is.flag(verbose),
-              noNA(verbose))
-
-  requireNamespace("INLA", quietly = TRUE)
+  assert_that(
+    inherits(aggregation, "data.frame"), is.flag(verbose), noNA(verbose),
+    requireNamespace("INLA", quietly = TRUE)
+  )
   # yearly index
-  if (verbose) {
-    message("Yearly indices")
-    aggregation <- arrange(aggregation, .data$FileFingerprint)
-  }
+  display(verbose = verbose, message = "Yearly indices")
+  aggregation |>
+    mutate(
+      yearly = pmap(
+        .l = list(
+          result_datasource_id = .data$result_datasource_id,
+          scheme_id = .data$scheme_id,
+          species_group_id = .data$species_group_id,
+          location_group_id = .data$location_group_id
+        ),
+        ~n2k_model_imputed(
+          result_datasource_id = result_datasource_id, scheme_id = scheme_id,
+          species_group_id = species_group_id,
+          location_group_id = location_group_id,
+          model_type = "yearly imputed index: Total ~ Year + Month" ,
+          formula =
+            "~ f(cyear, model = \"rw1\", scale.model = TRUE,
+  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.1, 0.01)))
+) +
+f(month, model = \"iid\", constr = TRUE,
+  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.6, 0.01)))
+)",
+        )
+      )
+    )
   yearly <- lapply(
     seq_along(aggregation$FileFingerprint),
     function(i) {

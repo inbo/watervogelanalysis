@@ -7,6 +7,7 @@
 prepare_analysis_aggregate(
   analysis_path,
   imputations,
+  file_fingerprint,
   raw_repo,
   seed = 19790402,
   verbose = TRUE
