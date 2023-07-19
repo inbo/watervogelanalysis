@@ -2,18 +2,22 @@
 #' @inheritParams prepare_analysis_imputation
 #' @inheritParams prepare_dataset
 #' @export
-#' @importFrom dplyr distinct inner_join transmute
+#' @importFrom dplyr arrange bind_rows distinct inner_join transmute
 #' @importFrom fs path
-#' @importFrom git2rdata read_vc
+#' @importFrom git2rdata verify_vc
 #' @importFrom lubridate round_date year
-#' @importFrom n2kanalysis display
+#' @importFrom n2kanalysis display get_file_fingerprint n2k_hurdle_imputed
+#' n2k_manifest store_manifest_yaml store_model
+#' @importFrom purrr map_chr map_dfr
 #' @importFrom rlang .data
+#' @importFrom tidyr unnest
 prepare_analysis <- function(
-  analysis_path = ".", raw_repo, seed = 19790402, verbose = TRUE
+  analysis_path = ".", raw_repo, seed = 19790402, verbose = TRUE,
+  knot_interval = 10
 ) {
   set.seed(seed)
   path("location", "location") |>
-    read_vc(root = raw_repo) |>
+    verify_vc(root = raw_repo, variables = c("id", "start", "end")) |>
     transmute(
       .data$id,
       start_year = round_date(.data$start, unit = "year") |>
@@ -23,7 +27,7 @@ prepare_analysis <- function(
     ) -> location
 
   path("location", "locationgroup") |>
-    read_vc(root = raw_repo) |>
+    verify_vc(root = raw_repo, variables = c("impute", "subset_month")) |>
     distinct(locationgroup = .data$impute, .data$subset_month) |>
     inner_join(
       path("location", "locationgroup_location") |>
@@ -35,74 +39,140 @@ prepare_analysis <- function(
   display(verbose, "Prepare imputations")
 
   path("species", "speciesgroup_species") |>
-    read_vc(root = raw_repo) |>
-filter(speciesgroup == 65) |>
+    verify_vc(root = raw_repo, variables = c("speciesgroup", "species")) |>
     nest(.by = "speciesgroup") |>
     transmute(
       speciesgroup = map2(
         .data$speciesgroup, .data$data, ~mutate(.y, speciesgroup = .x)
       )
     ) |>
-    pull("speciesgroup") -> test |>
+    pull("speciesgroup") |>
     map_dfr(
       prepare_analysis_imputation, location = location,
       seed = seed, analysis_path = analysis_path, raw_repo = raw_repo,
       verbose = verbose
     ) -> imputations
   imputations |>
-    filter(.data$status != "insufficient_data") |>
-    mutate(impute = as.integer(.data$impute)) |>
-    inner_join(
-      x = read_vc(file = "location/locationgroup", root = raw_repo) |>
-        select("id", "impute"),
-      by = "impute", relationship = "many-to-many"
+    transmute(
+      .data$count, fingerprint = map_chr(.data$count, get_file_fingerprint),
+      parent = NA_character_
+    ) -> manifest
+  display(verbose, "Datasets without imputations")
+  manifest |>
+    arrange(.data$fingerprint) |>
+    transmute(
+      no_impute = map(
+        .data$count, prepare_analysis_aggregate_ni, verbose = verbose,
+        analysis_path = analysis_path, raw_repo = raw_repo
+      )
+    ) |>
+    unnest("no_impute") |>
+    bind_rows(
+      manifest |>
+        select(-"count"),
+      imputations |>
+        transmute(
+          fingerprint = map_chr(.data$presence, get_file_fingerprint),
+          parent = NA_character_
+        )
+    ) -> manifest
+  display(verbose, "Hurdle model")
+  imputations |>
+    transmute(
+      impute = as.integer(.data$impute),
+      hurdle = map2(.data$presence, .data$count, n2k_hurdle_imputed),
+      fingerprint = map_chr(
+        .data$hurdle, store_model, base = analysis_path,
+        project = "watervogels", overwrite = FALSE
+      )
     ) -> relevant
   relevant |>
-    rename(location_group_id = "id") |>
-    arrange(.data$file_fingerprint) |>
-    nest(.by = "file_fingerprint", .key = "location_group") |>
-    mutate(
-      aggregation = map2(
-        .data$location_group, .data$file_fingerprint,
-        prepare_analysis_aggregate, verbose = verbose,
-        analysis_path = analysis_path, seed = seed, raw_repo = raw_repo
+    transmute(
+      parent = map(.data$hurdle, slot, "AnalysisRelation")
+    ) |>
+    unnest("parent") |>
+    select(fingerprint = "analysis", parent = "parent_analysis") |>
+    bind_rows(manifest) -> manifest
+  display(verbose, "Aggregations")
+  relevant |>
+    arrange(basename(.data$fingerprint)) |>
+    transmute(
+      .data$hurdle,
+      aggregated = map2(
+        .data$hurdle, .data$impute, prepare_analysis_aggregate,
+        analysis_path = analysis_path, raw_repo = raw_repo, seed = seed,
+        verbose = verbose
       )
-    ) -> aggregations
-
-  for (fingerprint in sort(unique(relevant$file_fingerprint))) {
-    analysis <- prepare_analysis_model(
-      aggregation = aggregation, analysis_path = analysis_path,
-      seed = seed, verbose = verbose
-    )
-    aggregation_wintermax <- prepare_analysis_agg_max(
-      aggregation = aggregation, analysis_path = analysis_path, seed = seed,
-      verbose = verbose)
-    analysis_wintermax <- prepare_analysis_model_max(
-      aggregation = aggregation_wintermax, analysis_path = analysis_path,
-      seed = seed, verbose = verbose)
-    imputations %>%
-      select("Fingerprint") %>%
-      filter(.data$Fingerprint == impute) %>%
-      mutate(Imputation = .data$Fingerprint, Parent = NA_character_) %>%
-      bind_rows(
-        aggregation_wintermax %>%
-          select(Fingerprint = "FileFingerprint", "Parent", "Imputation"),
-        aggregation_wintermax %>%
-          select("Imputation", Parent = "FileFingerprint") %>%
-          inner_join(analysis_wintermax, by = "Parent"),
-        aggregation %>%
-          select(Fingerprint = "FileFingerprint", "Parent") %>%
-          mutate(Imputation = .data$Parent),
-        aggregation %>%
-          select(Imputation = "Parent", Parent = "FileFingerprint") %>%
-          inner_join(analysis, by = "Parent")
-      ) %>%
-      n2k_manifest() -> manifest
+    ) |>
+    unnest("aggregated") -> relevant
+  relevant |>
+    transmute(
+      parent = map(.data$aggregated, slot, "AnalysisRelation")
+    ) |>
+    unnest("parent") |>
+    select(fingerprint = "analysis", parent = "parent_analysis") |>
+    bind_rows(manifest) -> manifest
+  display(verbose, "Trends")
+  relevant |>
+    transmute(
+      fingerprint = map(
+        .data$aggregated, prepare_analysis_index, month = TRUE,
+        analysis_path = analysis_path, verbose = verbose
+      )
+    ) |>
+    unnest("fingerprint") |>
+    bind_rows(
+      relevant |>
+        transmute(
+          fingerprint = map(
+            .data$aggregated, prepare_analysis_smoother, month = TRUE,
+            analysis_path = analysis_path, verbose = verbose
+          )
+        ) |>
+        unnest("fingerprint"),
+      manifest
+    ) -> manifest
+  display(verbose, "Wintermaxima aggregation")
+  relevant |>
+    transmute(
+      aggregated = map(
+        .data$aggregated, prepare_analysis_agg_max,
+        analysis_path = analysis_path, verbose = verbose
+      )
+    ) -> wintermax
+  display(verbose, "Wintermaxima trend")
+  wintermax |>
+    transmute(
+      fingerprint = map(
+        .data$aggregated, prepare_analysis_index, month = FALSE,
+        analysis_path = analysis_path, verbose = verbose
+      )
+    ) |>
+    unnest("fingerprint") |>
+    bind_rows(
+      wintermax |>
+        transmute(
+          fingerprint = map(.data$aggregated, slot, "AnalysisRelation")
+        ) |>
+        unnest("fingerprint") |>
+        select(fingerprint = "analysis", parent = "parent_analysis"),
+      wintermax |>
+        transmute(
+          fingerprint = map(
+            .data$aggregated, prepare_analysis_smoother, month = FALSE,
+            analysis_path = analysis_path, verbose = verbose
+          )
+        ) |>
+        unnest("fingerprint"),
+      manifest
+    ) |>
+    n2k_manifest() |>
     store_manifest_yaml(
-      manifest, base = analysis_path, project = "watervogels",
-      docker = "inbobmk/rn2k:0.4",
-      dependencies = c("inbo/n2khelper@v0.4.3", "inbo/n2kanalysis@v0.2.7",
-                       "inbo/n2kupdate@v0.1.1")
+      base = analysis_path, project = "watervogels",
+      docker = "inbobmk/rn2k:0.9",
+      dependencies = c(
+        "inbo/n2khelper@v0.5.0", "inbo/n2kanalysis@v0.3.1",
+        "inbo/multimput@v0.2.12"
+      )
     )
-  }
 }

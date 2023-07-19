@@ -11,20 +11,21 @@
 #' Defaults to 19790402 which refers to "Council Directive 79/409/EEC of 2 April
 #' 1979 on the conservation of wild birds".
 #' @inheritParams prepare_dataset
+#' @param knot_interval Interval in years between knots for the smoothers.
+#' Defaults to 10.
 #' @return A data.frame with the species id number of rows in the analysis
-#' dataset, number of presences in the analysis dataset and SHA-1 of the
 #' analysis dataset or NULL if not enough data.
-#' @importFrom assertthat assert_that has_name noNA is.flag
+#' @importFrom assertthat assert_that has_name noNA is.flag is.count
 #' @importFrom dplyr across count inner_join filter mutate select row_number
 #' transmute
 #' @importFrom git2rdata read_vc recent_commit write_vc
-#' @importFrom purrr map map2 map2_dfr map_dfr
+#' @importFrom purrr map map2 map2_dfr map_dfr map_lgl
 #' @importFrom rlang .data
-#' @importFrom tidyr nest
+#' @importFrom tidyr complete nest pivot_wider
 #' @export
 prepare_analysis_imputation <- function(
   speciesgroupspecies, location, analysis_path, raw_repo, seed = 19790402,
-  verbose = TRUE
+  verbose = TRUE, knot_interval = 10
 ) {
   set.seed(seed)
   assert_that(
@@ -37,9 +38,13 @@ prepare_analysis_imputation <- function(
     has_name(speciesgroupspecies, "speciesgroup"),
     has_name(speciesgroupspecies, "species"), noNA(speciesgroupspecies),
     anyDuplicated(speciesgroupspecies$speciesgroup) == 0,
-    is.flag(verbose), noNA(verbose)
+    is.flag(verbose), noNA(verbose), is.count(knot_interval),
+    noNA(knot_interval)
   )
-  display(verbose, unique(speciesgroupspecies[["speciesgroup"]]))
+  display(
+    verbose, paste(unique(speciesgroupspecies[["speciesgroup"]]), " "),
+    linefeed = FALSE
+  )
   stopifnot(
     "Speciesgroups with multiple species not yet handled" =
       nrow(speciesgroupspecies) == 1
@@ -103,11 +108,12 @@ observation" = anyDuplicated(rawdata[, c("location", "year", "month")]) == 0
     ) |>
     transmute(
       observation_id = ifelse(is.na(.data$id), -row_number(), .data$id),
-      .data$datafield_id, .data$locationgroup, .data$location, .data$year,
+      .data$datafield_id, .data$locationgroup,
+      location = as.character(.data$location), .data$year,
       .data$month, minimum = pmax(0, .data$count),
       count = ifelse(.data$complete, .data$count, NA)
     ) |>
-    arrange(.data$location, .data$year, .data$month) -> observation |>
+    arrange(.data$location, .data$year, .data$month) |>
     group_by(.data$locationgroup) |>
     nest() |>
     ungroup() |>
@@ -115,39 +121,45 @@ observation" = anyDuplicated(rawdata[, c("location", "year", "month")]) == 0
       relevant = map(.data$data, select_relevant_analysis),
       rare_observation = map(.data$relevant, "rare_observation"),
       relevant = map(.data$relevant, "observation"),
-      model = map2(
-        .data$locationgroup, .data$relevant, prepare_imputation_model,
-        metadata = metadata, seed = seed
-      ),
+    ) |>
+    transmute(
+      model = pmap(
+        list(
+          location_group = .data$locationgroup, relevant = .data$relevant,
+          extra = .data$rare_observation
+        ),
+        prepare_imputation_model, metadata = metadata, seed = seed,
+        knot_interval = knot_interval
+      )
+    ) |>
+    unnest("model") |>
+    filter(map_lgl(.data$model, ~inherits(.x, "n2kInla"))) |>
+    mutate(
       filename = map_chr(
         .data$model, store_model, base = analysis_path, project = "watervogels",
         overwrite = FALSE
       )
     ) -> selected
-  map2_dfr(
-    selected$rare_observation, selected$locationgroup,
-    ~mutate(.x, imputation_locationgroup = .y)
-  ) |>
-    write_vc(
-      file = sprintf("rare/%05i", metadata$species_id), root = raw_repo,
-      sorting = c("imputation_locationgroup", "observation_id")
-    )
 
   map_dfr(selected$model, slot, "AnalysisMetadata") |>
-    select(
-      "result_datasource_id", "scheme_id", impute = "location_group_id",
-      "species_group_id", "file_fingerprint", "first_imported_year",
-      "last_imported_year", "analysis_date", "formula", "status",
-      "location_group_id"
+    filter(.data$status != "insufficient_data") |>
+    transmute(
+      impute = .data$location_group_id, .data$species_group_id,
+      type = ifelse(grepl(" binomial:", .data$model_type), "presence", "count"),
+      model = selected$model
     ) |>
-    mutate(filename = selected$filename)
+    pivot_wider(names_from = "type", values_from = "model")
 }
 
 #' @importFrom assertthat assert_that
-#' @importFrom dplyr mutate
+#' @importFrom dplyr across bind_cols mutate select transmute
 #' @importFrom n2kanalysis n2k_inla
 #' @importFrom rlang .data
-prepare_imputation_model <- function(location_group, relevant, metadata, seed) {
+#' @importFrom splines bs
+#' @importFrom tidyselect all_of
+prepare_imputation_model <- function(
+    location_group, relevant, extra, metadata, knot_interval = 10, seed
+) {
   if (nrow(relevant) == 0) {
     model <- n2k_inla(
       data = relevant, result_datasource_id = metadata$datasource,
@@ -162,7 +174,7 @@ prepare_imputation_model <- function(location_group, relevant, metadata, seed) {
       family = metadata$distribution, analysis_date = metadata$analysis_date,
       status = "insufficient_data"
     )
-    return(model)
+    return(list(present = NULL, count = model))
   }
   assert_that(
     length(levels(relevant$month)) > 3, diff(range(relevant$year)) > 4,
@@ -170,37 +182,157 @@ prepare_imputation_model <- function(location_group, relevant, metadata, seed) {
   )
   relevant |>
     mutate(
-      cyear = .data$year - min(.data$year) + 1, cyear2 = .data$cyear,,
-      imonth = as.integer(.data$month), location = factor(.data$location),
-      ilocation = as.integer(.data$location)
+      cyear = as.integer(.data$year - min(.data$year) + 1),
+      imonth = as.integer(.data$month), .data$location
+    ) -> observations
+  n_year <- max(observations$cyear)
+  assert_that(
+    n_year >= knot_interval,
+    msg = sprintf(
+      "short time series for location %s, species %s",
+      as.character(location_group), as.character(metadata$speciesgroup)
+    )
+  )
+  extra |>
+    mutate(
+      cyear = as.integer(.data$year - min(relevant$year) + 1),
+      imonth = as.integer(.data$month), .data$location
+    ) -> extra_count
+  knots <- seq_len(ceiling(n_year / knot_interval) + 1)
+  knots <- (knots - mean(knots)) * knot_interval + n_year / 2
+  assert_that(
+    min(knots) <= min(observations$cyear), max(observations$cyear) <= max(knots)
+  )
+  bs(1, knots = knots, Boundary.knots = range(knots)) |>
+    ncol() -> n_knot
+  observations |>
+    transmute(
+      count = ifelse(.data$count > 0, .data$count, NA), .data$cyear,
+      .data$imonth, imonth2 = .data$imonth, .data$location, .data$minimum,
+      intercept = 1, .data$observation_id, .data$datafield_id,
+      rep("location", n_knot) |>
+        setNames(sprintf("location_%02i", seq_len(n_knot - 1))) |>
+        all_of() |>
+        across(),
+      .data$year, .data$month
     ) |>
+    bind_cols(
+      bs(observations$cyear, knots = knots, Boundary.knots = range(knots)) |>
+        as.data.frame() |>
+        select(seq_len(n_knot - 1)) |>
+        `colnames<-`(sprintf("knot_%02i", seq_len(n_knot - 1)))
+    ) -> truncated_zero
+  extra_count |>
+    transmute(
+      .data$count, .data$cyear, .data$imonth, imonth2 = .data$imonth,
+      .data$location, .data$minimum, intercept = 1, .data$observation_id,
+      .data$datafield_id,
+      rep("location", n_knot) |>
+        setNames(sprintf("location_%02i", seq_len(n_knot - 1))) |>
+        all_of() |>
+        across(),
+      .data$year, .data$month
+    ) |>
+    bind_cols(
+      bs(extra_count$cyear, knots = knots, Boundary.knots = range(knots)) |>
+        as.data.frame() |>
+        select(seq_len(n_knot - 1)) |>
+        `colnames<-`(sprintf("knot_%02i", seq_len(n_knot - 1)))
+    ) -> extra_count
+  c(
+      "0", "intercept",
+      "f(
+      cyear, model = \"rw1\", constr = TRUE, scale.model = TRUE,
+      hyper = list(theta = list(prior = \"pc.prec\", param = c(1, 0.01)))
+    )",
+    "f(
+      imonth, model = \"rw1\", constr = TRUE,
+      hyper = list(theta = list(prior = \"pc.prec\", param = c(0.5, 0.01)))
+    )",
+    "f(
+      imonth2, model = \"rw1\", constr = TRUE, replicate = cyear,
+      hyper = list(theta = list(prior = \"pc.prec\", param = c(0.5, 0.01)))
+    )",
+    "f(
+      location, model = \"iid\", constr = TRUE,
+      hyper = list(theta = list(prior = \"pc.prec\", param = c(1, 0.01)))
+    )",
+    sprintf(
+      "f(
+        location_%1$02i, knot_%1$02i, model = \"iid\", constr = TRUE,
+        hyper = list(theta = list(prior = \"pc.prec\", param = c(0.05, 0.01)))
+      )",
+      seq_len(n_knot - 1)
+    )
+  ) |>
+    paste(collapse = " + ") |>
+    sprintf(fmt = "count ~ %s") |>
     n2k_inla(
-      formula = "count ~ month +
-        f(
-          cyear, model = \"rw1\", scale.model = TRUE,
-          hyper = list(theta = list(prior = \"pc.prec\", param = c(0.1, 0.01)))
-        ) +
-        f(
-          cyear2, model = \"rw1\", scale.model = TRUE, replicate = ilocation,
-          hyper = list(theta = list(prior = \"pc.prec\", param = c(0.01, 0.01)))
-        ) +
-        f(
-          imonth, model = \"rw1\", constr = TRUE, replicate = cyear,
-          hyper = list(theta = list(prior = \"pc.prec\", param = c(0.1, 0.01)))
-        ) +
-        f(
-          location, model = \"iid\", constr = TRUE,
-          hyper = list(theta = list(prior = \"pc.prec\", param = c(1, 0.01)))
-        )",
+      data = truncated_zero, status = "new", family = "zeroinflatednbinomial0",
+      result_datasource_id = metadata$datasource, scheme_id = "watervogels",
+      location_group_id = as.character(location_group), extra = extra_count,
+      species_group_id = as.character(metadata$speciesgroup),
+      model_type = "inla zeroinflatednbinomial0: year * (location + month)",
+      first_imported_year = metadata$first_imported_year, seed = seed,
+      last_imported_year = metadata$last_imported_year, minimum = "minimum",
+      analysis_date = metadata$analysis_date, imputation_size = 100,
+      control = list(
+        control.family = list(
+          list(hyper = list(theta2 = list(initial = -11, fixed = TRUE)))
+        )
+      )
+    ) -> counts
+  observations |>
+    transmute(
+      present = ifelse(.data$minimum > 0, 1, 0), .data$cyear,
+      .data$imonth, .data$location, intercept = 1, .data$observation_id,
+      .data$datafield_id,
+      rep("location", n_knot) |>
+        setNames(sprintf("location_%02i", seq_len(n_knot - 1))) |>
+        all_of() |>
+        across(),
+      .data$year, .data$month
+    ) |>
+    bind_cols(
+      bs(observations$cyear, knots = knots, Boundary.knots = range(knots)) |>
+        as.data.frame() |>
+        select(seq_len(n_knot - 1)) |>
+        `colnames<-`(sprintf("knot_%02i", seq_len(n_knot - 1)))
+    ) -> present
+  c(
+    "0", "intercept",
+    "f(
+      cyear, model = \"rw1\", constr = TRUE, scale.model = TRUE,
+      hyper = list(theta = list(prior = \"pc.prec\", param = c(1, 0.01)))
+    )",
+    "f(
+      imonth, model = \"rw1\", constr = TRUE,
+      hyper = list(theta = list(prior = \"pc.prec\", param = c(0.5, 0.01)))
+    )",
+    "f(
+      location, model = \"iid\", constr = TRUE,
+      hyper = list(theta = list(prior = \"pc.prec\", param = c(1, 0.01)))
+    )",
+    sprintf(
+      "f(
+        location_%1$02i, knot_%1$02i, model = \"iid\", constr = TRUE,
+        hyper = list(theta = list(prior = \"pc.prec\", param = c(0.05, 0.01)))
+      )",
+      seq_len(n_knot - 1)
+    )
+  ) |>
+    paste(collapse = " + ") |>
+    sprintf(fmt = "present ~ %s") |>
+    n2k_inla(
+      data = present, status = "new", family = "binomial",
       result_datasource_id = metadata$datasource, scheme_id = "watervogels",
       location_group_id = as.character(location_group),
       species_group_id = as.character(metadata$speciesgroup),
-      model_type = sprintf(
-        "inla %s: year * (location + month)", metadata$distribution
-      ),
+      model_type = "inla binomial: year * (location + month)",
       first_imported_year = metadata$first_imported_year, seed = seed,
       last_imported_year = metadata$last_imported_year,
-      family = metadata$distribution, analysis_date = metadata$analysis_date,
-      imputation_size = 100, minimum = "minimum"
-    )
+      analysis_date = metadata$analysis_date, imputation_size = 100
+    ) -> present
+
+  list(present = present, count = counts)
 }

@@ -28,8 +28,10 @@ Imports:
     n2kupdate (>= 0.1.1),
     purrr,
     rlang,
+    splines,
     tibble,
-    tidyr
+    tidyr,
+    tidyselect
 Additional_repositories: https://inbo.r-universe.dev
 Encoding: UTF-8
 Language: en-GB

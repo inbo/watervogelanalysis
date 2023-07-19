@@ -1,65 +1,65 @@
 #' Create aggregation objects for imputed counts
 #' @export
-#' @importFrom assertthat assert_that has_name is.string noNA
+#' @importFrom assertthat assert_that is.count noNA
 #' @importFrom dplyr filter mutate pull select
-#' @importFrom git2rdata read_vc
+#' @importFrom git2rdata verify_vc
 #' @importFrom purrr map map_chr map_dfr pmap
-#' @importFrom n2kanalysis display n2k_aggregate store_model
+#' @importFrom n2kanalysis display get_file_fingerprint n2k_aggregate
+#' store_model
 #' @inheritParams prepare_analysis_imputation
 #' @inheritParams prepare_dataset
 #' @param imputations a data.frame with the imputations per location group
 prepare_analysis_aggregate <- function(
-  analysis_path, imputations, file_fingerprint, raw_repo, seed = 19790402,
-  verbose = TRUE
+  hurdle, impute_id, analysis_path, raw_repo, seed = 19790402, verbose = TRUE
 ) {
+  assert_that(
+    inherits(hurdle, "n2kHurdleImputed"), is.count(impute_id), is.count(seed),
+    noNA(impute_id)
+  )
   set.seed(seed)
-  assert_that(
-    inherits(imputations, "data.frame"), has_name(imputations, "filename"),
-    has_name(imputations, "species_group_id"),
-    has_name(imputations, "location_group_id"),
-    has_name(imputations, "scheme_id"),
-    is.string(file_fingerprint), noNA(file_fingerprint)
-  )
 
-  location <- read_vc(file = "location/locationgroup_location", root = raw_repo)
-  assert_that(
-    has_name(location, "locationgroup"), has_name(location, "location")
+  display(
+    verbose, paste("imputation:", hurdle@AnalysisMetadata$file_fingerprint)
   )
-
-  display(verbose, paste("imputation:", file_fingerprint))
-  imputations |>
-    mutate(
-      join = map(
-        .data$location_group_id, ~filter(location, .data$locationgroup == .x)
+  verify_vc(
+    file = "location/locationgroup", root = raw_repo,
+    variables = c("id", "impute")
+  ) |>
+    filter(.data$impute == impute_id) |>
+    select(location_group_id = "id") |>
+    inner_join(
+      verify_vc(
+        file = "location/locationgroup_location", root = raw_repo,
+        variables = c("locationgroup", "location")
       ) |>
-        map(transmute, location = factor(.data$location)) |>
-        map(as.data.frame, stringsAsFactors = FALSE),
-      location_group_id = as.character(location_group_id),
+        mutate(location = as.character(.data$location)),
+      by = c("location_group_id" = "locationgroup")
+    ) |>
+    nest(.by = "location_group_id", .key = "join") |>
+    mutate(
       analysis = pmap(
-        .l = list(
-          result_datasource_id = .data$result_datasource_id, join = .data$join,
-          species_group_id = .data$species_group_id,
-          analysis_date = .data$analysis_date, scheme_id = .data$scheme_id,
-          location_group_id = .data$location_group_id,
-          first_imported_year = .data$first_imported_year,
-          last_imported_year = .data$last_imported_year
+        list(
+          location_group_id = as.character(.data$location_group_id),
+          join = .data$join
         ),
-        n2k_aggregate, status = "waiting", minimum = "minimum", seed = seed,
+        n2k_aggregate,
+        result_datasource_id = hurdle@AnalysisMetadata$result_datasource_id,
+        scheme_id = hurdle@AnalysisMetadata$scheme_id,
+        species_group_id = hurdle@AnalysisMetadata$species_group_id,
         model_type = "aggregate imputed: sum ~ year + month",
-        formula = "~year + month", fun = sum, parent = file_fingerprint
+        formula = "~year + month", fun = sum,
+        parent = hurdle@AnalysisMetadata$file_fingerprint,
+        first_imported_year = hurdle@AnalysisMetadata$first_imported_year,
+        last_imported_year = hurdle@AnalysisMetadata$last_imported_year,
+        duration = hurdle@AnalysisMetadata$duration,
+        last_analysed_year = hurdle@AnalysisMetadata$last_analysed_year,
+        analysis_date = hurdle@AnalysisMetadata$analysis_date,
+        status = "waiting"
       ),
       filename = map_chr(
         .data$analysis, store_model, base = analysis_path,
         project = "watervogels", overwrite = FALSE
       )
     ) |>
-    pull("analysis") |>
-    map_dfr(slot, "AnalysisMetadata") |>
-    select(
-      "result_datasource_id", "scheme_id", "species_group_id", "analysis_date",
-      "location_group_id", "first_imported_year", "last_imported_year",
-      "duration", "last_analysed_year", "status", "status_fingerprint",
-      "file_fingerprint"
-    ) |>
-    mutate(parent = file_fingerprint)
+    pull("analysis")
 }

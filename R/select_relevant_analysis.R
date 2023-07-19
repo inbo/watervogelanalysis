@@ -7,9 +7,13 @@
 #' @inheritParams n2kanalysis::select_factor_threshold
 #' @export
 #' @importFrom assertthat assert_that has_name
-#' @importFrom dplyr anti_join arrange bind_rows count distinct filter group_by lag lead left_join mutate n select semi_join summarise transmute
+#' @importFrom dplyr anti_join bind_rows count distinct filter mutate select
+#' semi_join slice_max summarise transmute
+#' @importFrom purrr map
 #' @importFrom rlang .data
 #' @importFrom stats glm coef
+#' @importFrom tidyr nest pivot_longer unnest
+#' @importFrom tidyselect everything
 select_relevant_analysis <- function(observation) {
   if (is.null(observation)) {
     return(list(observation = data.frame(), rare_observation = NULL))
@@ -17,90 +21,39 @@ select_relevant_analysis <- function(observation) {
   assert_that(
     inherits(observation, "data.frame"), has_name(observation, "count"),
     has_name(observation, "month"), has_name(observation, "location"),
-    has_name(observation, "year")
+    has_name(observation, "year"), has_name(observation, "observation_id"),
+    has_name(observation, "datafield_id")
   )
 
-  # require the species to be present during 5 different years at a location
+  # require the species to be present during 5 different winters at a location
   observation |>
-  filter(!is.na(.data$count), .data$count > 0) |>
+    filter(!is.na(.data$count), .data$count > 0) |>
     distinct(.data$location, .data$year) |>
     count(.data$location) |>
     filter(.data$n >= 5) -> to_keep
   observation |>
-    anti_join(to_keep, by = "location") -> rare_observation
-  # calculate the first, second, penultimate and last year with occurrence for
-  # every location
-  # keep all counts from the second to the penultimate year
-  # keep the first year only if it one year before the second year
-  # keep the last year only if it one year later than the penultimate year
-  observation |>
-    filter(!is.na(.data$count), .data$count > 0) |>
-    distinct(.data$location, .data$year) |>
-    group_by(.data$location) |>
-    filter(n() >= 5) |>
-    arrange(.data$year) |>
-    summarise(
-      first = min(.data$year),
-      second  = min(lead(.data$year, n = 1), na.rm = TRUE),
-      penultimate = max(lag(.data$year, n = 1), na.rm = TRUE),
-      last = max(.data$year)
-    ) |>
-    transmute(
-      .data$location,
-      start = ifelse(
-        .data$first == .data$second - 1, .data$first, .data$second
-      ),
-      end = ifelse(
-        .data$last == .data$penultimate + 1, .data$last, .data$penultimate
-      )
-    ) |>
-    left_join(x = observation, by = "location") |>
-    mutate(
-      count = ifelse(
-        is.na(.data$start), NA,
-        ifelse(
-          .data$start <= .data$year & .data$year <= .data$end, .data$count, NA
-        )
-      )
-    ) |>
-    select(-"start", -"end") -> observation
-  # select locations with observations from at least 10 different years
-  observation |>
-    filter(!is.na(.data$count)) |>
-    distinct(.data$year, .data$location) |>
-    count(.data$location) |>
-    filter(.data$n >= 10) -> to_keep
-  observation |>
     anti_join(to_keep, by = "location") |>
-    filter(!is.na(.data$minimum), .data$minimum > 0) -> rare_observation
+    filter(.data$count > 0) -> rare_observation
   observation |>
     semi_join(to_keep, by = "location") -> observation
 
-  # select locations with presences in at least 5 years
+  # count the number of winters during which a species present for every
+  # location and month.
+  # count per location the number of months which have a least three winters of
+  # presences.
+  # keep only locations that have at least two months meeting this criterion
   observation |>
     filter(.data$count > 0) |>
-    distinct(.data$location, .data$year) |>
+    count(.data$location, .data$month) |>
+    filter(.data$n >= 3) |>
     count(.data$location) |>
-    filter(.data$n >= 5) -> to_keep
+    filter(.data$n >= 2) -> to_keep
   observation |>
     anti_join(to_keep, by = "location") |>
-    filter(!is.na(.data$minimum), .data$minimum > 0) |>
+    filter(.data$count > 0) |>
     bind_rows(rare_observation) -> rare_observation
   observation |>
     semi_join(to_keep, by = "location") -> observation
-
-  # keep only months with at least 5 observations
-  observation |>
-    filter(!is.na(.data$count), .data$count > 0) |>
-    count(.data$month) |>
-    filter(.data$n >= 5) -> to_keep
-  observation |>
-    anti_join(to_keep, by = "month") |>
-    filter(!is.na(.data$minimum), .data$minimum > 0) |>
-    bind_rows(rare_observation) -> rare_observation
-  observation |>
-    semi_join(to_keep, by = "month") -> observation
-
   if (nrow(observation) == 0) {
     return(list(observation = observation, rare_observation = rare_observation))
   }
@@ -119,38 +72,56 @@ select_relevant_analysis <- function(observation) {
     observation <- observation[observation$month %in% names(to_keep), ]
   }
 
-  # select locations with observations from at least 10 different years
   observation |>
-    filter(!is.na(.data$count)) |>
-    distinct(.data$year, .data$location) |>
-    count(.data$location) |>
-    filter(.data$n >= 10) -> to_keep
+    filter(.data$count > 0) |>
+    nest(.by = "location") |>
+    transmute(
+      .data$location,
+      range = map(.data$data, ~mutate(.x, year = factor(year))) |>
+        map(glm, formula = count ~ 0 + year, family = poisson) |>
+        map(coefficients) |>
+        map(t) |>
+        map(data.frame) |>
+        map(
+          pivot_longer, cols = everything(), names_to = "year",
+          values_to = "estimate"
+        )
+    ) |>
+    unnest("range") |>
+    filter(grepl("year", .data$year)) |>
+    group_by(.data$location) |>
+    slice_max(.data$estimate, n = 5, with_ties = TRUE) |>
+    summarise(
+      delta = range(.data$estimate) |>
+        diff() |>
+        exp()
+    ) |>
+    filter(1 / .data$delta > 0.1) -> to_keep
   observation |>
     anti_join(to_keep, by = "location") |>
-    filter(!is.na(.data$minimum), .data$minimum > 0) |>
+    filter(.data$count > 0) |>
     bind_rows(rare_observation) -> rare_observation
   observation |>
     semi_join(to_keep, by = "location") -> observation
 
-  # select locations with presences in at least 5 years
+  # remove winters without data at the start or end of the data
   observation |>
     filter(.data$count > 0) |>
-    distinct(.data$location, .data$year) |>
-    count(.data$location) |>
-    filter(.data$n >= 5) -> to_keep
+    summarise(start = min(.data$year), end = max(.data$year)) -> ranges
   observation |>
-    anti_join(to_keep, by = "location") |>
-    filter(!is.na(.data$minimum), .data$minimum > 0) |>
-    bind_rows(rare_observation) -> rare_observation
-  observation |>
-    semi_join(to_keep, by = "location") -> observation
+    filter(ranges$start <= .data$year, .data$year <= ranges$end) -> observation
+
+  if (nrow(observation) == 0) {
+    return(list(observation = observation, rare_observation = rare_observation))
+  }
 
   observation |>
     distinct(.data$location) |>
     nrow() -> n_location
   if (n_location < 6) {
-    rare_observation |>
-      bind_rows(observation) -> rare_observation
+    observation |>
+      filter(.data$count > 0) |>
+      bind_rows(rare_observation) -> rare_observation
     observation <- observation[0, ]
   }
 

@@ -8,7 +8,8 @@ prepare_analysis(
   analysis_path = ".",
   raw_repo,
   seed = 19790402,
-  verbose = TRUE
+  verbose = TRUE,
+  knot_interval = 10
 )
 }
 \arguments{
@@ -23,6 +24,9 @@ Defaults to 19790402 which refers to "Council Directive 79/409/EEC of 2 April
 1979 on the conservation of wild birds".}
 
 \item{verbose}{Display a progress bar when TRUE (default)}
+
+\item{knot_interval}{Interval in years between knots for the smoothers.
+Defaults to 10.}
 }
 \description{
 Prepare all datasets and a to do list of models

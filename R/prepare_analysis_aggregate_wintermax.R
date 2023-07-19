@@ -5,70 +5,37 @@
 #' @importFrom n2kanalysis n2k_aggregate store_model get_file_fingerprint
 #' @importFrom rlang .data
 #' @inheritParams prepare_analysis_imputation
-#' @inheritParams prepare_analysis_model
+#' @inheritParams prepare_analysis_index
 #' @inheritParams prepare_dataset
 prepare_analysis_agg_max <- function(
-  aggregation, analysis_path, seed = 19790402, verbose = TRUE) {
-  assert_that(
-    inherits(aggregation, "data.frame"), has_name(aggregation, "Parent"),
-    has_name(aggregation, "ResultDatasourceID"),
-    has_name(aggregation, "SchemeID"), has_name(aggregation, "SpeciesGroupID"),
-    has_name(aggregation, "LocationGroupID"),
-    has_name(aggregation, "FirstImportedYear"),
-    has_name(aggregation, "LastImportedYear"),
-    has_name(aggregation, "AnalysisDate"),
-    has_name(aggregation, "FileFingerprint"),
-    has_name(aggregation, "ResultDatasourceID"))
-
-  aggregation %>%
-    rowwise() %>%
-    do(
-      Analysis = list(
-        n2k_aggregate(
-          status = "waiting",
-          result.datasource.id = .data$ResultDatasourceID,
-          scheme.id = .data$SchemeID,
-          species.group.id = .data$SpeciesGroupID,
-          location.group.id = .data$LocationGroupID,
-          seed = seed,
-          model.type = "aggregate imputed: max ~ Year",
-          formula = "~Year",
-          first.imported.year = .data$FirstImportedYear,
-          last.imported.year = .data$LastImportedYear,
-          analysis.date = .data$AnalysisDate,
-          fun = max,
-          parent = .data$FileFingerprint
-        )
-      )
-    ) %>%
-    dplyr::pull(.data$Analysis) %>%
-    unlist(recursive = FALSE) -> models
-  aggregation %>%
-    select(
-      "ResultDatasourceID", "SchemeID", "SpeciesGroupID", "LocationGroupID",
-      "FirstImportedYear", "LastImportedYear", "AnalysisDate",
-      Imputation = "Parent", Parent = "FileFingerprint") %>%
-    mutate(
-      FileFingerprint = sapply(models, get_file_fingerprint)
-    ) -> output
-
-  if (verbose) {
-    message("Wintermaxima:")
-    message("  aggregation")
-    lapply(
-      models[order(output$FileFingerprint)],
-      function(x) {
-        message("    ", get_file_fingerprint(x))
-        store_model(
-          x, base = analysis_path, project = "watervogels", overwrite = FALSE
-        )
-      }
+  aggregation, analysis_path, verbose = TRUE
+) {
+  assert_that(inherits(aggregation, "n2kAggregate"), validObject(aggregation))
+  display(
+    verbose, linefeed = FALSE,
+    sprintf(
+      "%s-%s ", aggregation@AnalysisMetadata$location_group_id,
+      aggregation@AnalysisMetadata$species_group_id
     )
-  } else {
-    lapply(
-      models, store_model, base = analysis_path, project = "watervogels",
-      overwrite = FALSE
-    )
-  }
-  return(output)
+  )
+  object <- n2k_aggregate(
+    result_datasource_id = aggregation@AnalysisMetadata$result_datasource_id,
+    scheme_id = aggregation@AnalysisMetadata$scheme_id,
+    species_group_id = aggregation@AnalysisMetadata$species_group_id,
+    location_group_id = aggregation@AnalysisMetadata$location_group_id,
+    model_type = "aggregate imputed: max ~ year",
+    formula = "~year", fun = max,
+    parent = aggregation@AnalysisMetadata$file_fingerprint,
+    first_imported_year = aggregation@AnalysisMetadata$first_imported_year,
+    last_imported_year = aggregation@AnalysisMetadata$last_imported_year,
+    duration = aggregation@AnalysisMetadata$duration,
+    last_analysed_year = aggregation@AnalysisMetadata$last_analysed_year,
+    analysis_date = aggregation@AnalysisMetadata$analysis_date,
+    seed = aggregation@AnalysisMetadata$seed,
+    status = "waiting"
+  )
+  store_model(
+    object, base = analysis_path, project = "watervogels", overwrite = FALSE
+  )
+  return(object)
 }

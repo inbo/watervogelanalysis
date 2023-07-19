@@ -1,91 +1,65 @@
 #' Create aggregation objects for imputed counts while ignoring the missing data
 #' @export
-#' @importFrom assertthat assert_that has_name
-#' @importFrom dplyr %>% filter select bind_rows mutate arrange
-#' @importFrom n2kanalysis n2k_aggregate store_model
-#' @importFrom git2rdata read_vc
+#' @importFrom assertthat assert_that
+#' @importFrom dplyr filter inner_join mutate pull select
+#' @importFrom git2rdata verify_vc
+#' @importFrom n2kanalysis get_file_fingerprint n2k_aggregate store_model
+#' @importFrom purrr map_chr
+#' @importFrom tidyr nest
 #' @inheritParams prepare_analysis_imputation
 #' @inheritParams prepare_dataset
 #' @param imputations a data.frame with the imputations per location group
 prepare_analysis_aggregate_ni <- function(
-  analysis_path, imputations, raw_repo, seed = 19790402, verbose = TRUE
+    count, analysis_path, raw_repo, verbose = TRUE
 ) {
-  set.seed(seed)
-  assert_that(inherits(imputations, "data.frame"))
-  assert_that(has_name(imputations, "SpeciesGroup"))
-  assert_that(has_name(imputations, "Filename"))
-  assert_that(has_name(imputations, "LocationGroup"))
-  assert_that(has_name(imputations, "Scheme"))
-  assert_that(has_name(imputations, "Fingerprint"))
-  imputations <- imputations %>%
-    arrange(.data$Fingerprint, .data$LocationGroup)
+  assert_that(inherits(count, "n2kInla"))
 
-  location <- read_vc(file = "locationgrouplocation.txt", root = raw_repo)
-  assert_that(inherits(location, "data.frame"))
-  assert_that(has_name(location, "LocationGroupID"))
-  assert_that(has_name(location, "LocationID"))
+  parent <- get_file_fingerprint(count)
+  display(verbose, paste("no imputation", parent))
 
-  lapply(
-    unique(imputations$Fingerprint),
-    function(fingerprint) {
-      if (verbose) {
-        message("imputation: ", fingerprint)
-      }
-      locationgroups <- imputations %>%
-        filter(.data$Fingerprint == fingerprint) %>%
-        "[["("LocationGroup")
-      lapply(
-        locationgroups,
-        function(lg) {
-          if (verbose) {
-            message("  locationgroup: ", lg)
-          }
-          metadata <- imputations %>%
-            filter(.data$Fingerprint == fingerprint, .data$LocationGroup == lg)
-          form <- ifelse(
-            grepl("fMonth", metadata$Formula),
-            "~Year + fMonth",
-            "~Year"
-          )
-          analysis <- n2k_aggregate(
-            status = "waiting",
-            minimum = "Minimum",
-            result.datasource.id = metadata$ResultDatasourceID,
-            scheme.id = metadata$Scheme,
-            species.group.id = metadata$SpeciesGroup,
-            location.group.id = lg,
-            seed = seed,
-            model.type = "aggregate imputed: sum ~ Year + fMonth",
-            formula = form,
-            first.imported.year = metadata$FirstImportedYear,
-            last.imported.year = metadata$LastImportedYear,
-            analysis.date = metadata$AnalysisDate,
-            join = location %>%
-              filter(.data$LocationGroupID == lg) %>%
-              select("LocationID") %>%
-              as.data.frame(stringsAsFactors = FALSE),
-            filter = list("!Missing"),
-            fun = sum,
-            parent = fingerprint
-          )
-          store_model(
-            x = analysis,
-            base = analysis_path,
-            project = "watervogels",
-            overwrite = FALSE
-          )
-          analysis@AnalysisMetadata %>%
-            select(
-              "SchemeID", "SpeciesGroupID", "LocationGroupID",
-              "FirstImportedYear", "LastImportedYear", "Duration",
-              "LastAnalysedYear", "AnalysisDate", "Status", "StatusFingerprint",
-              "FileFingerprint", "ResultDatasourceID"
-            )
-        }
-      ) %>%
-        bind_rows() %>%
-        mutate(Parent = .data$fingerprint)
-    }
-  ) %>%
-    bind_rows()
+  verify_vc(
+    file = "location/locationgroup", root = raw_repo,
+    variables = c("id", "impute")
+  ) |>
+    filter(
+      .data$impute == as.integer(count@AnalysisMetadata$location_group_id)
+    ) |>
+    select(location_group_id = "id") |>
+    inner_join(
+      verify_vc(
+        file = "location/locationgroup_location", root = raw_repo,
+        variables = c("locationgroup", "location")
+      ) |>
+        mutate(location = as.character(.data$location)),
+      by = c("location_group_id" = "locationgroup")
+    ) |>
+    nest(.by = "location_group_id", .key = "join") |>
+    mutate(
+      analysis = pmap(
+        list(
+          location_group_id = as.character(.data$location_group_id),
+          join = .data$join
+        ),
+        n2k_aggregate,
+        result_datasource_id = count@AnalysisMetadata$result_datasource_id,
+        scheme_id = count@AnalysisMetadata$scheme_id,
+        species_group_id = count@AnalysisMetadata$species_group_id,
+        model_type = "aggregate not imputed: sum ~ year + month",
+        formula = "~year + month", fun = sum, filter = list("count > 0"),
+        parent = count@AnalysisMetadata$file_fingerprint,
+        first_imported_year = count@AnalysisMetadata$first_imported_year,
+        last_imported_year = count@AnalysisMetadata$last_imported_year,
+        duration = count@AnalysisMetadata$duration,
+        last_analysed_year = count@AnalysisMetadata$last_analysed_year,
+        analysis_date = count@AnalysisMetadata$analysis_date,
+        status = "waiting"
+      ),
+      filename = map_chr(
+        .data$analysis, store_model, base = analysis_path,
+        project = "watervogels", overwrite = FALSE
+      )
+    ) |>
+    pull("analysis") |>
+    map_chr(get_file_fingerprint) -> fingerprint
+  data.frame(fingerprint = fingerprint, parent = parent)
 }

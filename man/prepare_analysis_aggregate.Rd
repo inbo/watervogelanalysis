@@ -5,9 +5,9 @@
 \title{Create aggregation objects for imputed counts}
 \usage{
 prepare_analysis_aggregate(
+  hurdle,
+  impute_id,
   analysis_path,
-  imputations,
-  file_fingerprint,
   raw_repo,
   seed = 19790402,
   verbose = TRUE
@@ -18,8 +18,6 @@ prepare_analysis_aggregate(
 Must be either an existing local file path or an object of the \code{s3_bucket}
 class.}
 
-\item{imputations}{a data.frame with the imputations per location group}
-
 \item{raw_repo}{a git_repository object to write the output to}
 
 \item{seed}{the seed for the random number generator.
@@ -27,6 +25,8 @@ Defaults to 19790402 which refers to "Council Directive 79/409/EEC of 2 April
 1979 on the conservation of wild birds".}
 
 \item{verbose}{Display a progress bar when TRUE (default)}
+
+\item{imputations}{a data.frame with the imputations per location group}
 }
 \description{
 Create aggregation objects for imputed counts
