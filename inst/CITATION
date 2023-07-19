@@ -1,13 +1,13 @@
 citHeader("To cite `watervogelanalysis` in publications please use:")
 # begin checklist entry
-citEntry(
-  entry = "Manual",
+bibentry(
+  bibtype = "Manual",
   title = "watervogelanalysis: Analysis of the Wintering Birds. Version 0.4.0",
-  author = c(person(given = "Thierry", family = "Onkelinx")),
-  year = 2022,
+  author = c( author = c(person(given = "Thierry", family = "Onkelinx"))),
+  year = 2023,
   url = "https://inbo.github.io/watervogelanalysis/",
   abstract = "Imports the data from the Flemish and Walloon monitoring schemes of the wintering birds. Prepares analysis datasets and runs the analysis.",
-  textVersion = "Onkelinx, Thierry (2022) watervogelanalysis: Analysis of the Wintering Birds. Version 0.4.0. https://inbo.github.io/watervogelanalysis/",
-  keywords = "R package",
+  textVersion = "Onkelinx, Thierry (2023) watervogelanalysis: Analysis of the Wintering Birds. Version 0.4.0. https://inbo.github.io/watervogelanalysis/",
+  keywords = "wintering waterbird, birds directive, monitoring",
 )
 # end checklist entry
