@@ -199,12 +199,13 @@ prepare_imputation_model <- function(
     mutate(
       cyear = as.integer(.data$year - min(relevant$year) + 1),
       imonth = as.integer(.data$month), .data$location
+    ) |>
+    filter(
+      min(observations$cyear) <= .data$cyear,
+      .data$cyear <= max(observations$cyear)
     ) -> extra_count
   knots <- seq_len(ceiling(n_year / knot_interval) + 1)
   knots <- (knots - mean(knots)) * knot_interval + n_year / 2
-  assert_that(
-    min(knots) <= min(observations$cyear), max(observations$cyear) <= max(knots)
-  )
   bs(1, knots = knots, Boundary.knots = range(knots)) |>
     ncol() -> n_knot
   observations |>

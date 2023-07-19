@@ -80,7 +80,6 @@ prepare_analysis <- function(
   display(verbose, "Hurdle model")
   imputations |>
     transmute(
-      impute = as.integer(.data$impute),
       hurdle = map2(.data$presence, .data$count, n2k_hurdle_imputed),
       fingerprint = map_chr(
         .data$hurdle, store_model, base = analysis_path,
@@ -99,8 +98,8 @@ prepare_analysis <- function(
     arrange(basename(.data$fingerprint)) |>
     transmute(
       .data$hurdle,
-      aggregated = map2(
-        .data$hurdle, .data$impute, prepare_analysis_aggregate,
+      aggregated = map(
+        .data$hurdle, prepare_analysis_aggregate,
         analysis_path = analysis_path, raw_repo = raw_repo, seed = seed,
         verbose = verbose
       )
