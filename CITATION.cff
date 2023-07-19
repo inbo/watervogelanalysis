@@ -17,8 +17,13 @@ doi: ~
 license: GPL-3.0
 repository-code: https://github.com/inbo/watervogelanalysis/
 type: software
-abstract: "Imports the data from the Flemish and Walloon monitoring schemes of the
-  wintering birds. Prepares analysis datasets and runs the analysis."
+abstract: "Volunteers count 167 species of the wintering waterbirds in Flanders at
+  over 1100 wetland site since the winter of 1991-1992. This R package assists the
+  analysis of those records. First it imports the relevant data from the databank
+  and stores that in an analysis data repository. Then it prepares the analysis objects
+  in the format of the 'n2kanalysis' package. Those objects are sent off to fit, either
+  of a local machine or an AWS EC2 instance. Finaly we generate a technical report
+  on the results."
 identifiers:
 - type: url
   value: https://inbo.github.io/watervogelanalysis/

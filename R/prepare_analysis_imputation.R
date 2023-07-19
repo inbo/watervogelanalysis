@@ -19,6 +19,7 @@
 #' @importFrom dplyr across count inner_join filter mutate select row_number
 #' transmute
 #' @importFrom git2rdata read_vc recent_commit write_vc
+#' @importFrom methods slot
 #' @importFrom purrr map map2 map2_dfr map_dfr map_lgl
 #' @importFrom rlang .data
 #' @importFrom tidyr complete nest pivot_wider
@@ -156,6 +157,7 @@ observation" = anyDuplicated(rawdata[, c("location", "year", "month")]) == 0
 #' @importFrom n2kanalysis n2k_inla
 #' @importFrom rlang .data
 #' @importFrom splines bs
+#' @importFrom stats setNames
 #' @importFrom tidyselect all_of
 prepare_imputation_model <- function(
     location_group, relevant, extra, metadata, knot_interval = 10, seed

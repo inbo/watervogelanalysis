@@ -8,9 +8,9 @@
 #' @importFrom tidyr nest
 #' @inheritParams prepare_analysis_imputation
 #' @inheritParams prepare_dataset
-#' @param imputations a data.frame with the imputations per location group
+#' @param count An `n2kInla` object holding the count data.
 prepare_analysis_aggregate_ni <- function(
-    count, analysis_path, raw_repo, verbose = TRUE
+  count, analysis_path, raw_repo, verbose = TRUE
 ) {
   assert_that(inherits(count, "n2kInla"))
 

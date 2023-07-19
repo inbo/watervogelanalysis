@@ -7,6 +7,8 @@
 prepare_analysis_aggregate_ni(count, analysis_path, raw_repo, verbose = TRUE)
 }
 \arguments{
+\item{count}{An \code{n2kInla} object holding the count data.}
+
 \item{analysis_path}{Path to store the analysis files.
 Must be either an existing local file path or an object of the \code{s3_bucket}
 class.}
@@ -14,8 +16,6 @@ class.}
 \item{raw_repo}{a git_repository object to write the output to}
 
 \item{verbose}{Display a progress bar when TRUE (default)}
-
-\item{imputations}{a data.frame with the imputations per location group}
 }
 \description{
 Create aggregation objects for imputed counts while ignoring the missing data

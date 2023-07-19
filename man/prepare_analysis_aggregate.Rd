@@ -6,7 +6,6 @@
 \usage{
 prepare_analysis_aggregate(
   hurdle,
-  impute_id,
   analysis_path,
   raw_repo,
   seed = 19790402,
@@ -14,6 +13,8 @@ prepare_analysis_aggregate(
 )
 }
 \arguments{
+\item{hurdle}{An \code{n2kHurdleImputed} object.}
+
 \item{analysis_path}{Path to store the analysis files.
 Must be either an existing local file path or an object of the \code{s3_bucket}
 class.}
@@ -25,8 +26,6 @@ Defaults to 19790402 which refers to "Council Directive 79/409/EEC of 2 April
 1979 on the conservation of wild birds".}
 
 \item{verbose}{Display a progress bar when TRUE (default)}
-
-\item{imputations}{a data.frame with the imputations per location group}
 }
 \description{
 Create aggregation objects for imputed counts

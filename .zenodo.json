@@ -3,7 +3,7 @@
   "version": "0.4.0",
   "license": "GPL-3.0",
   "upload_type": "software",
-  "description": "<p>Imports the data from the Flemish and Walloon monitoring schemes of\nthe wintering birds. Prepares analysis datasets and runs the\nanalysis.<\/p>",
+  "description": "<p>Volunteers count 167 species of the wintering waterbirds in Flanders\nat over 1100 wetland site since the winter of 1991-1992. This R package\nassists the analysis of those records. First it imports the relevant\ndata from the databank and stores that in an analysis data repository.\nThen it prepares the analysis objects in the format of the ‘n2kanalysis’\npackage. Those objects are sent off to fit, either of a local machine or\nan AWS EC2 instance. Finaly we generate a technical report on the\nresults.<\/p>",
   "keywords": [
     "wintering waterbird, birds directive, monitoring"
   ],

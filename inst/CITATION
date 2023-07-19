@@ -6,7 +6,7 @@ bibentry(
   author = c( author = c(person(given = "Thierry", family = "Onkelinx"))),
   year = 2023,
   url = "https://inbo.github.io/watervogelanalysis/",
-  abstract = "Imports the data from the Flemish and Walloon monitoring schemes of the wintering birds. Prepares analysis datasets and runs the analysis.",
+  abstract = "Volunteers count 167 species of the wintering waterbirds in Flanders at over 1100 wetland site since the winter of 1991-1992. This R package assists the analysis of those records. First it imports the relevant data from the databank and stores that in an analysis data repository. Then it prepares the analysis objects in the format of the 'n2kanalysis' package. Those objects are sent off to fit, either of a local machine or an AWS EC2 instance. Finaly we generate a technical report on the results.",
   textVersion = "Onkelinx, Thierry (2023) watervogelanalysis: Analysis of the Wintering Birds. Version 0.4.0. https://inbo.github.io/watervogelanalysis/",
   keywords = "wintering waterbird, birds directive, monitoring",
 )

@@ -3,6 +3,7 @@
 #' @importFrom assertthat assert_that has_name
 #' @importFrom dplyr %>% rowwise do pull select mutate
 #' @importFrom n2kanalysis n2k_aggregate store_model get_file_fingerprint
+#' validObject
 #' @importFrom rlang .data
 #' @inheritParams prepare_analysis_imputation
 #' @inheritParams prepare_analysis_index

@@ -11,7 +11,7 @@
 #' semi_join slice_max summarise transmute
 #' @importFrom purrr map
 #' @importFrom rlang .data
-#' @importFrom stats glm coef
+#' @importFrom stats glm coef poisson
 #' @importFrom tidyr nest pivot_longer unnest
 #' @importFrom tidyselect everything
 select_relevant_analysis <- function(observation) {
@@ -79,7 +79,7 @@ select_relevant_analysis <- function(observation) {
       .data$location,
       range = map(.data$data, ~mutate(.x, year = factor(year))) |>
         map(glm, formula = count ~ 0 + year, family = poisson) |>
-        map(coefficients) |>
+        map(coef) |>
         map(t) |>
         map(data.frame) |>
         map(

@@ -4,28 +4,28 @@
 #' @importFrom dplyr filter mutate pull select
 #' @importFrom git2rdata verify_vc
 #' @importFrom purrr map map_chr map_dfr pmap
-#' @importFrom n2kanalysis display get_file_fingerprint n2k_aggregate
-#' store_model
+#' @importFrom n2kanalysis display get_file_fingerprint get_location_group_id
+#' n2k_aggregate store_model
 #' @inheritParams prepare_analysis_imputation
 #' @inheritParams prepare_dataset
-#' @param imputations a data.frame with the imputations per location group
+#' @param hurdle An `n2kHurdleImputed` object.
 prepare_analysis_aggregate <- function(
-  hurdle, impute_id, analysis_path, raw_repo, seed = 19790402, verbose = TRUE
+  hurdle, analysis_path, raw_repo, seed = 19790402, verbose = TRUE
 ) {
   assert_that(
-    inherits(hurdle, "n2kHurdleImputed"), is.count(impute_id), is.count(seed),
-    noNA(impute_id)
+    inherits(hurdle, "n2kHurdleImputed"), is.count(seed), noNA(seed)
   )
   set.seed(seed)
 
   display(
     verbose, paste("imputation:", hurdle@AnalysisMetadata$file_fingerprint)
   )
+
   verify_vc(
     file = "location/locationgroup", root = raw_repo,
     variables = c("id", "impute")
   ) |>
-    filter(.data$impute == impute_id) |>
+    filter(.data$impute == as.integer(get_location_group_id(hurdle))) |>
     select(location_group_id = "id") |>
     inner_join(
       verify_vc(

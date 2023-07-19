@@ -8,6 +8,7 @@
 #' @importFrom lubridate round_date year
 #' @importFrom n2kanalysis display get_file_fingerprint n2k_hurdle_imputed
 #' n2k_manifest store_manifest_yaml store_model
+#' @importFrom methods slot
 #' @importFrom purrr map_chr map_dfr
 #' @importFrom rlang .data
 #' @importFrom tidyr unnest
