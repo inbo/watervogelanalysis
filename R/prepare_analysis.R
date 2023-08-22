@@ -2,12 +2,12 @@
 #' @inheritParams prepare_analysis_imputation
 #' @inheritParams prepare_dataset
 #' @export
-#' @importFrom dplyr arrange bind_rows distinct inner_join transmute
+#' @importFrom dplyr bind_rows distinct inner_join transmute
 #' @importFrom fs path
 #' @importFrom git2rdata verify_vc
 #' @importFrom lubridate round_date year
-#' @importFrom n2kanalysis display get_file_fingerprint n2k_hurdle_imputed
-#' n2k_manifest store_manifest_yaml store_model
+#' @importFrom n2kanalysis display get_file_fingerprint manifest_yaml_to_bash
+#' n2k_hurdle_imputed n2k_manifest store_manifest_yaml store_model
 #' @importFrom methods slot
 #' @importFrom purrr map_chr map_dfr
 #' @importFrom rlang .data
@@ -58,9 +58,8 @@ prepare_analysis <- function(
       .data$count, fingerprint = map_chr(.data$count, get_file_fingerprint),
       parent = NA_character_
     ) -> manifest
-  display(verbose, "Datasets without imputations")
+  display(verbose, "\nDatasets without imputations")
   manifest |>
-    arrange(.data$fingerprint) |>
     transmute(
       no_impute = map(
         .data$count, prepare_analysis_aggregate_ni, verbose = verbose,
@@ -77,10 +76,12 @@ prepare_analysis <- function(
           parent = NA_character_
         )
     ) -> manifest
-  display(verbose, "Hurdle model")
+  display(verbose, "\nHurdle model")
   imputations |>
     transmute(
-      hurdle = map2(.data$presence, .data$count, n2k_hurdle_imputed),
+      hurdle = map2(
+        .data$presence, .data$count, n2k_hurdle_imputed, verbose = TRUE
+      ),
       fingerprint = map_chr(
         .data$hurdle, store_model, base = analysis_path,
         project = "watervogels", overwrite = FALSE
@@ -93,9 +94,8 @@ prepare_analysis <- function(
     unnest("parent") |>
     select(fingerprint = "analysis", parent = "parent_analysis") |>
     bind_rows(manifest) -> manifest
-  display(verbose, "Aggregations")
+  display(verbose, "\nAggregations")
   relevant |>
-    arrange(basename(.data$fingerprint)) |>
     transmute(
       .data$hurdle,
       aggregated = map(
@@ -171,8 +171,13 @@ prepare_analysis <- function(
       base = analysis_path, project = "watervogels",
       docker = "inbobmk/rn2k:0.9",
       dependencies = c(
-        "inbo/n2khelper@v0.5.0", "inbo/n2kanalysis@v0.3.1",
-        "inbo/multimput@v0.2.12"
+        "inbo/n2khelper@v0.5.0", "inbo/multimput@v0.2.12",
+        "inbo/n2kanalysis@v0.3.2"
       )
+    ) |>
+    map_chr("Key") |>
+    basename() |>
+    manifest_yaml_to_bash(
+      base = analysis_path, project = "watervogels", shutdown = TRUE
     )
 }

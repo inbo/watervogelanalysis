@@ -15,7 +15,11 @@ prepare_analysis_aggregate_ni <- function(
   assert_that(inherits(count, "n2kInla"))
 
   parent <- get_file_fingerprint(count)
-  display(verbose, paste("no imputation", parent))
+  sprintf(
+    "%s:%s ", count@AnalysisMetadata$location_group_id,
+    count@AnalysisMetadata$species_group_id
+  ) |>
+    display(verbose = verbose, linefeed = FALSE)
 
   verify_vc(
     file = "location/locationgroup", root = raw_repo,

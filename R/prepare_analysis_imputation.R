@@ -34,18 +34,16 @@ prepare_analysis_imputation <- function(
     has_name(location, "locationgroup"), has_name(location, "subset_month"),
     has_name(location, "start_year"), has_name(location, "end_year"),
     noNA(location$location), noNA(location$locationgroup),
-    noNA(location$subset_month),
-    inherits(speciesgroupspecies, "data.frame"),
+    noNA(location$subset_month), inherits(speciesgroupspecies, "data.frame"),
     has_name(speciesgroupspecies, "speciesgroup"),
     has_name(speciesgroupspecies, "species"), noNA(speciesgroupspecies),
     anyDuplicated(speciesgroupspecies$speciesgroup) == 0,
     is.flag(verbose), noNA(verbose), is.count(knot_interval),
     noNA(knot_interval)
   )
-  display(
-    verbose, paste(unique(speciesgroupspecies[["speciesgroup"]]), " "),
-    linefeed = FALSE
-  )
+  sprintf("%s ", unique(speciesgroupspecies[["speciesgroup"]])) |>
+    display(verbose = verbose, linefeed = FALSE)
+
   stopifnot(
     "Speciesgroups with multiple species not yet handled" =
       nrow(speciesgroupspecies) == 1

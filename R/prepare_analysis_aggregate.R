@@ -17,9 +17,11 @@ prepare_analysis_aggregate <- function(
   )
   set.seed(seed)
 
-  display(
-    verbose, paste("imputation:", hurdle@AnalysisMetadata$file_fingerprint)
-  )
+  sprintf(
+    "%s:%s ", hurdle@AnalysisMetadata$location_group_id,
+    hurdle@AnalysisMetadata$species_group_id
+  ) |>
+    display(verbose = verbose, linefeed = FALSE)
 
   verify_vc(
     file = "location/locationgroup", root = raw_repo,

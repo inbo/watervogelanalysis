@@ -5,4 +5,4 @@ prepare_analysis(
   ),
   raw_repo = git2r::repository(fs::path("~", "n2k", "watervogels")),
   seed = 19790402, verbose = TRUE, knot_interval = 10
-)
+) -> script
