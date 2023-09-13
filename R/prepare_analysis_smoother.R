@@ -29,7 +29,7 @@ prepare_analysis_smoother <- function(
     )
   }
   c(
-"~ f(cyear, model = \"rw2\", scale.model = TRUE,
+"f(cyear, model = \"rw2\", scale.model = TRUE,
   hyper = list(theta = list(prior = \"pc.prec\", param = c(0.1, 0.01)))
 )",
 "f(month, model = \"iid\", constr = TRUE,
@@ -52,7 +52,7 @@ prepare_analysis_smoother <- function(
     location_group_id = aggregation@AnalysisMetadata$location_group_id,
     model_type = c("smoothed imputed index: Total ~ Year", "Month"[month]) |>
       paste(collapse = " + "),
-    formula = formula, model_fun = INLA::inla,
+    formula = formula, model_fun = "INLA::inla",
     first_imported_year = aggregation@AnalysisMetadata$first_imported_year,
     last_imported_year = aggregation@AnalysisMetadata$last_imported_year,
     duration = aggregation@AnalysisMetadata$duration,

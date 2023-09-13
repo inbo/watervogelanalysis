@@ -28,7 +28,7 @@ Imports:
     git2rdata (>= 0.0.5),
     lubridate,
     Matrix,
-    n2kanalysis (>= 0.3.1),
+    n2kanalysis (>= 0.3.2),
     n2khelper (>= 0.5.0),
     n2kupdate (>= 0.1.1),
     purrr,
