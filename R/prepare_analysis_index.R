@@ -45,8 +45,12 @@ prepare_analysis_index <- function(
 "f(month, model = \"iid\", constr = TRUE,
   hyper = list(theta = list(prior = \"pc.prec\", param = c(0.6, 0.01)))
 )")[c(TRUE, month)] |>
-    paste(collapse = " +\n") -> formula
+    paste(collapse = " +\n") |>
+    sprintf(fmt = "~ %s") -> formula
   prepare_model_args_fun <- function(model) {
+    if (nrow(model@AggregatedImputed@Covariate) == 0) {
+      return(NULL)
+    }
     stopifnot(requireNamespace("INLA", quietly = TRUE))
     moving_trend <- function(n_year, trend_year, first_year) {
       trend_year <- min(n_year, trend_year)

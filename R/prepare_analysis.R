@@ -112,7 +112,7 @@ prepare_analysis <- function(
     unnest("parent") |>
     select(fingerprint = "analysis", parent = "parent_analysis") |>
     bind_rows(manifest) -> manifest
-  display(verbose, "Trends")
+  display(verbose, "\nTrends")
   relevant |>
     transmute(
       fingerprint = map(
@@ -132,7 +132,7 @@ prepare_analysis <- function(
         unnest("fingerprint"),
       manifest
     ) -> manifest
-  display(verbose, "Wintermaxima aggregation")
+  display(verbose, "\nWintermaxima aggregation")
   relevant |>
     transmute(
       aggregated = map(
@@ -171,11 +171,10 @@ prepare_analysis <- function(
       base = analysis_path, project = "watervogels",
       docker = "inbobmk/rn2k:0.9",
       dependencies = c(
-        "inbo/n2khelper@v0.5.0", "inbo/multimput@v0.2.12",
+        "inbo/multimput@v0.2.14", "inbo/n2khelper@v0.5.0",
         "inbo/n2kanalysis@v0.3.2"
       )
     ) |>
-    map_chr("Key") |>
     basename() |>
     manifest_yaml_to_bash(
       base = analysis_path, project = "watervogels", shutdown = TRUE

@@ -151,11 +151,13 @@ observation" = anyDuplicated(rawdata[, c("location", "year", "month")]) == 0
 }
 
 #' @importFrom assertthat assert_that
-#' @importFrom dplyr across bind_cols mutate select transmute
+#' @importFrom dplyr across bind_cols group_by filter inner_join mutate select
+#' summarise transmute
 #' @importFrom n2kanalysis n2k_inla
 #' @importFrom rlang .data
 #' @importFrom splines bs
 #' @importFrom stats setNames
+#' @importFrom tidyr pivot_longer
 #' @importFrom tidyselect all_of
 prepare_imputation_model <- function(
     location_group, relevant, extra, metadata, knot_interval = 10, seed
@@ -193,7 +195,12 @@ prepare_imputation_model <- function(
       as.character(location_group), as.character(metadata$speciesgroup)
     )
   )
+  stopifnot("single month" = length(unique(observations$month)) > 1)
   extra |>
+    complete(
+      .data$location, year = observations$year, month = observations$month,
+      fill = list(minimum = 0, count = 0)
+    ) |>
     mutate(
       cyear = as.integer(.data$year - min(relevant$year) + 1),
       imonth = as.integer(.data$month), .data$location
@@ -201,72 +208,108 @@ prepare_imputation_model <- function(
     filter(
       min(observations$cyear) <= .data$cyear,
       .data$cyear <= max(observations$cyear)
+    ) |>
+    transmute(
+      .data$count, .data$cyear, .data$imonth, .data$location, .data$minimum,
+      .data$observation_id, .data$datafield_id, .data$year, .data$month
     ) -> extra_count
-  knots <- seq_len(ceiling(n_year / knot_interval) + 1)
-  knots <- (knots - mean(knots)) * knot_interval + n_year / 2
-  bs(1, knots = knots, Boundary.knots = range(knots)) |>
-    ncol() -> n_knot
+  form <- c(
+    "0", "month",
+    "f(
+  cyear, model = \"rw1\", constr = TRUE, scale.model = TRUE,
+  hyper = list(theta = list(prior = \"pc.prec\", param = c(1, 0.01)))
+)",
+    "f(
+  imonth, model = \"rw1\", constr = TRUE, replicate = cyear,
+  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.5, 0.01)))
+)",
+    "f(
+  location, model = \"iid\", constr = TRUE,
+  hyper = list(theta = list(prior = \"pc.prec\", param = c(1, 0.01)))
+)"
+  )
   observations |>
     transmute(
       count = ifelse(.data$count > 0, .data$count, NA), .data$cyear,
-      .data$imonth, imonth2 = .data$imonth, .data$location, .data$minimum,
-      intercept = 1, .data$observation_id, .data$datafield_id,
-      rep("location", n_knot) |>
-        setNames(sprintf("location_%02i", seq_len(n_knot - 1))) |>
-        all_of() |>
-        across(),
-      .data$year, .data$month
-    ) |>
-    bind_cols(
-      bs(observations$cyear, knots = knots, Boundary.knots = range(knots)) |>
-        as.data.frame() |>
-        select(seq_len(n_knot - 1)) |>
-        `colnames<-`(sprintf("knot_%02i", seq_len(n_knot - 1)))
+      .data$imonth, .data$location, .data$minimum, .data$observation_id,
+      .data$datafield_id, .data$year, .data$month
     ) -> truncated_zero
-  extra_count |>
+  observations |>
     transmute(
-      .data$count, .data$cyear, .data$imonth, imonth2 = .data$imonth,
-      .data$location, .data$minimum, intercept = 1, .data$observation_id,
-      .data$datafield_id,
-      rep("location", n_knot) |>
-        setNames(sprintf("location_%02i", seq_len(n_knot - 1))) |>
-        all_of() |>
-        across(),
-      .data$year, .data$month
-    ) |>
-    bind_cols(
-      bs(extra_count$cyear, knots = knots, Boundary.knots = range(knots)) |>
-        as.data.frame() |>
-        select(seq_len(n_knot - 1)) |>
-        `colnames<-`(sprintf("knot_%02i", seq_len(n_knot - 1)))
-    ) -> extra_count
-  c(
-      "0", "intercept",
-      "f(
-      cyear, model = \"rw1\", constr = TRUE, scale.model = TRUE,
-      hyper = list(theta = list(prior = \"pc.prec\", param = c(1, 0.01)))
-    )",
-    "f(
-      imonth, model = \"rw1\", constr = TRUE,
-      hyper = list(theta = list(prior = \"pc.prec\", param = c(0.5, 0.01)))
-    )",
-    "f(
-      imonth2, model = \"rw1\", constr = TRUE, replicate = cyear,
-      hyper = list(theta = list(prior = \"pc.prec\", param = c(0.5, 0.01)))
-    )",
-    "f(
-      location, model = \"iid\", constr = TRUE,
-      hyper = list(theta = list(prior = \"pc.prec\", param = c(1, 0.01)))
-    )",
-    sprintf(
-      "f(
-        location_%1$02i, knot_%1$02i, model = \"iid\", constr = TRUE,
-        hyper = list(theta = list(prior = \"pc.prec\", param = c(0.05, 0.01)))
-      )",
-      seq_len(n_knot - 1)
+      present = ifelse(.data$minimum > 0, 1, 0), .data$cyear,
+      .data$imonth, .data$location, .data$observation_id,
+      .data$datafield_id, .data$year, .data$month
+    ) -> present
+  if (length(unique(observations$location)) >= 10) {
+    knots <- seq_len(ceiling(n_year / knot_interval) + 1)
+    knots <- (knots - mean(knots)) * knot_interval + n_year / 2
+    bs(1, knots = knots, Boundary.knots = range(knots)) |>
+      ncol() -> n_knot
+    # calculate basis for splines
+    truncated_zero |>
+      group_by(.data$location, .data$cyear) |>
+      summarise(
+        present = max(!is.na(.data$count)), .groups = "drop"
+    ) -> add_knot
+    bs(add_knot$cyear, knots = knots, Boundary.knots = range(knots)) |>
+      as.data.frame() |>
+      select(seq_len(n_knot - 1)) |>
+      `colnames<-`(sprintf("knot_%02i", seq_len(n_knot - 1))) |>
+      bind_cols(add_knot) -> add_knot
+    # set basis to NA when no data available
+    add_knot |>
+      pivot_longer(
+        -c("location", "cyear", "present"), names_to = "knot",
+        values_to = "influence"
+      ) -> knot_long
+    knot_long |>
+      filter(.data$present > 0) |>
+      group_by(.data$location, .data$knot) |>
+      summarise(max_influence = max(.data$influence), .groups = "drop") |>
+      inner_join(x = knot_long, by = c("location", "knot")) |>
+      select(-c("present", "max_influence")) |>
+      pivot_wider(names_from = "knot", values_from = "influence") -> rel_knot
+    truncated_zero |>
+      inner_join(rel_knot, by = c("location", "cyear")) |>
+      mutate(
+        rep("location", n_knot) |>
+          setNames(sprintf("location_%02i", seq_len(n_knot - 1))) |>
+          all_of() |>
+          across()
+      ) -> truncated_zero
+    extra_count |>
+      mutate(
+        rep("location", n_knot) |>
+          setNames(sprintf("location_%02i", seq_len(n_knot - 1))) |>
+          all_of() |>
+          across()
+      ) |>
+      bind_cols(
+        bs(extra_count$cyear, knots = knots, Boundary.knots = range(knots)) |>
+          as.data.frame() |>
+          select(seq_len(n_knot - 1)) |>
+          `colnames<-`(sprintf("knot_%02i", seq_len(n_knot - 1)))
+      ) -> extra_count
+    present |>
+      inner_join(rel_knot, by = c("location", "cyear")) |>
+      mutate(
+        rep("location", n_knot) |>
+          setNames(sprintf("location_%02i", seq_len(n_knot - 1))) |>
+          all_of() |>
+          across()
+      ) -> present
+    form <- c(
+      form,
+      sprintf(
+        "f(
+  location_%1$02i, knot_%1$02i, model = \"iid\", constr = TRUE,
+  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.05, 0.01)))
+)",
+        seq_len(n_knot - 1)
+      )
     )
-  ) |>
-    paste(collapse = " + ") |>
+  }
+  paste(form, collapse = " + ") |>
     sprintf(fmt = "count ~ %s") |>
     n2k_inla(
       data = truncated_zero, status = "new", family = "zeroinflatednbinomial0",
@@ -283,46 +326,7 @@ prepare_imputation_model <- function(
         )
       )
     ) -> counts
-  observations |>
-    transmute(
-      present = ifelse(.data$minimum > 0, 1, 0), .data$cyear,
-      .data$imonth, .data$location, intercept = 1, .data$observation_id,
-      .data$datafield_id,
-      rep("location", n_knot) |>
-        setNames(sprintf("location_%02i", seq_len(n_knot - 1))) |>
-        all_of() |>
-        across(),
-      .data$year, .data$month
-    ) |>
-    bind_cols(
-      bs(observations$cyear, knots = knots, Boundary.knots = range(knots)) |>
-        as.data.frame() |>
-        select(seq_len(n_knot - 1)) |>
-        `colnames<-`(sprintf("knot_%02i", seq_len(n_knot - 1)))
-    ) -> present
-  c(
-    "0", "intercept",
-    "f(
-      cyear, model = \"rw1\", constr = TRUE, scale.model = TRUE,
-      hyper = list(theta = list(prior = \"pc.prec\", param = c(1, 0.01)))
-    )",
-    "f(
-      imonth, model = \"rw1\", constr = TRUE,
-      hyper = list(theta = list(prior = \"pc.prec\", param = c(0.5, 0.01)))
-    )",
-    "f(
-      location, model = \"iid\", constr = TRUE,
-      hyper = list(theta = list(prior = \"pc.prec\", param = c(1, 0.01)))
-    )",
-    sprintf(
-      "f(
-        location_%1$02i, knot_%1$02i, model = \"iid\", constr = TRUE,
-        hyper = list(theta = list(prior = \"pc.prec\", param = c(0.05, 0.01)))
-      )",
-      seq_len(n_knot - 1)
-    )
-  ) |>
-    paste(collapse = " + ") |>
+  paste(form, collapse = " + ") |>
     sprintf(fmt = "present ~ %s") |>
     n2k_inla(
       data = present, status = "new", family = "binomial",
