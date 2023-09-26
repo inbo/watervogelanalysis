@@ -220,10 +220,6 @@ prepare_imputation_model <- function(
   hyper = list(theta = list(prior = \"pc.prec\", param = c(1, 0.01)))
 )",
     "f(
-  imonth, model = \"rw1\", constr = TRUE, replicate = cyear,
-  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.5, 0.01)))
-)",
-    "f(
   location, model = \"iid\", constr = TRUE,
   hyper = list(theta = list(prior = \"pc.prec\", param = c(1, 0.01)))
 )"
@@ -266,6 +262,7 @@ prepare_imputation_model <- function(
       filter(.data$present > 0) |>
       group_by(.data$location, .data$knot) |>
       summarise(max_influence = max(.data$influence), .groups = "drop") |>
+      filter(.data$max_influence > 0.001) |>
       inner_join(x = knot_long, by = c("location", "knot")) |>
       select(-c("present", "max_influence")) |>
       pivot_wider(names_from = "knot", values_from = "influence") -> rel_knot
@@ -309,7 +306,12 @@ prepare_imputation_model <- function(
       )
     )
   }
-  paste(form, collapse = " + ") |>
+  form |>
+    c("f(
+  imonth, model = \"rw1\", constr = TRUE, replicate = cyear,
+  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.5, 0.01)))
+)") |>
+    paste(collapse = " + ") |>
     sprintf(fmt = "count ~ %s") |>
     n2k_inla(
       data = truncated_zero, status = "new", family = "zeroinflatednbinomial0",
@@ -326,7 +328,7 @@ prepare_imputation_model <- function(
         )
       )
     ) -> counts
-  paste(form, collapse = " + ") |>
+  paste(form, collapse = " +\n") |>
     sprintf(fmt = "present ~ %s") |>
     n2k_inla(
       data = present, status = "new", family = "binomial",
