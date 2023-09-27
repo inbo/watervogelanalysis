@@ -237,20 +237,16 @@ prepare_imputation_model <- function(
       .data$datafield_id, .data$year, .data$month
     ) -> present
   if (length(unique(observations$location)) >= 10) {
-    knots <- seq_len(ceiling(n_year / knot_interval) + 1)
-    knots <- (knots - mean(knots)) * knot_interval + n_year / 2
-    bs(1, knots = knots, Boundary.knots = range(knots)) |>
-      ncol() -> n_knot
+    n_knot <- pmax(3, ceiling(n_year / knot_interval))
     # calculate basis for splines
     truncated_zero |>
       group_by(.data$location, .data$cyear) |>
       summarise(
         present = max(!is.na(.data$count)), .groups = "drop"
     ) -> add_knot
-    bs(add_knot$cyear, knots = knots, Boundary.knots = range(knots)) |>
+    bs(add_knot$cyear, df = n_knot) |>
       as.data.frame() |>
-      select(seq_len(n_knot - 1)) |>
-      `colnames<-`(sprintf("knot_%02i", seq_len(n_knot - 1))) |>
+      `colnames<-`(sprintf("knot_%02i", seq_len(n_knot))) |>
       bind_cols(add_knot) -> add_knot
     # set basis to NA when no data available
     add_knot |>
@@ -270,28 +266,25 @@ prepare_imputation_model <- function(
       inner_join(rel_knot, by = c("location", "cyear")) |>
       mutate(
         rep("location", n_knot) |>
-          setNames(sprintf("location_%02i", seq_len(n_knot - 1))) |>
+          setNames(sprintf("location_%02i", seq_len(n_knot))) |>
           all_of() |>
           across()
       ) -> truncated_zero
-    extra_count |>
+    rel_knot |>
+      select(-"location") |>
+      distinct() |>
+      inner_join(extra_count, by = "cyear") |>
       mutate(
         rep("location", n_knot) |>
-          setNames(sprintf("location_%02i", seq_len(n_knot - 1))) |>
+          setNames(sprintf("location_%02i", seq_len(n_knot))) |>
           all_of() |>
           across()
-      ) |>
-      bind_cols(
-        bs(extra_count$cyear, knots = knots, Boundary.knots = range(knots)) |>
-          as.data.frame() |>
-          select(seq_len(n_knot - 1)) |>
-          `colnames<-`(sprintf("knot_%02i", seq_len(n_knot - 1)))
       ) -> extra_count
     present |>
       inner_join(rel_knot, by = c("location", "cyear")) |>
       mutate(
         rep("location", n_knot) |>
-          setNames(sprintf("location_%02i", seq_len(n_knot - 1))) |>
+          setNames(sprintf("location_%02i", seq_len(n_knot))) |>
           all_of() |>
           across()
       ) -> present
@@ -302,7 +295,7 @@ prepare_imputation_model <- function(
   location_%1$02i, knot_%1$02i, model = \"iid\", constr = TRUE,
   hyper = list(theta = list(prior = \"pc.prec\", param = c(0.05, 0.01)))
 )",
-        seq_len(n_knot - 1)
+        seq_len(n_knot)
       )
     )
   }
