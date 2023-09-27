@@ -25,6 +25,15 @@ select_relevant_analysis <- function(observation) {
     has_name(observation, "datafield_id")
   )
 
+  # remove winters with less than 5 observations at the start or end of the data
+  observation |>
+    filter(.data$count > 0) |>
+    count(.data$year) |>
+    filter(.data$n >= 5) |>
+    summarise(start = min(.data$year), end = max(.data$year)) -> ranges
+  observation |>
+    filter(ranges$start <= .data$year, .data$year <= ranges$end) -> observation
+
   # require the species to be present during 5 different winters at a location
   observation |>
     filter(!is.na(.data$count), .data$count > 0) |>
