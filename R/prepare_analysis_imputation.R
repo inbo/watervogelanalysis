@@ -217,7 +217,7 @@ prepare_imputation_model <- function(
     "0", "month",
     "f(
   cyear, model = \"rw1\", constr = TRUE, scale.model = TRUE,
-  hyper = list(theta = list(prior = \"pc.prec\", param = c(1, 0.01)))
+  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.5, 0.01)))
 )",
     "f(
   location, model = \"iid\", constr = TRUE,
@@ -236,75 +236,12 @@ prepare_imputation_model <- function(
       .data$imonth, .data$location, .data$observation_id,
       .data$datafield_id, .data$year, .data$month
     ) -> present
-  if (length(unique(observations$location)) >= 10) {
-    n_knot <- pmax(3, ceiling(n_year / knot_interval))
-    # calculate basis for splines
-    truncated_zero |>
-      group_by(.data$location, .data$cyear) |>
-      summarise(
-        present = max(!is.na(.data$count)), .groups = "drop"
-    ) -> add_knot
-    bs(add_knot$cyear, df = n_knot) |>
-      as.data.frame() |>
-      `colnames<-`(sprintf("knot_%02i", seq_len(n_knot))) |>
-      bind_cols(add_knot) -> add_knot
-    # set basis to NA when no data available
-    add_knot |>
-      pivot_longer(
-        -c("location", "cyear", "present"), names_to = "knot",
-        values_to = "influence"
-      ) -> knot_long
-    knot_long |>
-      filter(.data$present > 0) |>
-      group_by(.data$location, .data$knot) |>
-      summarise(max_influence = max(.data$influence), .groups = "drop") |>
-      filter(.data$max_influence > 0.001) |>
-      inner_join(x = knot_long, by = c("location", "knot")) |>
-      select(-c("present", "max_influence")) |>
-      pivot_wider(names_from = "knot", values_from = "influence") -> rel_knot
-    truncated_zero |>
-      inner_join(rel_knot, by = c("location", "cyear")) |>
-      mutate(
-        rep("location", n_knot) |>
-          setNames(sprintf("location_%02i", seq_len(n_knot))) |>
-          all_of() |>
-          across()
-      ) -> truncated_zero
-    rel_knot |>
-      select(-"location") |>
-      distinct() |>
-      inner_join(extra_count, by = "cyear") |>
-      mutate(
-        rep("location", n_knot) |>
-          setNames(sprintf("location_%02i", seq_len(n_knot))) |>
-          all_of() |>
-          across()
-      ) -> extra_count
-    present |>
-      inner_join(rel_knot, by = c("location", "cyear")) |>
-      mutate(
-        rep("location", n_knot) |>
-          setNames(sprintf("location_%02i", seq_len(n_knot))) |>
-          all_of() |>
-          across()
-      ) -> present
-    form <- c(
-      form,
-      sprintf(
-        "f(
-  location_%1$02i, knot_%1$02i, model = \"iid\", constr = TRUE,
-  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.05, 0.01)))
-)",
-        seq_len(n_knot)
-      )
-    )
-  }
   form |>
     c("f(
   imonth, model = \"rw1\", constr = TRUE, replicate = cyear,
   hyper = list(theta = list(prior = \"pc.prec\", param = c(0.5, 0.01)))
 )") |>
-    paste(collapse = " + ") |>
+    paste(collapse = " +\n") |>
     sprintf(fmt = "count ~ %s") |>
     n2k_inla(
       data = truncated_zero, status = "new", family = "zeroinflatednbinomial0",

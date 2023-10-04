@@ -140,7 +140,7 @@ prepare_analysis <- function(
         analysis_path = analysis_path, verbose = verbose
       )
     ) -> wintermax
-  display(verbose, "Wintermaxima trend")
+  display(verbose, "\nWintermaxima trend")
   wintermax |>
     transmute(
       fingerprint = map(
