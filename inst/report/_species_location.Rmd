@@ -1,0 +1,249 @@
+{{this_ch_title}}
+
+{{this_sec_title}}
+
+```{r spec-loc-{{this_species}}-{{this_location}}-setup}
+if (interactive()) {
+  imputed |>
+    slice_sample(n = 1) |>
+    semi_join(x = imputed, by = c("species", "locationgroup")) |>
+    left_join(
+      observed, by = c("species", "locationgroup", "year", "month")
+    ) |>
+    mutate(observed = replace_na(.data$observed, 0)) -> this_observed
+} else {
+  imputed |>
+    filter(
+      .data$species_group_id == "{{this_species}}",
+      .data$location_group_id == "{{this_location}}"
+    ) |>
+    left_join(
+      observed, by = c("species", "locationgroup", "year", "month")
+    ) |>
+    mutate(observed = replace_na(.data$observed, 0)) -> this_observed
+}
+average |>
+  semi_join(this_observed, by = c("species", "locationgroup")) -> this_average
+difference |>
+  semi_join(
+    this_observed, by = c("species", "locationgroup")
+  ) -> this_difference
+wintermax |>
+  semi_join(
+    this_observed, by = c("species", "locationgroup")
+  ) -> this_wintermax
+smoothed_wintermax |>
+  semi_join(
+    this_observed, by = c("species", "locationgroup")
+  ) -> this_smoothed_wintermax
+yearly_average |>
+  semi_join(
+    this_observed, by = c("species", "locationgroup")
+  ) -> this_yearly_average
+yearly_change |>
+  semi_join(
+    this_observed, by = c("species", "locationgroup")
+  ) -> this_yearly_change
+trend |>
+  semi_join(
+    this_observed, by = c("species", "locationgroup")
+  ) -> this_trend
+this_trend |>
+  group_by(.data$duration) |>
+  slice_max(.data$midyear) |>
+  ungroup() -> trend_text
+this_difference |>
+  group_by(.data$duration) |>
+  slice_max(.data$midend, n = 1) |>
+  slice_min(.data$midstart, n = 1) -> change_text
+short <- data.frame(duration = NA)
+gbif |>
+  semi_join(this_observed, by = "id") -> this_gbif
+```
+
+Vernacular names
+
+`r paste(sprintf("- %s: %s", this_gbif$language, this_gbif$vernacular), collapse = "\n")`
+
+More information: `r sprintf("https://www.gbif.org/species/%i", this_gbif$key[1])`
+
+```{r spec-loc-{{this_species}}-{{this_location}}-text, results='asis'}
+c(
+  "The average abundance", "",
+  sprintf(
+    "- %s (%i-year period): **%s**", this_average$period, this_average$duration,
+    this_average$publication
+  ),
+  "", "The change in average abundance",  "",
+  sprintf(
+    "- %s compared to %s (%i-year period): **%s** %s", change_text$end,
+    change_text$start,change_text$duration, change_text$publication,
+    class_labels()[change_text$classification]
+  ),
+  "", "The average log-linear yearly change", "",
+  sprintf(
+    "- %s (%i-year trend): **%s** %s",
+    trend_text$period, trend_text$duration, trend_text$yearly_trend,
+    class_labels()[trend_text$classification]
+  )
+) |>
+  cat(sep = "\n")
+```
+
+(ref:spec-loc-{{this_species}}-{{this_location}}-monthly-total) Observed and augmented monthly totals for *`r this_observed$species[1]`* in `r this_observed$locationgroup[1]`.
+
+```{r spec-loc-{{this_species}}-{{this_location}}-monthly-total, fig.cap = "(ref:spec-loc-{{this_species}}-{{this_location}}-monthly-total)", eval = nrow(this_observed) > 0, out.width = "100%", out.height = "700px"}
+this_observed |>
+  mutate(extra = .data$month, max_y = max(.data$upper_confidence_limit)) |>
+  nest(.by = c("extra", "max_y")) |>
+  mutate(plot = map2(.data$data, 1.05 * .data$max_y, plot_month_total)) |>
+  subplot(nrows = ceiling(n_distinct(this_observed$month) / 2))
+```
+
+(ref:spec-loc-{{this_species}}-{{this_location}}-wintermax) Winter maximum for *`r this_wintermax$species[1]`* in `r this_wintermax$locationgroup[1]`.
+
+```{r spec-loc-{{this_species}}-{{this_location}}-wintermax, fig.cap = "(ref:spec-loc-{{this_species}}-{{this_location}}-wintermax)", eval = nrow(this_wintermax) > 0, out.width = "100%"}
+plot_ly(this_smoothed_wintermax, x = ~year, y = ~estimate) |>
+  add_fan(
+    sd = ~sd, link = "log",
+    text = ~sprintf("smoothed wintermaximum in %i: %s", year, publication)
+  ) |>
+  add_markers(
+    data = this_wintermax, color = I(inbo_steun_blauw), showlegend = FALSE,
+    text = ~sprintf("wintermaximum in %i: %s", year, publication),
+    hoverinfo = "text",
+    error_y = list(
+      array = ~upper_confidence_limit - estimate,
+      arrayminus = ~estimate - lower_confidence_limit
+    )
+  ) |>
+  layout(
+    hovermode = "x unified",
+    xaxis = list(title = list(font = list(size = 0))),
+    yaxis = list(
+      title = list(font = list(size = 0)),
+      range = c(
+        0, 1.05 * max(
+          this_wintermax$upper_confidence_limit,
+          this_smoothed_wintermax$upper_confidence_limit
+        )
+      )
+    )
+  )
+```
+
+(ref:spec-loc-{{this_species}}-{{this_location}}-average) Average abundance for *`r this_wintermax$species[1]`* in `r this_wintermax$locationgroup[1]`.
+
+```{r spec-loc-{{this_species}}-{{this_location}}-average, fig.cap = "(ref:spec-loc-{{this_species}}-{{this_location}}-average)", eval = nrow(this_yearly_average) > 0, out.width = "100%"}
+plot_ly(
+  this_yearly_average, x = ~year, y = ~estimate, hoverinfo = "text",
+  text = ~sprintf("average in %i: %s", year, publication)
+) |>
+  add_fan(
+    sd = ~sd, link = "log"
+  ) |>
+  layout(
+    hovermode = "x unified",
+    xaxis = list(title = list(font = list(size = 0))),
+    yaxis = list(
+      range = c(0, 1.05 * max(this_yearly_average$upper_confidence_limit)),
+      title = list(font = list(size = 0))
+    )
+  )
+```
+
+(ref:spec-loc-{{this_species}}-{{this_location}}-change) Change in average abundance for *`r this_wintermax$species[1]`* in `r this_wintermax$locationgroup[1]`.
+
+```{r spec-loc-{{this_species}}-{{this_location}}-change, fig.cap = "(ref:spec-loc-{{this_species}}-{{this_location}}-change)", eval = nrow(this_yearly_change) > 0, out.width = "100%"}
+c(
+  this_yearly_change$lower_confidence_limit[
+    is.finite(this_yearly_change$lower_confidence_limit)
+  ],
+  this_yearly_change$upper_confidence_limit[
+    is.finite(this_yearly_change$upper_confidence_limit)
+  ],
+  -params$threshold, params$threshold
+) |>
+  range() -> this_range
+change_breaks(n = 3)(this_range) -> this_breaks
+this_yearly_change |>
+  plot_ly(x = ~year, y = ~estimate, frame = ~reference) |>
+  add_fan(
+    sd = ~sd, hoverinfo = "text",
+    text = ~sprintf("change from %i to %i: %s", reference, year, publication)
+  ) |>
+  add_classification(
+    sd = ~sd, threshold = params$threshold, size = 16, hoverinfo = "text",
+    detailed = FALSE
+  ) |>
+  layout(
+    hovermode = "x unified",
+    xaxis = list(title = list(font = list(size = 0))),
+    yaxis = list(
+      range = 1.1 * this_range, title = list(font = list(size = 0)),
+      tickvals = this_breaks, ticktext = change_labels(this_breaks)
+    ),
+    shapes = reference_shape(threshold = params$threshold),
+    annotations = reference_text(
+      threshold = params$threshold,
+      offset = max(c(0.1 * params$threshold, 0.05 * abs(this_range))) *
+        c(0.5, -1, 1)
+    )
+  ) |>
+  animation_opts(redraw = TRUE, transition = 0)
+```
+
+```{r spec-loc-{{this_species}}-{{this_location}}-short-data, eval = nrow(this_trend) > 0}
+this_trend |>
+  filter(.data$duration == min(.data$duration)) -> short
+```
+
+(ref:spec-loc-{{this_species}}-{{this_location}}-trend) Change in yearly trend in average abundance per `r short$duration[1]`-year periods for *`r short$species[1]`* in `r short$locationgroup[1]`.
+
+```{r spec-loc-{{this_species}}-{{this_location}}-trend, fig.cap = "(ref:spec-loc-{{this_species}}-{{this_location}}-trend)", eval = nrow(this_trend) > 0, out.width = "100%"}
+c(
+  short$lower_confidence_limit, -params$threshold / 10,
+  short$upper_confidence_limit, params$threshold / 10
+) |>
+  range() -> this_range
+change_breaks(n = 3)(this_range) -> this_breaks
+plot_ly(data = short, x = ~midyear, y = ~estimate) |>
+  add_fan(
+    sd = ~sd, hoverinfo = "text",
+    text = ~sprintf("average yearly change during %s: %s", period, yearly_trend)
+  ) |>
+  add_classification(
+    sd = ~sd, threshold = params$threshold / 10, size = 16, hoverinfo = "text",
+    detailed = FALSE
+  ) |>
+  layout(
+    hovermode = "x unified",
+    xaxis = list(title = list(font = list(size = 0))),
+    yaxis = list(
+      range = 1.1 * this_range, title = list(font = list(size = 0)),
+      tickvals = this_breaks, ticktext = change_labels(this_breaks)
+    ),
+    shapes = reference_shape(threshold = params$threshold / 10),
+    annotations = reference_text(
+      threshold = params$threshold / 10,
+      offset = max(c(params$threshold, 0.05 * abs(this_range))) *
+        c(0.5, -1, 1)
+    )
+  )
+```
+
+(ref:spec-loc-{{this_species}}-{{this_location}}-hash) Analysis fingerprints for *`r this_wintermax$species[1]`* in `r this_wintermax$locationgroup[1]`.
+
+```{r spec-loc-{{this_species}}-{{this_location}}-hash}
+metadata |>
+  semi_join(this_observed, by = c("species", "locationgroup")) |>
+  transmute(
+    model = .data$type,
+    fingerprint = str_replace(
+      .data$analysis, "^([[:xdigit:]]{20})(.*)", "`\\1 \\2`"
+    ),
+    status = str_replace(.data$status, "^([[:xdigit:]]{20})(.*)", "`\\1 \\2`"),
+  ) |>
+  arrange(.data$model) |>
+  kable(caption = "(ref:spec-loc-{{this_species}}-{{this_location}}-hash)")
+```

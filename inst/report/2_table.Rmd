@@ -1,0 +1,23 @@
+# (PART) Tabular overview by location {#p:tabular .unnumbered}
+
+```{r location-display, results = "asis"}
+trend |>
+  distinct(.data$location_group_id, .data$locationgroup) |>
+  transmute(
+    chapter = ifelse(
+      .data$locationgroup == lag(
+        as.character(.data$locationgroup), 1, default = ""
+      ),
+      "",
+      sprintf("\n# %s\n", .data$locationgroup)
+    ),
+    rmd = pmap_chr(
+      list(
+        this_ch_title = .data$chapter, this_location = .data$location_group_id
+      ),
+      knit_expand, file = "_location.Rmd"
+    )
+  ) -> rmd
+knit(text = paste(rmd$rmd, collapse = "\n\n"), quiet = TRUE) |>
+  cat()
+```
