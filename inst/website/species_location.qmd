@@ -1,0 +1,569 @@
+---
+title: "{{title}}"
+---
+
+```{r setup}
+library(crosstalk)
+library(effectclass)
+library(git2rdata)
+library(INBOtheme)
+library(kableExtra)
+library(knitr)
+library(plotly)
+library(tidyverse)
+conflicted::conflicts_prefer(dplyr::filter, plotly::layout)
+if (interactive()) {
+  root <- "../results"
+  read_vc("observed", root) |>
+    slice_sample(n = 1) -> this
+  this_species <- this$species_group_id
+  this_location <- this$location_group_id
+} else {
+  root <- "../../results"
+  this_species <- {{this_species}}
+  this_location <- {{this_location}}
+}
+threshold <- log(0.75)
+```
+
+```{r gbif}
+read_vc("speciesgroup_species", root = root) |>
+  filter(.data$speciesgroup == this_species) |>
+  semi_join(
+    x = read_vc("gbif", root = root), by = c("id" = "species")
+  ) |>
+  mutate(
+    url = sprintf("https://www.gbif.org/species/%i", .data$key)
+  ) -> gbif
+```
+
+## Overview
+
+Vernacular names
+
+`r paste(sprintf("- %s: %s", gbif$language, gbif$vernacular), collapse = "\n")`
+
+More information about this species on [GBIF](`r sprintf("[%1$s](%1$s)", gbif$url[1])`){target="_blank"}.
+
+```{r tbl-trend-overview}
+#| tbl-cap: "Linear change over the most recent periods for
+#|   _{{this_species_name}}_ in `{{this_location_name}}`."
+read_vc("yearly_trend", root) |>
+  mutate(type = "monthly total") |>
+  bind_rows(
+    read_vc("wintermax_trend", root) |>
+      mutate(type = "winter maximum")
+  ) |>
+  filter(
+    .data$species_group_id == this_species,
+    .data$location_group_id == this_location
+  ) |>
+  group_by(.data$type, .data$duration) |>
+  slice_max(.data$midyear, n = 1) |>
+  ungroup() |>
+  mutate(
+    classification = classification(
+      lcl = .data$duration * .data$lower_confidence_limit, 
+      ucl = .data$duration * .data$upper_confidence_limit,
+      threshold = threshold
+    ),
+    `yearly change` = format_ci(
+      .data$estimate, lcl = .data$lower_confidence_limit,
+      ucl = .data$upper_confidence_limit, link = "log", change = TRUE,
+      percent = TRUE
+    ),
+    `change over period` = format_ci(
+      .data$estimate * .data$duration, change = TRUE, link = "log",
+      lcl = .data$lower_confidence_limit * .data$duration,
+      ucl = .data$upper_confidence_limit * .data$duration, percent = TRUE
+    ),
+    period = sprintf(
+      "%.0f--%.0f", .data$midyear - .data$duration / 2 + 0.5,
+      .data$midyear + .data$duration / 2 - 0.5
+    )
+  ) |>
+  arrange(.data$type, .data$duration) -> trend
+trend |>
+  select("type", "duration", "period", "yearly change", "change over period") |>
+  kable(align = "lrccc") |>
+  kable_paper(c("hover", "striped", "responsive"), full_width = FALSE) |>
+  column_spec(
+    4:5, color = "white",
+    background = effectclass:::detailed_signed_palette[trend$classification]
+  )
+```
+
+```{r tbl-average-overview}
+#| tbl-cap: "Average over the most recent periods for
+#|   _{{this_species_name}}_ in `{{this_location_name}}`."
+read_vc("yearly_average", root) |>
+  mutate(type = "monthly total") |>
+  bind_rows(
+    read_vc("wintermax_average", root) |>
+      mutate(type = "winter maximum")
+  ) |>
+  filter(
+    .data$species_group_id == this_species,
+    .data$location_group_id == this_location
+  ) |>
+  group_by(.data$type, .data$duration) |>
+  slice_max(.data$midyear, n = 1) |>
+  ungroup() |>
+  mutate(
+    average = format_ci(
+      .data$estimate, lcl = .data$lower_confidence_limit,
+      ucl = .data$upper_confidence_limit, link = "log"
+    ),
+    period = sprintf(
+      "%.0f--%.0f", .data$midyear - .data$duration / 2 + 0.5,
+      .data$midyear + .data$duration / 2 - 0.5
+    )
+  ) |>
+  arrange(.data$type, .data$duration) |>
+  select(
+    "type", "duration", "period", "average"
+  ) |>
+  kable(align = "lrcc") |>
+  kable_paper(c("hover", "striped", "responsive"), full_width = FALSE)
+```
+```{r tbl-difference-overview}
+#| tbl-cap: "Difference in average over the most recent periods for
+#|   _{{this_species_name}}_ in `{{this_location_name}}`."
+read_vc("yearly_difference", root) |>
+  mutate(type = "monthly total") |>
+  bind_rows(
+    read_vc("wintermax_difference", root) |>
+      mutate(type = "winter maximum")
+  ) |>
+  filter(
+    .data$species_group_id == this_species,
+    .data$location_group_id == this_location
+  ) |>
+  group_by(.data$type, .data$duration) |>
+  slice_max(.data$midend, n = 1) |>
+  slice_min(.data$midstart, n = 1) |>
+  ungroup() |>
+  mutate(
+    classification = classification(
+      lcl = .data$lower_confidence_limit, ucl = .data$upper_confidence_limit,
+      threshold = threshold
+    ),
+    change = format_ci(
+      .data$estimate, lcl = .data$lower_confidence_limit, percent = TRUE,
+      ucl = .data$upper_confidence_limit, link = "log", change = TRUE
+    ),
+    from = paste(
+      .data$midstart - .data$duration / 2 - 1,
+      .data$midstart + .data$duration / 2, sep = "--"
+    ),
+    to = paste(
+      .data$midend - .data$duration / 2 - 1,
+      .data$midend + .data$duration / 2, sep = "--"
+    )
+  ) -> trend
+trend |>
+  select("type", "duration", "from", "to", "change") |>
+  kable(align = "lrrrc") |>
+  kable_paper(c("hover", "striped", "responsive"), full_width = FALSE) |>
+  column_spec(
+    5, color = "white",
+    background = effectclass:::detailed_signed_palette[trend$classification]
+  )
+```
+
+## Augmented monthly totals
+
+```{r helper}
+plot_month_total <- function(x, max_y) {
+  plot_ly(
+    data  = x, x = ~year, y = ~observed, type = "bar", name = "observed",
+    color = I(inbo_palette(2)[1]), hoverinfo = "text",
+    text = ~sprintf("observed in %s %i: %s", month, year, observed),
+    showlegend = x$month[1] == "January"
+  ) |>
+  add_markers(
+    y = ~estimate, name = "augmented", color = I(inbo_palette(2)[2]),
+    text = ~sprintf("augmented in %s %i: %s", month, year, publication),
+    showlegend = x$month[1] == "January",
+    error_y = list(
+      array = ~upper_confidence_limit - estimate,
+      arrayminus = ~estimate - lower_confidence_limit
+    )
+  ) |>
+  layout(
+    hovermode = "x unified",
+    xaxis = list(title = list(font = list(size = 0))),
+    yaxis = list(title = list(font = list(size = 0)), range = c(0, max_y))
+  ) |>
+  add_annotations(
+    text = x$month[1], x = 0.5, y = 1.05, xref = "paper", yref = "paper",
+    xanchor = "middle", yanchor = "top", showarrow = FALSE
+  )
+}
+```
+
+```{r fig-monthly-total}
+#| fig-cap: "Observed and augmented monthly totals per winter for
+#|   _{{this_species_name}}_ in `{{this_location_name}}`."
+#| out-width: "100%"
+#| out-height: "700px"
+read_vc("observed", root) |>
+  filter(
+    .data$species_group_id == this_species,
+    .data$location_group_id == this_location
+  ) |>
+  select(
+    -"lower_confidence_limit", -"upper_confidence_limit",
+    "observed" = "estimate"
+  ) |>
+  full_join(
+    read_vc("imputed", root = root) |>
+      filter(
+        .data$species_group_id == this_species,
+        .data$location_group_id == this_location
+      ),
+    by = c("species_group_id", "location_group_id", "year", "month")
+  ) |>
+  mutate(
+    observed = replace_na(.data$observed, 0),
+    across(
+      c("estimate", "lower_confidence_limit", "upper_confidence_limit"),
+      ~replace_na(.x, replace = -1)
+    ),
+    publication = format_ci(
+      .data$estimate, lcl = .data$lower_confidence_limit,
+      ucl = .data$upper_confidence_limit
+    ) |>
+      ifelse(test = .data$estimate < 0, yes = ""),
+    lower_confidence_limit = ifelse(
+      .data$estimate < 0, NA, .data$lower_confidence_limit
+    ),
+    upper_confidence_limit = ifelse(
+      .data$estimate < 0, NA, .data$upper_confidence_limit
+    ),
+    estimate = ifelse(.data$estimate < 0, NA, .data$estimate),
+    extra = .data$month, max_y = max(.data$upper_confidence_limit)
+  ) |>
+  nest(.by = c("extra", "max_y")) |>
+  arrange(.data$extra) |>
+  mutate(plot = map2(.data$data, 1.05 * .data$max_y, plot_month_total)) %>%
+  subplot(nrows = ceiling(nrow(.) / 2))
+```
+
+```{r fig-yearly-index}
+#| fig-cap: "Average augmented monthly total per winter for
+#|   _{{this_species_name}}_ in `{{this_location_name}}`."
+read_vc("yearly_index", root) |>
+  filter(
+    .data$species_group_id == this_species,
+    .data$location_group_id == this_location
+  ) |>
+  mutate(
+    sd = (.data$upper_confidence_limit - .data$estimate) / qnorm(0.975),
+    across(
+      c("estimate", "lower_confidence_limit", "upper_confidence_limit"), exp
+    ),
+    publication = format_ci(
+      .data$estimate, lcl = .data$lower_confidence_limit,
+      ucl = .data$upper_confidence_limit
+    )
+  ) -> yearly_index
+read_vc("yearly_smoothed", root) |>
+  filter(
+    .data$species_group_id == this_species,
+    .data$location_group_id == this_location
+  ) |>
+  mutate(
+    sd = (.data$upper_confidence_limit - .data$estimate) / qnorm(0.975),
+    across(
+      c("estimate", "lower_confidence_limit", "upper_confidence_limit"), exp
+    ),
+    publication = format_ci(
+      .data$estimate, lcl = .data$lower_confidence_limit,
+      ucl = .data$upper_confidence_limit
+    )
+  ) -> yearly_smoothed
+plot_ly(yearly_index, x = ~year, y = ~estimate) |>
+  add_fan(
+    sd = ~sd, link = "log", fillcolor = inbo_palette(2)[2],
+    text = ~sprintf("smoothed yearly average in %i: %s", year, publication),
+    data = yearly_smoothed, name = "smoother"
+  ) |>
+  add_fan(
+    sd = ~sd, link = "log", fillcolor = inbo_palette(2)[1], name = "average",
+    text = ~sprintf("yearly average in %i: %s", year, publication),
+  ) |>
+  layout(
+    hovermode = "x unified",
+    xaxis = list(title = list(font = list(size = 0))),
+    yaxis = list(
+      range = c(
+        0,
+        1.05 * max(
+          c(
+            yearly_index$upper_confidence_limit,
+            yearly_smoothed$upper_confidence_limit
+          )
+        )
+      ),
+      title = list(font = list(size = 0))
+    )
+  ) |>
+  layout(showlegend = TRUE)
+```
+
+```{r fig-yearly-change}
+#| fig-cap: "Change between two years in average augmented monthly total per
+#|   winter for _{{this_species_name}}_ in `{{this_location_name}}`."
+read_vc("yearly_change", root) |>
+  filter(
+    .data$species_group_id == this_species,
+    .data$location_group_id == this_location
+  ) -> yearly_change
+yearly_change |>
+  mutate(
+    old = .data$reference, reference = .data$year, year = .data$old,
+    old = .data$lower_confidence_limit,
+    lower_confidence_limit = -.data$upper_confidence_limit,
+    upper_confidence_limit = -.data$old, estimate = -.data$estimate
+  ) |>
+  select(-"old") |>
+  bind_rows(
+    yearly_change,
+    yearly_change |>
+      distinct(.data$reference) |>
+      mutate(
+        year = .data$reference, estimate = 0, lower_confidence_limit = 0,
+        upper_confidence_limit = 0
+      )
+  ) |>
+  mutate(
+    sd = (.data$upper_confidence_limit - .data$estimate) / qnorm(0.975),
+    classification = classification(
+      lcl = .data$lower_confidence_limit, ucl = .data$upper_confidence_limit,
+      threshold = threshold
+    ),
+    change = format_ci(
+      .data$estimate, lcl = .data$lower_confidence_limit, percent = TRUE,
+      ucl = .data$upper_confidence_limit, link = "log", change = TRUE
+    )
+  ) |>
+  mutate(
+    key = sprintf("%i-%i", .data$year, .data$reference)
+  ) |>
+  SharedData$new(key = ~key) -> yearly_change
+c(
+  yearly_change$data(withFilter = FALSE)$lower_confidence_limit,
+  yearly_change$data(withFilter = FALSE)$upper_confidence_limit,
+  -threshold, threshold, na.rm = TRUE
+) |>
+  range(na.rm = TRUE) -> this_range
+change_breaks(n = 3)(this_range) -> this_breaks
+bscols(
+  widths = 12,
+  yearly_change |>
+    plot_ly(x = ~year, y = ~estimate) |>
+    add_fan(
+      sd = ~sd, hoverinfo = "text",
+      text = ~sprintf("change from %i to %i: %s", reference, year, change)
+    ) |>
+    add_classification(
+      sd = ~sd, threshold = threshold, size = 16, hoverinfo = "text",
+      detailed = FALSE
+    ) |>
+    layout(
+      hovermode = "x unified",
+      xaxis = list(title = list(font = list(size = 0))),
+      yaxis = list(
+        range = 1.1 * this_range, title = list(font = list(size = 0)),
+        tickvals = this_breaks, ticktext = change_labels(this_breaks)
+      ),
+      shapes = reference_shape(threshold = threshold),
+      annotations = reference_text(
+        threshold = threshold,
+        offset = max(c(0.1 * threshold, 0.05 * abs(this_range))) *
+          c(0.5, -1, 1)
+      )
+    ),
+  filter_select(
+    id = "ref_yearly", label = "Reference winter",
+    sharedData = yearly_change, group = ~reference, multiple = FALSE
+  )
+) %>%
+  `class<-`(c(class(.), "htmlwidget"))
+```
+## Winter maximum
+
+```{r fig-wintermax-index}
+#| fig-cap: "Average winter maximum per winter for
+#|   _{{this_species_name}}_ in `{{this_location_name}}`."
+read_vc("wintermax_index", root) |>
+  filter(
+    .data$species_group_id == this_species,
+    .data$location_group_id == this_location
+  ) |>
+  mutate(
+    sd = (.data$upper_confidence_limit - .data$estimate) / qnorm(0.975),
+    across(
+      c("estimate", "lower_confidence_limit", "upper_confidence_limit"), exp
+    ),
+    publication = format_ci(
+      .data$estimate, lcl = .data$lower_confidence_limit,
+      ucl = .data$upper_confidence_limit
+    )
+  ) -> wintermax_index
+read_vc("wintermax_smoothed", root) |>
+  filter(
+    .data$species_group_id == this_species,
+    .data$location_group_id == this_location
+  ) |>
+  mutate(
+    sd = (.data$upper_confidence_limit - .data$estimate) / qnorm(0.975),
+    across(
+      c("estimate", "lower_confidence_limit", "upper_confidence_limit"), exp
+    ),
+    publication = format_ci(
+      .data$estimate, lcl = .data$lower_confidence_limit,
+      ucl = .data$upper_confidence_limit
+    )
+  ) -> wintermax_smoothed
+read_vc("wintermax", root) |>
+  filter(
+    .data$species_group_id == this_species,
+    .data$location_group_id == this_location
+  ) |>
+  mutate(
+    error_up = .data$upper_confidence_limit - .data$estimate,
+    error_down = .data$estimate - .data$lower_confidence_limit,
+    publication = format_ci(
+      .data$estimate, lcl = .data$lower_confidence_limit,
+      ucl = .data$upper_confidence_limit
+    )
+  ) -> augmented_wintermax
+plot_ly(wintermax_index, x = ~year, y = ~estimate) |>
+  add_fan(
+    sd = ~sd, link = "log", fillcolor = inbo_palette(2)[2],
+    text = ~sprintf("smoothed yearly average in %i: %s", year, publication),
+    data = wintermax_smoothed, name = "smoother"
+  ) |>
+  add_fan(
+    sd = ~sd, link = "log", fillcolor = inbo_palette(2)[1], name = "average",
+    text = ~sprintf("yearly average in %i: %s", year, publication),
+  ) |>
+  add_markers(
+    data = augmented_wintermax, marker = list(color = inbo_palette(3)[3]),
+    error_y = list(
+      array = ~error_up, arrayminus = ~error_down, color = inbo_palette(3)[3]
+    ),
+    name = "winter maximum"
+  ) |>
+  layout(
+    hovermode = "x unified",
+    xaxis = list(title = list(font = list(size = 0))),
+    yaxis = list(
+      range = c(
+        0,
+        1.05 * max(
+          c(
+            wintermax_index$upper_confidence_limit,
+            wintermax_smoothed$upper_confidence_limit,
+            augmented_wintermax$upper_confidence_limit
+          )
+        )
+      ),
+      title = list(font = list(size = 0))
+    )
+  ) |>
+  layout(showlegend = TRUE)
+```
+
+```{r fig-wintermax-change}
+#| fig-cap: "Change between two winters in average winter maximum for 
+#|   _{{this_species_name}}_ in `{{this_location_name}}`."
+read_vc("wintermax_change", root) |>
+  filter(
+    .data$species_group_id == this_species,
+    .data$location_group_id == this_location
+  ) -> wintermax_change
+wintermax_change |>
+  mutate(
+    old = .data$reference, reference = .data$year, year = .data$old,
+    old = .data$lower_confidence_limit,
+    lower_confidence_limit = -.data$upper_confidence_limit,
+    upper_confidence_limit = -.data$old, estimate = -.data$estimate
+  ) |>
+  select(-"old") |>
+  bind_rows(
+    wintermax_change,
+    wintermax_change |>
+      distinct(.data$reference) |>
+      mutate(
+        year = .data$reference, estimate = 0, lower_confidence_limit = 0,
+        upper_confidence_limit = 0
+      )
+  ) |>
+  mutate(
+    sd = (.data$upper_confidence_limit - .data$estimate) / qnorm(0.975),
+    classification = classification(
+      lcl = .data$lower_confidence_limit, ucl = .data$upper_confidence_limit,
+      threshold = threshold
+    ),
+    change = format_ci(
+      .data$estimate, lcl = .data$lower_confidence_limit, percent = TRUE,
+      ucl = .data$upper_confidence_limit, link = "log", change = TRUE
+    )
+  ) |>
+  mutate(
+    key = sprintf("%i-%i", .data$year, .data$reference)
+  ) |>
+  SharedData$new(key = ~key) -> wintermax_change
+c(
+  wintermax_change$data(withFilter = FALSE)$lower_confidence_limit,
+  wintermax_change$data(withFilter = FALSE)$upper_confidence_limit,
+  -threshold, threshold, na.rm = TRUE
+) |>
+  range(na.rm = TRUE) -> this_range
+change_breaks(n = 3)(this_range) -> this_breaks
+bscols(
+  widths = 12,
+  wintermax_change |>
+    plot_ly(x = ~year, y = ~estimate) |>
+    add_fan(
+      sd = ~sd, hoverinfo = "text",
+      text = ~sprintf("change from %i to %i: %s", reference, year, change)
+    ) |>
+    add_classification(
+      sd = ~sd, threshold = threshold, size = 16, hoverinfo = "text",
+      detailed = FALSE
+    ) |>
+    layout(
+      hovermode = "x unified",
+      xaxis = list(title = list(font = list(size = 0))),
+      yaxis = list(
+        range = 1.1 * this_range, title = list(font = list(size = 0)),
+        tickvals = this_breaks, ticktext = change_labels(this_breaks)
+      ),
+      shapes = reference_shape(threshold = threshold),
+      annotations = reference_text(
+        threshold = threshold,
+        offset = max(c(0.1 * threshold, 0.05 * abs(this_range))) *
+          c(0.5, -1, 1)
+      )
+    ),
+  filter_select(
+    id = "ref_wintermax", label = "Reference winter",
+    sharedData = wintermax_change, group = ~reference, multiple = FALSE
+  )
+) %>%
+  `class<-`(c(class(.), "htmlwidget"))
+```
+
+```{js change-js}
+function filter_default() {
+  document.getElementById("ref_yearly").getElementsByClassName("selectized") 
+[0].selectize.setValue("{{this_default_reference}}", false);
+  document.getElementById("ref_wintermax").getElementsByClassName("selectized") 
+[0].selectize.setValue("{{this_default_reference}}", false);
+ }
+$(document).ready(filter_default);
+```

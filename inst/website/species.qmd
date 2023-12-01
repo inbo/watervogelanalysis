@@ -1,0 +1,122 @@
+---
+title: "_{{species}}_"
+---
+
+```{r setup}
+library(effectclass)
+library(git2rdata)
+library(INBOtheme)
+library(kableExtra)
+library(knitr)
+library(leaflet)
+library(tidyverse)
+opts_chunk$set(echo = FALSE)
+conflicted::conflicts_prefer(dplyr::filter, dplyr::pull)
+if (interactive()) {
+  root <- "../results"
+  read_vc("observed", root = root) |>
+    slice_sample(n = 1) |>
+    pull(.data$species_group_id) -> this_species_group_id
+} else {
+  this_species_group_id <- {{species_group_id}}
+  this_species <- "{{species}}"
+  root <- "../../results"
+}
+threshold <- log(0.75)
+```
+
+```{r load-data}
+#| label: load-data
+read_vc("observed", root = root) |>
+  filter(.data$species_group_id == this_species_group_id) |>
+  pull(.data$year) |>
+  range() -> year_range
+read_vc("speciesgroup_species", root = root) |>
+  filter(.data$speciesgroup == this_species_group_id) |>
+  semi_join(
+    x = read_vc("gbif", root = root), by = c("id" = "species")
+  ) |>
+  mutate(
+    url = sprintf("https://www.gbif.org/species/%i", .data$key)
+  ) -> gbif
+c(
+  srs = "EPSG:3857", taxonKey = gbif$key[1], bin = "hex", hexPerTile = 20,
+  style = "orange.marker", years = paste(year_range, collapse = ",")
+) %>%
+  paste(names(.), ., sep = "=", collapse = "&") |>
+  c(
+    "https://api.gbif.org/v2/map/occurrence/density/{z}/{x}/{y}@2x.png"
+  ) |>
+  rev() |>
+  paste(collapse = "?") -> url
+read_vc("locationgroup", root) |>
+  transmute(
+    location_group_id = as.character(.data$id),
+    area = factor(.data$description, levels = .data$description)
+  ) -> locationgroup
+```
+
+Vernacular names
+
+`r paste(sprintf("- %s: %s", gbif$language, gbif$vernacular), collapse = "\n")`
+
+More information about this species on [GBIF](`r sprintf("[%1$s](%1$s)", gbif$url[1])`){target="_blank"}.
+
+```{r fig-map}
+#| fig-cap: "Map of _{{species}}_ on GBIF"
+leaflet() |>
+  setView(4.2, 51.1, zoom = 8) |>
+  addTiles() |>
+  addTiles(urlTemplate = url)
+```
+
+```{r tbl-linear}
+#| tbl-cap: "Overview of linear trends for _{{species}}_"
+read_vc("yearly_trend", root) |>
+  filter(.data$species_group_id == this_species_group_id) |>
+  inner_join(locationgroup, by = "location_group_id") |>
+  mutate(
+    url = tolower(.data$area) |>
+      str_replace_all(" ", "-") |>
+      sprintf(fmt = "%s.html"),
+    classification = classification(
+      lcl = .data$duration * .data$lower_confidence_limit,
+      ucl = .data$duration * .data$upper_confidence_limit,
+      threshold = threshold
+    ),
+    when = sprintf(
+      "%.0f--%.0f", .data$midyear - .data$duration / 2 + 0.5,
+      .data$midyear + .data$duration / 2 - 0.5
+    ),
+    yearly_change = format_ci(
+      .data$estimate, lcl = .data$lower_confidence_limit, change = TRUE,
+      ucl = .data$upper_confidence_limit, link = "log", percent = TRUE
+    )
+  ) |>
+  group_by(.data$duration, .data$location_group_id) |>
+  slice_max(.data$midyear) |>
+  ungroup() -> recent_base
+recent_base |>
+  select("area", "url", "when", "yearly_change") |>
+  pivot_wider(names_from = "when", values_from = "yearly_change") -> trend
+recent_base |>
+  select("area", "when", "classification") |>
+  pivot_wider(names_from = "when", values_from = "classification") -> classif
+trend |>
+  select(-"url") |>
+  kable(align = "lccc") |>
+  kable_paper(c("hover", "striped", "responsive"), full_width = FALSE) |>
+  column_spec(1, link = trend$url) |>
+  column_spec(
+    2, color = "white",
+    background = effectclass:::detailed_signed_palette[classif[[2]]]
+  ) |>
+  column_spec(
+    3, color = "white",
+    background = effectclass:::detailed_signed_palette[classif[[3]]]
+  ) |>
+  column_spec(
+    4, color = "white",
+    background = effectclass:::detailed_signed_palette[classif[[4]]]
+  )
+```
