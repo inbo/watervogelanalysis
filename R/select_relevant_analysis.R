@@ -25,25 +25,22 @@ select_relevant_analysis <- function(observation) {
     has_name(observation, "datafield_id")
   )
 
-  # remove winters with less than 5 observations at the start or end of the data
-  observation |>
-    filter(.data$count > 0) |>
-    count(.data$year) |>
-    filter(.data$n >= 5) |>
-    summarise(start = min(.data$year), end = max(.data$year)) -> ranges
-  observation |>
-    filter(ranges$start <= .data$year, .data$year <= ranges$end) -> observation
+  relevant <- select_relevant_period(observation = observation)
+  if (nrow(relevant$observation) == 0) {
+    return(relevant)
+  }
 
   # require the species to be present during 5 different winters at a location
-  observation |>
+  relevant$observation |>
     filter(!is.na(.data$count), .data$count > 0) |>
     distinct(.data$location, .data$year) |>
     count(.data$location) |>
     filter(.data$n >= 5) -> to_keep
-  observation |>
+  relevant$observation |>
     anti_join(to_keep, by = "location") |>
-    filter(.data$count > 0) -> rare_observation
-  observation |>
+    filter(.data$count > 0) |>
+    bind_rows(relevant$rare_observation) -> rare_observation
+  relevant$observation |>
     semi_join(to_keep, by = "location") -> observation
 
   # count the number of winters during which a species present for every
@@ -67,18 +64,50 @@ select_relevant_analysis <- function(observation) {
     return(list(observation = observation, rare_observation = rare_observation))
   }
 
+  # select months with a median of at least 1 locations per winter
+  observation |>
+    filter(.data$count > 0) |>
+    count(.data$month, .data$year) |>
+    complete(.data$month, .data$year, fill = list(n = 0)) |>
+    group_by(.data$month) |>
+    summarise(median = median(.data$n)) |>
+    filter(.data$median >= 1) -> observed_months
+  if (nrow(observed_months) == 0) {
+    observation |>
+      filter(.data$count > 0) |>
+      bind_rows(rare_observation) -> rare_observation
+    return(
+      list(observation = observation[0, ], rare_observation = rare_observation)
+    )
+  }
+  observation |>
+    semi_join(observed_months, by = "month") |>
+    mutate(month = factor(.data$month)) -> observation
+  rare_observation |>
+    semi_join(observed_months, by = "month") |>
+    mutate(
+      month = factor(.data$month, levels = levels(observation$month))
+    ) -> rare_observation
+
   # select months with have on average at least 5% of the top month
   if (length(unique(observation$month)) > 1) {
     observation |>
       filter(!is.na(count)) |>
       glm(formula = count ~ 0 + month, family = poisson) |>
       coef() -> month_coef
-    names(month_coef) <- gsub("month", "", names(month_coef))
-    to_keep <- exp(month_coef - max(month_coef)) >= 0.05
-    rare_observation <- rare_observation[
-      rare_observation$month %in% names(to_keep),
-    ]
-    observation <- observation[observation$month %in% names(to_keep), ]
+    data.frame(
+      month = gsub("month", "", names(month_coef)), estimate = month_coef
+    ) |>
+      mutate(estimate = .data$estimate - max(.data$estimate)) |>
+      filter(.data$estimate >= log(0.05)) -> to_keep
+    observation |>
+      semi_join(to_keep, by = "month") |>
+      mutate(month = factor(.data$month)) -> observation
+    rare_observation |>
+      semi_join(to_keep, by = "month") |>
+      mutate(
+        month = factor(.data$month, levels = levels(observation$month))
+      ) -> rare_observation
   }
 
   observation |>
@@ -113,26 +142,54 @@ select_relevant_analysis <- function(observation) {
   observation |>
     semi_join(to_keep, by = "location") -> observation
 
-  # remove winters without data at the start or end of the data
-  observation |>
-    filter(.data$count > 0) |>
-    summarise(start = min(.data$year), end = max(.data$year)) -> ranges
-  observation |>
-    filter(ranges$start <= .data$year, .data$year <= ranges$end) -> observation
-
-  if (nrow(observation) == 0) {
-    return(list(observation = observation, rare_observation = rare_observation))
+  relevant <- select_relevant_period(
+    observation = observation, rare_observation = rare_observation
+  )
+  if (nrow(relevant$observation) == 0) {
+    return(relevant)
   }
 
-  observation |>
+  relevant$observation |>
     distinct(.data$location) |>
     nrow() -> n_location
   if (n_location < 6) {
+    relevant$observation |>
+      filter(.data$count > 0) |>
+      bind_rows(relevant$rare_observation) -> relevant$rare_observation
+    relevant$observation <- relevant$observation[0, ]
+  }
+
+  return(relevant)
+}
+
+#' @importFrom dplyr bind_rows filter summarise
+#' @importFrom rlang .data
+select_relevant_period <- function(observation, rare_observation = NULL) {
+  # remove winters with less than 5 observations at the start or end of the data
+  # the dataset should be a least 5 years long
+  observation |>
+    filter(.data$count > 0) |>
+    count(.data$year) |>
+    filter(.data$n >= 5) -> relevant
+  if (nrow(relevant) < 5) {
     observation |>
       filter(.data$count > 0) |>
       bind_rows(rare_observation) -> rare_observation
-    observation <- observation[0, ]
+    return(
+      list(observation = observation[0, ], rare_observation = rare_observation)
+    )
   }
-
+  relevant |>
+    summarise(start = min(.data$year), end = max(.data$year)) -> ranges
+  if (ranges$end - ranges$start < 4) {
+    observation |>
+      filter(.data$count > 0) |>
+      bind_rows(rare_observation) -> rare_observation
+    return(
+      list(observation = observation[0, ], rare_observation = rare_observation)
+    )
+  }
+  observation |>
+    filter(ranges$start <= .data$year, .data$year <= ranges$end) -> observation
   return(list(observation = observation, rare_observation = rare_observation))
 }

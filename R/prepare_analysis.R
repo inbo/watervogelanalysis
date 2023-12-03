@@ -13,8 +13,7 @@
 #' @importFrom rlang .data
 #' @importFrom tidyr unnest
 prepare_analysis <- function(
-  analysis_path = ".", raw_repo, seed = 19790402, verbose = TRUE,
-  knot_interval = 10
+  analysis_path = ".", raw_repo, seed = 19790402, verbose = TRUE
 ) {
   set.seed(seed)
   path("location", "location") |>
@@ -52,6 +51,14 @@ prepare_analysis <- function(
       prepare_analysis_imputation, location = location,
       seed = seed, analysis_path = analysis_path, raw_repo = raw_repo,
       verbose = verbose
+    ) |>
+    mutate(
+      month = map_lgl(
+        .data$count,
+        ~slot(.x, "AnalysisMetadata") |>
+          pull(formula) |>
+          grepl(pattern = "\nmonth +")
+      )
     ) -> imputations
   imputations |>
     transmute(
@@ -85,7 +92,8 @@ prepare_analysis <- function(
       fingerprint = map_chr(
         .data$hurdle, store_model, base = analysis_path,
         project = "watervogels", overwrite = FALSE
-      )
+      ),
+      .data$month
     ) -> relevant
   relevant |>
     transmute(
@@ -97,7 +105,7 @@ prepare_analysis <- function(
   display(verbose, "\nAggregations")
   relevant |>
     transmute(
-      .data$hurdle,
+      .data$hurdle, .data$month,
       aggregated = map(
         .data$hurdle, prepare_analysis_aggregate,
         analysis_path = analysis_path, raw_repo = raw_repo, seed = seed,
@@ -115,8 +123,8 @@ prepare_analysis <- function(
   display(verbose, "\nTrends")
   relevant |>
     transmute(
-      fingerprint = map(
-        .data$aggregated, prepare_analysis_index, month = TRUE,
+      fingerprint = map2(
+        .data$aggregated, .data$month, prepare_analysis_index,
         analysis_path = analysis_path, verbose = verbose
       )
     ) |>
@@ -124,8 +132,8 @@ prepare_analysis <- function(
     bind_rows(
       relevant |>
         transmute(
-          fingerprint = map(
-            .data$aggregated, prepare_analysis_smoother, month = TRUE,
+          fingerprint = map2(
+            .data$aggregated, .data$month, prepare_analysis_smoother,
             analysis_path = analysis_path, verbose = verbose
           )
         ) |>

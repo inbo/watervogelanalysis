@@ -10,8 +10,7 @@ prepare_analysis_imputation(
   analysis_path,
   raw_repo,
   seed = 19790402,
-  verbose = TRUE,
-  knot_interval = 10
+  verbose = TRUE
 )
 }
 \arguments{
@@ -31,9 +30,6 @@ Defaults to 19790402 which refers to "Council Directive 79/409/EEC of 2 April
 1979 on the conservation of wild birds".}
 
 \item{verbose}{Display a progress bar when TRUE (default)}
-
-\item{knot_interval}{Interval in years between knots for the smoothers.
-Defaults to 10.}
 }
 \value{
 A data.frame with the species id number of rows in the analysis

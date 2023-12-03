@@ -29,7 +29,7 @@ prepare_analysis_index <- function(
     rbind(
       model$summary.lincomb.derived[, c("mean", "sd")],
       model$summary.random$cyear[, c("mean", "sd")],
-      model$summary.random$month[, c("mean", "sd")]
+      model$summary.fixed[, c("mean", "sd")]
     )
   }
   extractor_fun <- function(model) {
@@ -39,12 +39,11 @@ prepare_analysis_index <- function(
     )
   }
   c(
+    "0", "month", "1",
 "f(cyear, model = \"rw1\", scale.model = TRUE,
-  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.1, 0.01)))
-)",
-"f(month, model = \"iid\", constr = TRUE,
-  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.6, 0.01)))
-)")[c(TRUE, month)] |>
+  hyper = list(theta = list(prior = \"pc.prec\", param = c(2, 0.01)))
+)"
+)[c(month, month, !month, TRUE)] |>
     paste(collapse = " +\n") |>
     sprintf(fmt = "~ %s") -> formula
   prepare_model_args_fun <- function(model) {
@@ -65,7 +64,7 @@ prepare_analysis_index <- function(
       )
       colnames(lc) <- sprintf(
         "trend_%.1f_%i",
-        seq_len(ncol(lc)) + first_year - 1 + (trend_year - 1) / 2,
+        first_year + seq_len(ncol(lc)) - 1 + (trend_year - 1) / 2,
         trend_year
       )
       t(lc)
@@ -83,7 +82,7 @@ prepare_analysis_index <- function(
           sprintf(
             "average_%.1f_%i",
             first_year + seq_len(n_year - trend_year + 1) - 1 +
-              trend_year / 2,
+              (trend_year - 1) / 2,
             trend_year
           )
         ) |>
@@ -120,23 +119,45 @@ prepare_analysis_index <- function(
         t()
     }
     winters <- sort(unique(model@AggregatedImputed@Covariate$year))
-    lc1 <- INLA::inla.make.lincombs(
-      "(Intercept)" = rep(1, length(winters)), cyear = diag(length(winters))
-    )
-    names(lc1) <- paste("total:", winters)
+    if (
+      "month" %in% colnames(model@AggregatedImputed@Covariate) &&
+      length(unique(model@AggregatedImputed@Covariate$month)) > 1
+    ) {
+      months <- unique(model@AggregatedImputed@Covariate$month)
+      (1 / length(months)) |>
+        rep(length(winters)) |>
+        list() |>
+        rep(length(months)) |>
+        setNames(paste0("month", months)) |>
+        c(list(cyear = diag(length(winters)))) |>
+        INLA::inla.make.lincombs() |>
+        setNames(paste("total:", winters)) -> lc1
+    } else {
+      months <- character(0)
+      length(winters) |>
+        diag() |>
+        list() |>
+        setNames("cyear") |>
+        c("(Intercept)" = list(rep(1, length(winters)))) |>
+        INLA::inla.make.lincombs() |>
+        setNames(paste("total:", winters)) -> lc1
+    }
     comb <- expand.grid(
       winter1 = factor(winters), winter2 = factor(winters)
     )
     comb <- comb[as.integer(comb$winter1) < as.integer(comb$winter2), ]
     comb$label <- sprintf("index: %s-%s", comb$winter2, comb$winter1)
-    lc2 <- INLA::inla.make.lincombs(
-      cyear = sparseMatrix(
-        i = rep(seq_len(nrow(comb)), 2),
+    nrow(comb) |>
+      seq_len() |>
+      rep(2) |>
+      sparseMatrix(
         j = c(as.integer(comb$winter2), as.integer(comb$winter1)),
         x = rep(c(1, -1), each = nrow(comb))
-      )
-    )
-    names(lc2) <- comb$label
+      ) |>
+      list() |>
+      setNames("cyear") |>
+      INLA::inla.make.lincombs() |>
+      setNames(comb$label) -> lc2
     moving_trend(
       n_year = length(winters), trend_year = 10, first_year = min(winters)
     ) |>
@@ -149,14 +170,6 @@ prepare_analysis_index <- function(
           n_year = length(winters), trend_year = length(winters),
           first_year = min(winters)
         ),
-        moving_average(
-          n_year = length(winters), trend_year = 5,
-          first_year = min(winters)
-        ),
-        moving_average(
-          n_year = length(winters), trend_year = 10,
-          first_year = min(winters)
-        ),
         moving_difference(
           n_year = length(winters), trend_year = 10,
           first_year = min(winters)
@@ -165,7 +178,31 @@ prepare_analysis_index <- function(
       unique() -> lc3
     INLA::inla.make.lincombs(cyear = lc3) |>
       setNames(rownames(lc3)) -> lc3
-    return(list(lincomb = c(lc1, lc2, lc3)))
+    moving_average(
+      n_year = length(winters), trend_year = 5,
+      first_year = min(winters)
+    ) |>
+      rbind(
+        moving_average(
+          n_year = length(winters), trend_year = 10,
+          first_year = min(winters)
+        )
+      ) -> ma
+    if (length(months) > 1) {
+      (1 / length(months)) |>
+        rep(nrow(ma)) |>
+        list() |>
+        rep(length(months)) |>
+        setNames(paste0("month", months)) |>
+        c(list(cyear = ma)) |>
+        INLA::inla.make.lincombs() |>
+        setNames(rownames(ma)) -> lc4
+    } else {
+      list("(Intercept)" = rep(1, nrow(ma)), cyear = ma) |>
+        INLA::inla.make.lincombs() |>
+        setNames(rownames(ma)) -> lc4
+    }
+    return(list(lincomb = c(lc1, lc2, lc3, lc4)))
   }
   x <- n2k_model_imputed(
     result_datasource_id = aggregation@AnalysisMetadata$result_datasource_id,

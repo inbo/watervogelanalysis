@@ -29,12 +29,10 @@ prepare_analysis_smoother <- function(
     )
   }
   c(
+    "0", "month", "1",
 "f(cyear, model = \"rw2\", scale.model = TRUE,
-  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.1, 0.01)))
-)",
-"f(month, model = \"iid\", constr = TRUE,
-  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.6, 0.01)))
-)")[c(TRUE, month)] |>
+  hyper = list(theta = list(prior = \"pc.prec\", param = c(1, 0.01)))
+)")[c(month, month, !month, TRUE)] |>
     paste(collapse = " +\n") |>
     sprintf(fmt = "~ %s") -> formula
   prepare_model_args_fun <- function(model) {
@@ -43,10 +41,28 @@ prepare_analysis_smoother <- function(
     }
     stopifnot(requireNamespace("INLA", quietly = TRUE))
     winters <- sort(unique(model@AggregatedImputed@Covariate$year))
-    lc1 <- INLA::inla.make.lincombs(
-      "(Intercept)" = rep(1, length(winters)), cyear = diag(length(winters))
-    )
-    names(lc1) <- paste("total:", winters)
+    if (
+      "month" %in% colnames(model@AggregatedImputed@Covariate) &&
+      length(unique(model@AggregatedImputed@Covariate$month)) > 1
+    ) {
+      months <- unique(model@AggregatedImputed@Covariate$month)
+      (1 / length(months)) |>
+        rep(length(winters)) |>
+        list() |>
+        rep(length(months)) |>
+        setNames(paste0("month", months)) |>
+        c(list(cyear = diag(length(winters)))) |>
+        INLA::inla.make.lincombs() |>
+        setNames(paste("total:", winters)) -> lc1
+    } else {
+      length(winters) |>
+        diag() |>
+        list() |>
+        setNames("cyear") |>
+        c("(Intercept)" = list(rep(1, length(winters)))) |>
+        INLA::inla.make.lincombs() |>
+        setNames(paste("total:", winters)) -> lc1
+    }
     return(list(lincomb = lc1))
   }
   x <- n2k_model_imputed(

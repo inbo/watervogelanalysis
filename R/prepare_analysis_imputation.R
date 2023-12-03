@@ -11,8 +11,6 @@
 #' Defaults to 19790402 which refers to "Council Directive 79/409/EEC of 2 April
 #' 1979 on the conservation of wild birds".
 #' @inheritParams prepare_dataset
-#' @param knot_interval Interval in years between knots for the smoothers.
-#' Defaults to 10.
 #' @return A data.frame with the species id number of rows in the analysis
 #' analysis dataset or NULL if not enough data.
 #' @importFrom assertthat assert_that has_name noNA is.flag is.count
@@ -26,7 +24,7 @@
 #' @export
 prepare_analysis_imputation <- function(
   speciesgroupspecies, location, analysis_path, raw_repo, seed = 19790402,
-  verbose = TRUE, knot_interval = 10
+  verbose = TRUE
 ) {
   set.seed(seed)
   assert_that(
@@ -38,8 +36,7 @@ prepare_analysis_imputation <- function(
     has_name(speciesgroupspecies, "speciesgroup"),
     has_name(speciesgroupspecies, "species"), noNA(speciesgroupspecies),
     anyDuplicated(speciesgroupspecies$speciesgroup) == 0,
-    is.flag(verbose), noNA(verbose), is.count(knot_interval),
-    noNA(knot_interval)
+    is.flag(verbose), noNA(verbose)
   )
   sprintf("%s ", unique(speciesgroupspecies[["speciesgroup"]])) |>
     display(verbose = verbose, linefeed = FALSE)
@@ -127,12 +124,10 @@ observation" = anyDuplicated(rawdata[, c("location", "year", "month")]) == 0
           location_group = .data$locationgroup, relevant = .data$relevant,
           extra = .data$rare_observation
         ),
-        prepare_imputation_model, metadata = metadata, seed = seed,
-        knot_interval = knot_interval
+        prepare_imputation_model, metadata = metadata, seed = seed
       )
     ) |>
     unnest("model") |>
-    filter(map_lgl(.data$model, ~inherits(.x, "n2kInla"))) |>
     mutate(
       filename = map_chr(
         .data$model, store_model, base = analysis_path, project = "watervogels",
@@ -160,7 +155,7 @@ observation" = anyDuplicated(rawdata[, c("location", "year", "month")]) == 0
 #' @importFrom tidyr pivot_longer
 #' @importFrom tidyselect all_of
 prepare_imputation_model <- function(
-    location_group, relevant, extra, metadata, knot_interval = 10, seed
+  location_group, relevant, extra, metadata, seed
 ) {
   if (nrow(relevant) == 0) {
     model <- n2k_inla(
@@ -176,26 +171,16 @@ prepare_imputation_model <- function(
       family = metadata$distribution, analysis_date = metadata$analysis_date,
       status = "insufficient_data"
     )
-    return(list(present = NULL, count = model))
+    return(list(count = model))
   }
   assert_that(
-    length(levels(relevant$month)) > 3, diff(range(relevant$year)) > 4,
-    length(unique(relevant$location)) >= 6
+    diff(range(relevant$year)) > 4, length(unique(relevant$location)) >= 6
   )
   relevant |>
     mutate(
       cyear = as.integer(.data$year - min(.data$year) + 1),
-      imonth = as.integer(.data$month), .data$location
+      imonth = as.integer(.data$month), .data$location, cyear2 = .data$cyear
     ) -> observations
-  n_year <- max(observations$cyear)
-  assert_that(
-    n_year >= knot_interval,
-    msg = sprintf(
-      "short time series for location %s, species %s",
-      as.character(location_group), as.character(metadata$speciesgroup)
-    )
-  )
-  stopifnot("single month" = length(unique(observations$month)) > 1)
   extra |>
     complete(
       .data$location, year = observations$year, month = observations$month,
@@ -203,7 +188,7 @@ prepare_imputation_model <- function(
     ) |>
     mutate(
       cyear = as.integer(.data$year - min(relevant$year) + 1),
-      imonth = as.integer(.data$month), .data$location
+      imonth = as.integer(.data$month), .data$location, cyear2 = .data$cyear
     ) |>
     filter(
       min(observations$cyear) <= .data$cyear,
@@ -211,13 +196,15 @@ prepare_imputation_model <- function(
     ) |>
     transmute(
       .data$count, .data$cyear, .data$imonth, .data$location, .data$minimum,
-      .data$observation_id, .data$datafield_id, .data$year, .data$month
+      .data$observation_id, .data$datafield_id, .data$year, .data$month,
+      .data$cyear2
     ) -> extra_count
   form <- c(
-    "0", "month",
+    "1",
+    "month"[length(unique(relevant$month)) > 1],
     "f(
   cyear, model = \"rw1\", constr = TRUE, scale.model = TRUE,
-  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.5, 0.01)))
+  hyper = list(theta = list(prior = \"pc.prec\", param = c(2, 0.01)))
 )",
     "f(
   location, model = \"iid\", constr = TRUE,
@@ -228,7 +215,7 @@ prepare_imputation_model <- function(
     transmute(
       count = ifelse(.data$count > 0, .data$count, NA), .data$cyear,
       .data$imonth, .data$location, .data$minimum, .data$observation_id,
-      .data$datafield_id, .data$year, .data$month
+      .data$datafield_id, .data$year, .data$month, .data$cyear2
     ) -> truncated_zero
   observations |>
     transmute(
@@ -236,11 +223,18 @@ prepare_imputation_model <- function(
       .data$imonth, .data$location, .data$observation_id,
       .data$datafield_id, .data$year, .data$month
     ) -> present
+  truncated_zero |>
+    filter(.data$count > 0) |>
+    count(.data$year, .data$month) |>
+    complete(.data$year, .data$month, fill = list(n = 0)) |>
+    group_by(.data$month) |>
+    summarise(median = median(.data$n)) |>
+    pull(.data$median) -> medians
   form |>
     c("f(
-  imonth, model = \"rw1\", constr = TRUE, replicate = cyear,
-  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.5, 0.01)))
-)") |>
+  cyear2, model = \"rw1\", constr = TRUE, replicate = imonth,
+  hyper = list(theta = list(prior = \"pc.prec\", param = c(1, 0.01)))
+)"[all(medians >= 5)]) |>
     paste(collapse = " +\n") |>
     sprintf(fmt = "count ~ %s") |>
     n2k_inla(
