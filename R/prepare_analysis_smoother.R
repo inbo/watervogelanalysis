@@ -80,6 +80,9 @@ prepare_analysis_smoother <- function(
     analysis_date = aggregation@AnalysisMetadata$analysis_date,
     seed = aggregation@AnalysisMetadata$seed, package = c("INLA", "dplyr"),
     extractor = extractor_fun, mutate = list(cyear = "year - max(year)"),
+    filter = list(
+      "cumsum(Imputation_max) > 0", "rev(cumsum(rev(Imputation_max))) > 0"
+    ),
     model_args = list(family = "nbinomial"),
     prepare_model_args = list(prepare_model_args_fun),
     parent = aggregation@AnalysisMetadata$file_fingerprint

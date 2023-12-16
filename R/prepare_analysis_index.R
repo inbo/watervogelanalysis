@@ -221,6 +221,9 @@ prepare_analysis_index <- function(
     package = c("INLA", "dplyr"),
     extractor = ifelse(month, extractor_fun_month, extractor_fun),
     mutate = list(cyear = "year - max(year)"),
+    filter = list(
+      "cumsum(Imputation_max) > 0", "rev(cumsum(rev(Imputation_max))) > 0"
+    ),
     model_args = list(family = "nbinomial"),
     prepare_model_args = list(prepare_model_args_fun),
     parent = aggregation@AnalysisMetadata$file_fingerprint
