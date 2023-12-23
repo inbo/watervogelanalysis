@@ -118,7 +118,10 @@ prepare_analysis_index <- function(
         ) |>
         t()
     }
-    winters <- sort(unique(model@AggregatedImputed@Covariate$year))
+    apply(model@AggregatedImputed@Imputation, 1, max) |>
+      aggregate(by = model@AggregatedImputed@Covariate["year"], FUN = max) -> mi
+    mi <- mi[order(mi$year), ]
+    winters <- mi$year[cumsum(mi$x) > 0 & rev(cumsum(rev(mi$x))) > 0]
     if (
       "month" %in% colnames(model@AggregatedImputed@Covariate) &&
       length(unique(model@AggregatedImputed@Covariate$month)) > 1
@@ -221,9 +224,17 @@ prepare_analysis_index <- function(
     package = c("INLA", "dplyr"),
     extractor = ifelse(month, extractor_fun_month, extractor_fun),
     mutate = list(cyear = "year - max(year)"),
-    filter = list(
-      "cumsum(Imputation_max) > 0", "rev(cumsum(rev(Imputation_max))) > 0"
-    ),
+    filter = list(function(z) {
+      z |>
+        dplyr::group_by(.data$year) |>
+        dplyr::summarise(Imputation_max = max(.data$Imputation_max)) |>
+        dplyr::arrange(.data$year) |>
+        dplyr::filter(
+          cumsum(.data$Imputation_max) > 0,
+          rev(cumsum(rev(.data$Imputation_max))) > 0
+        ) |>
+        dplyr::semi_join(x = z, by = "year")
+    }),
     model_args = list(family = "nbinomial"),
     prepare_model_args = list(prepare_model_args_fun),
     parent = aggregation@AnalysisMetadata$file_fingerprint
