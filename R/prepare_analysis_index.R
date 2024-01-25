@@ -118,10 +118,16 @@ prepare_analysis_index <- function(
         ) |>
         t()
     }
+    if (max(apply(model@AggregatedImputed@Imputation, 1, min)) < 5) {
+      return(NULL)
+    }
     apply(model@AggregatedImputed@Imputation, 1, max) |>
       aggregate(by = model@AggregatedImputed@Covariate["year"], FUN = max) -> mi
     mi <- mi[order(mi$year), ]
     winters <- mi$year[cumsum(mi$x) > 0 & rev(cumsum(rev(mi$x))) > 0]
+    if (length(winters) < 5) {
+      return(NULL)
+    }
     if (
       "month" %in% colnames(model@AggregatedImputed@Covariate) &&
       length(unique(model@AggregatedImputed@Covariate$month)) > 1
@@ -225,6 +231,16 @@ prepare_analysis_index <- function(
     extractor = ifelse(month, extractor_fun_month, extractor_fun),
     mutate = list(cyear = "year - max(year)"),
     filter = list(function(z) {
+      if (max(z$Imputation_min) < 5) {
+        return(z[0, ])
+      }
+      z |>
+        dplyr::filter(.data$Imputation_max > 0) |>
+        dplyr::distinct(.data$year) |>
+        nrow() -> years
+      if (years < 5) {
+        return(z[0, ])
+      }
       z |>
         dplyr::group_by(.data$year) |>
         dplyr::summarise(Imputation_max = max(.data$Imputation_max)) |>
@@ -235,7 +251,7 @@ prepare_analysis_index <- function(
         ) |>
         dplyr::semi_join(x = z, by = "year")
     }),
-    model_args = list(family = "nbinomial"),
+    model_args = list(family = "nbinomial", safe = FALSE, silent = TRUE),
     prepare_model_args = list(prepare_model_args_fun),
     parent = aggregation@AnalysisMetadata$file_fingerprint
   )
