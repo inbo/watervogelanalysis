@@ -13,14 +13,14 @@ library(tidyverse)
 opts_chunk$set(echo = FALSE)
 conflicted::conflicts_prefer(dplyr::filter, dplyr::pull)
 if (interactive()) {
-  root <- "../results"
+  root <- "../../../watervogels/result"
   read_vc("observed", root = root) |>
     slice_sample(n = 1) |>
     pull(.data$species_group_id) -> this_species_group_id
 } else {
   this_species_group_id <- {{species_group_id}}
   this_species <- "{{species}}"
-  root <- "../../results"
+  root <- "../../result"
 }
 threshold <- log(0.75)
 ```
@@ -70,8 +70,7 @@ leaflet() |>
   addTiles(urlTemplate = url)
 ```
 
-```{r tbl-linear}
-#| tbl-cap: "Overview of linear trends for _{{species}}_"
+```{r linear}
 read_vc("yearly_trend", root) |>
   filter(.data$species_group_id == this_species_group_id) |>
   inner_join(locationgroup, by = "location_group_id") |>
@@ -96,27 +95,32 @@ read_vc("yearly_trend", root) |>
   group_by(.data$duration, .data$location_group_id) |>
   slice_max(.data$midyear) |>
   ungroup() -> recent_base
+```
+
+
+```{r tbl-linear}
+#| tbl-cap: "Overview of linear trends for _{{species}}_"
+#| eval: !expr nrow(recent_base) > 0
+bg_colour <- c(effectclass:::detailed_signed_palette, "NA" = "white")
+recent_base |>
+  filter(.data$location_group_id == 1) |>
+  select("duration", "midyear") |>
+  semi_join(x = recent_base, by = c("duration", "midyear")) -> recent_base
 recent_base |>
   select("area", "url", "when", "yearly_change") |>
   pivot_wider(names_from = "when", values_from = "yearly_change") -> trend
 recent_base |>
   select("area", "when", "classification") |>
-  pivot_wider(names_from = "when", values_from = "classification") -> classif
+  mutate(classification = as.character(.data$classification)) |>
+  pivot_wider(
+    names_from = "when", values_from = "classification", values_fill = "NA"
+  ) -> classif
 trend |>
   select(-"url") |>
   kable(align = "lccc") |>
   kable_paper(c("hover", "striped", "responsive"), full_width = FALSE) |>
   column_spec(1, link = trend$url) |>
-  column_spec(
-    2, color = "white",
-    background = effectclass:::detailed_signed_palette[classif[[2]]]
-  ) |>
-  column_spec(
-    3, color = "white",
-    background = effectclass:::detailed_signed_palette[classif[[3]]]
-  ) |>
-  column_spec(
-    4, color = "white",
-    background = effectclass:::detailed_signed_palette[classif[[4]]]
-  )
+  column_spec(2, color = "white", background = bg_colour[classif[[2]]]) |>
+  column_spec(3, color = "white", background = bg_colour[classif[[3]]]) |>
+  column_spec(4, color = "white", background = bg_colour[classif[[4]]])
 ```

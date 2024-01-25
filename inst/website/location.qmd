@@ -11,16 +11,16 @@ library(tidyverse)
 opts_chunk$set(echo = FALSE)
 conflicted::conflicts_prefer(dplyr::filter, dplyr::pull)
 if (interactive()) {
-  root <- "../results"
+  root <- "../../../watervogels/result"
   read_vc("yearly_trend", root = root) |>
     slice_sample(n = 1) |>
     pull(.data$location_group_id) -> this_location
   location_file <- "vlaanderen"
 } else {
+  root <- "../../result"
   this_location <- {{this_location}}
   tolower("{{this_location_name}}") |>
     gsub(pattern = " ", replacement = "-") -> location_file
-  root <- "../../results"
 }
 threshold <- log(0.75)
 ```

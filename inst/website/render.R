@@ -4,7 +4,8 @@ library(quarto)
 library(tidyverse)
 conflicted::conflicts_prefer(dplyr::pull)
 n_head <- Inf
-target_folder <- "../quarto"
+results_folder <- "../../../watervogels/result"
+target_folder <- "../../../watervogels/quarto"
 dir.create(target_folder, showWarnings = FALSE)
 
 system.file("css_styles", package = "INBOmd") |>
@@ -14,13 +15,13 @@ file.path(target_folder, "css_styles") |>
 c("index.qmd", "species_list.qmd") |>
   file.copy(target_folder, overwrite = TRUE)
 
-read_vc("species", "../results") |>
+read_vc("species", results_folder) |>
   select("id", species = "name_sc") |>
   inner_join(read_vc(
-    "speciesgroup_species", "../results"), by = c("id" = "species")
+    "speciesgroup_species", results_folder), by = c("id" = "species")
   ) |>
   semi_join(
-    read_vc("observed", "../results") |>
+    read_vc("observed", results_folder) |>
       mutate(speciesgroup = as.integer(.data$species_group_id)),
     by = "speciesgroup"
   ) |>
@@ -41,12 +42,12 @@ for (i in seq_len(nrow(species))) {
     writeLines(species$output_file[i])
 }
 
-read_vc("observed", "../results") |>
+read_vc("observed", results_folder) |>
   mutate(speciesgroup = as.integer(.data$species_group_id)) |>
   inner_join(species, by = "speciesgroup") |>
   distinct(.data$species, .data$speciesgroup, .data$location_group_id) |>
   inner_join(
-    read_vc("locationgroup", "../results") |>
+    read_vc("locationgroup", results_folder) |>
       transmute(
         location_group_id = as.character(.data$id),
         locationgroup = .data$description
@@ -64,7 +65,7 @@ read_vc("observed", "../results") |>
     title = sprintf("_%s_ in `%s`", .data$species, .data$locationgroup)
   ) |>
   left_join(
-    read_vc("yearly_change", "../results") |>
+    read_vc("yearly_change", results_folder) |>
       group_by(
         speciesgroup = as.integer(.data$species_group_id),
         .data$location_group_id
@@ -86,7 +87,7 @@ for (i in seq_len(nrow(species_location))) {
     writeLines(species_location$output_file[i])
 }
 
-read_vc("locationgroup", "../results") |>
+read_vc("locationgroup", results_folder) |>
   transmute(
     location_group_id = as.character(.data$id),
     locationgroup = .data$description

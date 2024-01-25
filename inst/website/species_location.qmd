@@ -13,13 +13,13 @@ library(plotly)
 library(tidyverse)
 conflicted::conflicts_prefer(dplyr::filter, plotly::layout)
 if (interactive()) {
-  root <- "../results"
+  root <- "../../../watervogels/result"
   read_vc("observed", root) |>
     slice_sample(n = 1) -> this
   this_species <- this$species_group_id
   this_location <- this$location_group_id
 } else {
-  root <- "../../results"
+  root <- "../../result"
   this_species <- {{this_species}}
   this_location <- {{this_location}}
 }
@@ -45,7 +45,20 @@ Vernacular names
 
 More information about this species on [GBIF](`r sprintf("[%1$s](%1$s)", gbif$url[1])`){target="_blank"}.
 
-```{r tbl-trend-overview}
+```{r load-trend}
+read_vc("yearly_trend", root) |>
+  mutate(type = "monthly total") |>
+  bind_rows(
+    read_vc("wintermax_trend", root) |>
+      mutate(type = "winter maximum")
+  ) |>
+  filter(
+    .data$species_group_id == this_species,
+    .data$location_group_id == this_location
+  ) -> trends
+```
+
+```{r tbl-trend-overview, eval = nrow(trends) > 0}
 #| tbl-cap: "Linear change over the most recent periods for
 #|   _{{this_species_name}}_ in `{{this_location_name}}`."
 read_vc("yearly_trend", root) |>
@@ -93,7 +106,7 @@ trend |>
   )
 ```
 
-```{r tbl-average-overview}
+```{r tbl-average-overview, eval = nrow(trends) > 0}
 #| tbl-cap: "Average over the most recent periods for
 #|   _{{this_species_name}}_ in `{{this_location_name}}`."
 read_vc("yearly_average", root) |>
@@ -126,7 +139,7 @@ read_vc("yearly_average", root) |>
   kable(align = "lrcc") |>
   kable_paper(c("hover", "striped", "responsive"), full_width = FALSE)
 ```
-```{r tbl-difference-overview}
+```{r tbl-difference-overview, eval = nrow(trends) > 0}
 #| tbl-cap: "Difference in average over the most recent periods for
 #|   _{{this_species_name}}_ in `{{this_location_name}}`."
 read_vc("yearly_difference", root) |>
@@ -250,9 +263,7 @@ read_vc("observed", root) |>
   subplot(nrows = ceiling(nrow(.) / 2))
 ```
 
-```{r fig-yearly-index}
-#| fig-cap: "Average augmented monthly total per winter for
-#|   _{{this_species_name}}_ in `{{this_location_name}}`."
+```{r yearly-index}
 read_vc("yearly_index", root) |>
   filter(
     .data$species_group_id == this_species,
@@ -268,6 +279,12 @@ read_vc("yearly_index", root) |>
       ucl = .data$upper_confidence_limit
     )
   ) -> yearly_index
+```
+
+
+```{r fig-yearly-index, eval = nrow(yearly_index) > 0}
+#| fig-cap: "Average augmented monthly total per winter for
+#|   _{{this_species_name}}_ in `{{this_location_name}}`."
 read_vc("yearly_smoothed", root) |>
   filter(
     .data$species_group_id == this_species,
@@ -287,11 +304,12 @@ plot_ly(yearly_index, x = ~year, y = ~estimate) |>
   add_fan(
     sd = ~sd, link = "log", fillcolor = inbo_palette(2)[2],
     text = ~sprintf("smoothed yearly average in %i: %s", year, publication),
-    data = yearly_smoothed, name = "smoother"
+    data = yearly_smoothed, name = "smoother", legendgroup = "smooth"
   ) |>
   add_fan(
     sd = ~sd, link = "log", fillcolor = inbo_palette(2)[1], name = "average",
     text = ~sprintf("yearly average in %i: %s", year, publication),
+    legendgroup = "average"
   ) |>
   layout(
     hovermode = "x unified",
@@ -312,7 +330,7 @@ plot_ly(yearly_index, x = ~year, y = ~estimate) |>
   layout(showlegend = TRUE)
 ```
 
-```{r fig-yearly-change}
+```{r fig-yearly-change, eval = nrow(yearly_index) > 0}
 #| fig-cap: "Change between two years in average augmented monthly total per
 #|   winter for _{{this_species_name}}_ in `{{this_location_name}}`."
 read_vc("yearly_change", root) |>
@@ -392,9 +410,10 @@ bscols(
 ) %>%
   `class<-`(c(class(.), "htmlwidget"))
 ```
+
 ## Winter maximum
 
-```{r fig-wintermax-index}
+```{r fig-wintermax-index, eval = nrow(trends) > 0}
 #| fig-cap: "Average winter maximum per winter for
 #|   _{{this_species_name}}_ in `{{this_location_name}}`."
 read_vc("wintermax_index", root) |>
@@ -477,7 +496,16 @@ plot_ly(wintermax_index, x = ~year, y = ~estimate) |>
   layout(showlegend = TRUE)
 ```
 
-```{r fig-wintermax-change}
+```{r wintermax-change}
+read_vc("wintermax_change", root) |>
+  filter(
+    .data$species_group_id == this_species,
+    .data$location_group_id == this_location
+  ) -> wintermax_change
+```
+
+
+```{r fig-wintermax-change, eval = nrow(wintermax_change) > 0}
 #| fig-cap: "Change between two winters in average winter maximum for 
 #|   _{{this_species_name}}_ in `{{this_location_name}}`."
 read_vc("wintermax_change", root) |>
