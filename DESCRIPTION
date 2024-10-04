@@ -39,10 +39,21 @@ Imports:
     tidyr,
     tidyselect
 Suggests:
-    INLA
+    crosstalk,
+    DT,
+    effectclass,
+    INBOtheme,
+    INLA,
+    kableExtra,
+    knitr,
+    leaflet,
+    pander,
+    plotly,
+    tidyverse
 Remotes:
     inbo/n2kupdate
-Additional_repositories: https://inbo.r-universe.dev
+Additional_repositories: https://inbo.r-universe.dev,
+    https://inla.r-inla-download.org/R/stable
 Config/checklist/communities: inbo
 Config/checklist/keywords: wintering waterbird, birds directive,
     monitoring
