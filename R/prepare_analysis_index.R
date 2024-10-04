@@ -9,7 +9,7 @@
 #' @importFrom n2kanalysis n2k_model_imputed get_file_fingerprint store_model
 #' @importFrom Matrix sparseMatrix
 #' @importFrom rlang .data
-#' @importFrom stats setNames
+#' @importFrom stats aggregate setNames
 prepare_analysis_index <- function(
   aggregation, analysis_path, month = TRUE, verbose = TRUE
 ) {

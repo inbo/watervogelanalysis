@@ -7,6 +7,7 @@
 #' @importFrom n2kanalysis n2k_model_imputed get_file_fingerprint store_model
 #' @importFrom Matrix sparseMatrix
 #' @importFrom rlang .data
+#' @importFrom stats aggregate
 prepare_analysis_smoother <- function(
   aggregation, analysis_path, month = TRUE, verbose = TRUE
 ) {

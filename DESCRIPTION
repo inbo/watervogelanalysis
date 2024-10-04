@@ -28,6 +28,7 @@ Imports:
     git2rdata (>= 0.0.5),
     lubridate,
     Matrix,
+    methods,
     n2kanalysis (>= 0.3.2),
     n2khelper (>= 0.5.0),
     n2kupdate (>= 0.1.1),
@@ -39,6 +40,8 @@ Imports:
     tidyselect
 Suggests:
     INLA
+Remotes:
+    inbo/n2kupdate
 Additional_repositories: https://inbo.r-universe.dev
 Config/checklist/communities: inbo
 Config/checklist/keywords: wintering waterbird, birds directive,
@@ -47,4 +50,4 @@ Encoding: UTF-8
 Language: en-GB
 LazyData: true
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.0
+RoxygenNote: 7.3.2

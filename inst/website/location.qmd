@@ -54,7 +54,7 @@ read_vc("yearly_trend", root) |>
   ungroup() |>
   mutate(
     classification = classification(
-      lcl = .data$duration * .data$lower_confidence_limit, 
+      lcl = .data$duration * .data$lower_confidence_limit,
       ucl = .data$duration * .data$upper_confidence_limit,
       threshold = threshold
     ),
@@ -103,7 +103,7 @@ read_vc("yearly_trend", root) |>
   ungroup() |>
   mutate(
     classification = classification(
-      lcl = .data$duration * .data$lower_confidence_limit, 
+      lcl = .data$duration * .data$lower_confidence_limit,
       ucl = .data$duration * .data$upper_confidence_limit,
       threshold = threshold
     ),
@@ -150,7 +150,7 @@ read_vc("yearly_trend", root) |>
   ungroup() |>
   mutate(
     classification = classification(
-      lcl = .data$duration * .data$lower_confidence_limit, 
+      lcl = .data$duration * .data$lower_confidence_limit,
       ucl = .data$duration * .data$upper_confidence_limit,
       threshold = threshold
     ),
@@ -271,7 +271,7 @@ read_vc("yearly_difference", root) |>
   ungroup() |>
   mutate(
     classification = classification(
-      lcl = .data$duration * .data$lower_confidence_limit, 
+      lcl = .data$duration * .data$lower_confidence_limit,
       ucl = .data$duration * .data$upper_confidence_limit,
       threshold = threshold
     ),
@@ -323,7 +323,7 @@ read_vc("wintermax_trend", root) |>
   ungroup() |>
   mutate(
     classification = classification(
-      lcl = .data$duration * .data$lower_confidence_limit, 
+      lcl = .data$duration * .data$lower_confidence_limit,
       ucl = .data$duration * .data$upper_confidence_limit,
       threshold = threshold
     ),
@@ -372,7 +372,7 @@ read_vc("wintermax_trend", root) |>
   ungroup() |>
   mutate(
     classification = classification(
-      lcl = .data$duration * .data$lower_confidence_limit, 
+      lcl = .data$duration * .data$lower_confidence_limit,
       ucl = .data$duration * .data$upper_confidence_limit,
       threshold = threshold
     ),
@@ -419,7 +419,7 @@ read_vc("wintermax_trend", root) |>
   ungroup() |>
   mutate(
     classification = classification(
-      lcl = .data$duration * .data$lower_confidence_limit, 
+      lcl = .data$duration * .data$lower_confidence_limit,
       ucl = .data$duration * .data$upper_confidence_limit,
       threshold = threshold
     ),
@@ -540,7 +540,7 @@ read_vc("wintermax_difference", root) |>
   ungroup() |>
   mutate(
     classification = classification(
-      lcl = .data$duration * .data$lower_confidence_limit, 
+      lcl = .data$duration * .data$lower_confidence_limit,
       ucl = .data$duration * .data$upper_confidence_limit,
       threshold = threshold
     ),

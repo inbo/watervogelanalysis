@@ -76,7 +76,7 @@ read_vc("yearly_trend", root) |>
   ungroup() |>
   mutate(
     classification = classification(
-      lcl = .data$duration * .data$lower_confidence_limit, 
+      lcl = .data$duration * .data$lower_confidence_limit,
       ucl = .data$duration * .data$upper_confidence_limit,
       threshold = threshold
     ),
@@ -373,7 +373,7 @@ yearly_change |>
 c(
   yearly_change$data(withFilter = FALSE)$lower_confidence_limit,
   yearly_change$data(withFilter = FALSE)$upper_confidence_limit,
-  -threshold, threshold, na.rm = TRUE
+  -threshold, threshold
 ) |>
   range(na.rm = TRUE) -> this_range
 change_breaks(n = 3)(this_range) -> this_breaks
@@ -506,7 +506,7 @@ read_vc("wintermax_change", root) |>
 
 
 ```{r fig-wintermax-change, eval = nrow(wintermax_change) > 0}
-#| fig-cap: "Change between two winters in average winter maximum for 
+#| fig-cap: "Change between two winters in average winter maximum for
 #|   _{{this_species_name}}_ in `{{this_location_name}}`."
 read_vc("wintermax_change", root) |>
   filter(
