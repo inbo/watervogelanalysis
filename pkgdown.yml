@@ -1,0 +1,8 @@
+pandoc: '3.2'
+pkgdown: 2.1.0
+pkgdown_sha: ~
+articles: {}
+last_built: 2024-10-07T09:01Z
+urls:
+  reference: https://inbo.github.io/watervogelanalysis/reference
+  article: https://inbo.github.io/watervogelanalysis/articles
