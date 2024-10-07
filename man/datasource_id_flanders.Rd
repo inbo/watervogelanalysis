@@ -7,7 +7,7 @@
 datasource_id_flanders(result_channel)
 }
 \arguments{
-\item{result_channel}{An open RODBC connection to the results database}
+\item{result_channel}{An open \code{RODBC} connection to the results database}
 }
 \description{
 Get the id of the data source for the Flemish source data

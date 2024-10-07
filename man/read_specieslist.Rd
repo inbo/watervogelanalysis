@@ -4,11 +4,16 @@
 \alias{read_specieslist}
 \title{Read the relevant species list}
 \usage{
-read_specieslist(result_channel, flemish_channel, walloon_repo, first_date,
-  latest_date)
+read_specieslist(
+  result_channel,
+  flemish_channel,
+  walloon_repo,
+  first_date,
+  latest_date
+)
 }
 \arguments{
-\item{result_channel}{An open RODBC connection to the results database}
+\item{result_channel}{An open \code{RODBC} connection to the results database}
 
 \item{flemish_channel}{a DBI connection to the Flemish database}
 

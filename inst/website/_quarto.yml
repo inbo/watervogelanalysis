@@ -1,0 +1,28 @@
+project:
+  type: website
+  output-dir: ../website
+  lib-dir: libs
+
+knitr:
+  opts_chunk:
+    echo: false
+    message: false
+    warning: false
+
+format:
+  html:
+    css:
+      - css_styles/flanders_report.css
+      - css_styles/custom.css
+    toc: true
+
+execute:
+  cache: true
+  freeze: true
+
+website:
+  title: Wintering waterbirds in Flanders, Belgium
+  sidebar:
+    style: "docked"
+    search: false
+    contents:

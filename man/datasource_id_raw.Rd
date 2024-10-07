@@ -7,7 +7,7 @@
 datasource_id_raw(result_channel)
 }
 \arguments{
-\item{result_channel}{An open RODBC connection to the results database}
+\item{result_channel}{An open \code{RODBC} connection to the results database}
 }
 \description{
 The raw data is the combination of the Flemish and Walloon source data

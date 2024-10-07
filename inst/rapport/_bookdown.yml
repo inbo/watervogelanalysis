@@ -1,9 +1,0 @@
-book_filename: "wintering_waterbirds_belgium.Rmd"
-output_dir: "../output"
-delete_merged_file: TRUE
-download: ["pdf", "epub"]
-language:
-  label:
-    fig:    'Figure '
-    tab:    'Table '
-    eq:     'Equation '

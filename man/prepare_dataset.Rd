@@ -4,32 +4,46 @@
 \alias{prepare_dataset}
 \title{Prepare the raw datasets and save them to the git repository}
 \usage{
-prepare_dataset(scheme_id, raw_repo, result_channel, walloon_repo,
-  flemish_channel, develop = FALSE, verbose = TRUE,
-  first_year = 1992, latest_year = as.integer(format(Sys.time(),
-  "\%Y")))
+prepare_dataset(
+  scheme_id,
+  raw_repo,
+  result_channel,
+  walloon_repo,
+  flemish_channel,
+  develop = FALSE,
+  verbose = TRUE,
+  first_year = 1992,
+  latest_year = as.integer(format(Sys.time(), "\%Y"))
+)
 }
 \arguments{
 \item{scheme_id}{the id of the scheme}
 
 \item{raw_repo}{a git_repository object to write the output to}
 
-\item{result_channel}{An open RODBC connection to the results database}
+\item{result_channel}{An open \code{RODBC} connection to the results database}
 
 \item{walloon_repo}{a git_repository object to the Walloon source data}
 
 \item{flemish_channel}{a DBI connection to the Flemish database}
 
-\item{develop}{logical. Indicate whether the use the development database TRUE or the production database}
+\item{develop}{logical.
+Indicate whether the use the development database TRUE or the production
+database.}
 
 \item{verbose}{Display a progress bar when TRUE (default)}
 
 \item{first_year}{first winter to import. defaults to 1992}
 
-\item{latest_year}{latest winter to import. Winter 2019 is defined as 2018-10-01 until 2019-03-31. Defaults the winter prior to last firsth of July. 2019-06-30 becomes 2018, 2019-07-01 becomes 2019}
+\item{latest_year}{latest winter to import.
+Winter 2019 is defined as 2018-10-01 until 2019-03-31.
+Defaults the winter prior to last firth of July.
+2019-06-30 becomes 2018, 2019-07-01 becomes 2019.}
 }
 \description{
-The raw data is written to the git repository. All changes are always staged and committed. The commit is pushed when both username and password are provided.
+The raw data is written to the git repository.
+All changes are always staged and committed.
+The commit is pushed when both username and password are provided.
 }
 \examples{
 \dontrun{

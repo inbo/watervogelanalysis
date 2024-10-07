@@ -1,0 +1,36 @@
+---
+title: "Species list"
+---
+
+```{r setup}
+library(git2rdata)
+library(kableExtra)
+library(knitr)
+library(tidyverse)
+root <- ifelse(interactive(), "../../../watervogels/result", "../result")
+```
+
+```{r tbl-species}
+#| tbl-cap: "List of species with a sufficient amount of observations."
+read_vc("gbif", root) |>
+  select(-"key") |>
+  pivot_wider(names_from = "language", values_from = "vernacular") |>
+  inner_join(
+    x = read_vc("species", root) |>
+      select("id", scientific = "name_sc"), by = "id"
+  ) |>
+  arrange(.data$scientific) |>
+  mutate(
+    url = tolower(.data$scientific) |>
+      str_replace_all(" ", "-") |>
+      sprintf(fmt = "%s/index.html")
+  ) -> species_list
+species_list |>
+  select(-"url", -"id") |>
+  kable() |>
+  kable_paper(
+    c("hover", "striped", "responsive"), full_width = FALSE, fixed_thead = TRUE
+  ) |>
+  column_spec(1, link = species_list$url)
+```
+

@@ -9,7 +9,7 @@
 #' @importFrom DBI dbGetQuery dbQuoteString
 read_location <- function(
   result_channel, flemish_channel, walloon_repo, first_date, latest_date
-){
+) {
   assert_that(inherits(first_date, "POSIXct"), length(first_date) == 1,
               inherits(latest_date, "POSIXct"), length(latest_date) == 1)
   # read Flemish data from the database

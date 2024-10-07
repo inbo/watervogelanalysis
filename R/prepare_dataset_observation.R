@@ -1,4 +1,5 @@
-#' Read the observations for the raw datasource, save them to the git repository and the results database
+#' Read the observations for the raw data source, save them to the git
+#' repository and the results database
 #' @param this_species the species in this species group
 #' @param location a data frame with the full list of locations
 #' @param location_group_id the ID of the location group
@@ -9,9 +10,11 @@
 #' @importFrom git2rdata read_vc write_vc
 #' @importFrom assertthat assert_that is.string has_name
 #' @importFrom utils sessionInfo
-#' @importFrom dplyr %>% distinct count filter mutate bind_rows select inner_join arrange transmute pull
+#' @importFrom dplyr %>% arrange bind_rows count distinct filter inner_join
+#' mutate pull select transmute
 #' @importFrom tidyr complete
-#' @importFrom n2kupdate store_analysis_dataset store_observation store_datafield
+#' @importFrom n2kupdate store_analysis_dataset store_datafield
+#' store_observation
 #' @importFrom n2kanalysis get_analysis_version
 #' @importFrom digest sha1
 #' @importFrom purrr pmap_chr
@@ -19,7 +22,7 @@
 prepare_dataset_observation <- function(
   this_species, location, location_group_id, flemish_channel, walloon_repo,
   result_channel, raw_repo, dataset
-){
+) {
   assert_that(
     inherits(this_species, "data.frame"), inherits(location, "data.frame"),
     has_name(this_species, "DatasourceID"),
@@ -48,8 +51,7 @@ prepare_dataset_observation <- function(
   ) %>%
     mutate(
       DatasourceID = flanders_id,
-      ObservationID = as.character(.data$ObservationID),
-      external_code = as.character(.data$external_code)
+      ObservationID = as.character(.data$ObservationID)
     ) -> observation_flemish
 
   wallonia_id <- datasource_id_wallonia(result_channel = result_channel)
@@ -135,7 +137,7 @@ prepare_dataset_observation <- function(
             arrange(.data$fingerprint) %>%
             select("fingerprint", "datasource", "filename", "import_date"),
           model_set = model_set %>%
-            select("description","first_year", "last_year", "duration"),
+            select("description", "first_year", "last_year", "duration"),
           location_group = .data$location_group,
           species_group = .data$species_group, last_year = .data$last_year,
           seed = .data$seed, analysis_date = .data$analysis_date
@@ -266,7 +268,7 @@ prepare_dataset_observation <- function(
           arrange(.data$fingerprint) %>%
           select("fingerprint", "datasource", "filename", "import_date"),
         model_set = model_set %>%
-          select("description","first_year", "last_year", "duration"),
+          select("description", "first_year", "last_year", "duration"),
         location_group = .data$location_group,
         species_group = .data$species_group, last_year = .data$last_year,
         seed = .data$seed, analysis_date = .data$analysis_date

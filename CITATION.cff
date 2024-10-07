@@ -1,0 +1,30 @@
+cff-version: 1.2.0
+message: If you use this software, please cite it using these metadata.
+title: "watervogelanalysis: Analysis of the Wintering Birds"
+authors:
+- given-names: Thierry
+  family-names: Onkelinx
+  affiliation: Research Institute for Nature and Forest (INBO)
+  orcid: 0000-0001-8804-4216
+keywords:
+- wintering waterbird, birds directive, monitoring
+contact:
+- given-names: Thierry
+  family-names: Onkelinx
+  affiliation: Research Institute for Nature and Forest (INBO)
+  orcid: 0000-0001-8804-4216
+doi: ~
+license: GPL-3.0
+repository-code: https://github.com/inbo/watervogelanalysis/
+type: software
+abstract: "Volunteers count 167 species of the wintering waterbirds in Flanders at
+  over 1100 wetland site since the winter of 1991-1992. This R package assists the
+  analysis of those records. First it imports the relevant data from the databank
+  and stores that in an analysis data repository. Then it prepares the analysis objects
+  in the format of the 'n2kanalysis' package. Those objects are sent off to fit, either
+  of a local machine or an AWS EC2 instance. Finaly we generate a technical report
+  on the results."
+identifiers:
+- type: url
+  value: https://inbo.github.io/watervogelanalysis/
+version: 0.4.0

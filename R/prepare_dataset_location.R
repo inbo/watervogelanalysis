@@ -1,11 +1,13 @@
-#' Read the locations for the raw datasource, save them to the git repository and the results database
+#' Read the locations for the raw data source, save them to the git repository
+#' and the results database
 #' @return a data.frame with the locations
 #' @inheritParams connect_flemish_source
 #' @inheritParams prepare_dataset
 #' @inheritParams prepare_dataset_species
 #' @export
 #' @importFrom assertthat assert_that is.string
-#' @importFrom dplyr %>% mutate select inner_join filter bind_rows distinct rename
+#' @importFrom dplyr %>% bind_rows distinct filter inner_join mutate rename
+#' select
 #' @importFrom rlang .data
 #' @importFrom tibble tibble
 #' @importFrom tidyr gather
@@ -91,7 +93,6 @@ prepare_dataset_location <- function(
         select("location_group", "location")
     ) -> location_group_location
   # define datafield
-  datafield_type <- tibble(description = "character")
   tibble(
     Region = c("Flanders", "Wallonia"),
     table_name = c("DimLocationWV", "location"),
@@ -108,8 +109,8 @@ prepare_dataset_location <- function(
     mutate(
       local_id = pmap_chr(
         list(
-          tn = .data$table_name, pk = .data$primary_key, ft = .data$datafield_type,
-          ds = .data$datasource
+          tn = .data$table_name, pk = .data$primary_key,
+          ft = .data$datafield_type, ds = .data$datasource
         ),
         function(tn, pk, ft, ds) {
           sha1(

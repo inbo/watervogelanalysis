@@ -2,87 +2,189 @@
 #' @inheritParams prepare_analysis_imputation
 #' @inheritParams prepare_dataset
 #' @export
-#' @importFrom git2rdata read_vc
-#' @importFrom dplyr %>% mutate select distinct filter group_by do bind_rows inner_join
-#' @importFrom tidyr unnest_
+#' @importFrom dplyr bind_rows distinct inner_join transmute
+#' @importFrom fs path
+#' @importFrom git2rdata verify_vc
+#' @importFrom lubridate round_date year
+#' @importFrom n2kanalysis display get_file_fingerprint manifest_yaml_to_bash
+#' n2k_hurdle_imputed n2k_manifest store_manifest_yaml store_model
+#' @importFrom methods slot
+#' @importFrom purrr map_chr map_dfr
 #' @importFrom rlang .data
-#' @importFrom lubridate ymd year round_date
-#' @importFrom n2kanalysis n2k_manifest store_manifest_yaml
-prepare_analysis <- function(analysis_path = ".", raw_repo, seed = 19790402,
-                             verbose = TRUE) {
+#' @importFrom tidyr unnest
+prepare_analysis <- function(
+  analysis_path = ".", raw_repo, seed = 19790402, verbose = TRUE
+) {
   set.seed(seed)
-  read_vc(file = "location", root = raw_repo) %>%
-    mutate(
-      StartYear = round_date(.data$StartDate, unit = "year") %>%
+  path("location", "location") |>
+    verify_vc(root = raw_repo, variables = c("id", "start", "end")) |>
+    transmute(
+      .data$id,
+      start_year = round_date(.data$start, unit = "year") |>
         year(),
-      EndYear = round_date(.data$EndDate, unit = "year") %>%
+      end_year = round_date(.data$end, unit = "year") |>
         year()
-    ) %>%
-    select("ID", "StartYear", "EndYear") -> location
-  read_vc(file = "locationgroup", root = raw_repo) %>%
-    select(LocationGroupID = "Impute", "SubsetMonths") %>%
-    distinct() %>%
-    inner_join(
-      read_vc(file = "locationgrouplocation", root = raw_repo),
-      by = "LocationGroupID"
-    ) %>%
-    inner_join(location, by = c("LocationID" = "ID")) -> location
+    ) -> location
 
-  if (verbose) {
-    message("Prepare imputations")
-  }
-
-  read_vc(file = "speciesgroupspecies", root = raw_repo) %>%
-    group_by(.data$speciesgroup) %>%
-    do(
-      Files = prepare_analysis_imputation(
-        speciesgroupspecies = .data, location = location, seed = seed,
-        analysis_path = analysis_path, raw_repo = raw_repo, verbose = verbose)
-    ) %>%
-    unnest(.data$Files) -> imputations
-  imputations %>%
-    filter(.data$Status != "insufficient_data") %>%
+  path("location", "locationgroup") |>
+    verify_vc(root = raw_repo, variables = c("impute", "subset_month")) |>
+    distinct(locationgroup = .data$impute, .data$subset_month) |>
     inner_join(
-      read_vc(file = "locationgroup.txt", root = raw_repo) %>%
-        select(LocationGroup = "ID", "Impute"),
-      by = "Impute"
+      path("location", "locationgroup_location") |>
+        read_vc(root = raw_repo),
+      by = "locationgroup"
+    ) |>
+    inner_join(location, by = c("location" = "id")) -> location
+
+  display(verbose, "Prepare imputations")
+
+  path("species", "speciesgroup_species") |>
+    verify_vc(root = raw_repo, variables = c("speciesgroup", "species")) |>
+    nest(.by = "speciesgroup") |>
+    transmute(
+      speciesgroup = map2(
+        .data$speciesgroup, .data$data, ~mutate(.y, speciesgroup = .x)
+      )
+    ) |>
+    pull("speciesgroup") |>
+    map_dfr(
+      prepare_analysis_imputation, location = location,
+      seed = seed, analysis_path = analysis_path, raw_repo = raw_repo,
+      verbose = verbose
+    ) |>
+    mutate(
+      month = map_lgl(
+        .data$count,
+        ~slot(.x, "AnalysisMetadata") |>
+          pull(formula) |>
+          grepl(pattern = "\nmonth +")
+      )
+    ) -> imputations
+  imputations |>
+    transmute(
+      .data$count, fingerprint = map_chr(.data$count, get_file_fingerprint),
+      parent = NA_character_
+    ) -> manifest
+  display(verbose, "\nDatasets without imputations")
+  manifest |>
+    transmute(
+      no_impute = map(
+        .data$count, prepare_analysis_aggregate_ni, verbose = verbose,
+        analysis_path = analysis_path, raw_repo = raw_repo
+      )
+    ) |>
+    unnest("no_impute") |>
+    bind_rows(
+      manifest |>
+        select(-"count"),
+      imputations |>
+        transmute(
+          fingerprint = map_chr(.data$presence, get_file_fingerprint),
+          parent = NA_character_
+        )
+    ) -> manifest
+  display(verbose, "\nHurdle model")
+  imputations |>
+    transmute(
+      hurdle = map2(
+        .data$presence, .data$count, n2k_hurdle_imputed, verbose = TRUE
+      ),
+      fingerprint = map_chr(
+        .data$hurdle, store_model, base = analysis_path,
+        project = "watervogels", overwrite = FALSE
+      ),
+      .data$month
     ) -> relevant
-  for (impute in sort(unique(relevant$Fingerprint))) {
-    aggregation <- prepare_analysis_aggregate(
-      filter(relevant, .data$Fingerprint == impute), verbose = verbose,
-      analysis_path = analysis_path, seed = seed, raw_repo = raw_repo)
-    analysis <- prepare_analysis_model(
-      aggregation = aggregation, analysis_path = analysis_path,
-      seed = seed, verbose = verbose)
-    aggregation_wintermax <- prepare_analysis_aggregate_wintermax(
-      aggregation = aggregation, analysis_path = analysis_path, seed = seed,
-      verbose = verbose)
-    analysis_wintermax <- prepare_analysis_model_wintermax(
-      aggregation = aggregation_wintermax, analysis_path = analysis_path,
-      seed = seed, verbose = verbose)
-    imputations %>%
-      select("Fingerprint") %>%
-      filter(.data$Fingerprint == impute) %>%
-      mutate(Imputation = .data$Fingerprint, Parent = NA_character_) %>%
-      bind_rows(
-        aggregation_wintermax %>%
-          select(Fingerprint = "FileFingerprint", "Parent", "Imputation"),
-        aggregation_wintermax %>%
-          select("Imputation", Parent = "FileFingerprint") %>%
-          inner_join(analysis_wintermax, by = "Parent"),
-        aggregation %>%
-          select(Fingerprint = "FileFingerprint", "Parent") %>%
-          mutate(Imputation = .data$Parent),
-        aggregation %>%
-          select(Imputation = "Parent", Parent = "FileFingerprint") %>%
-          inner_join(analysis, by = "Parent")
-      ) %>%
-      n2k_manifest() -> manifest
+  relevant |>
+    transmute(
+      parent = map(.data$hurdle, slot, "AnalysisRelation")
+    ) |>
+    unnest("parent") |>
+    select(fingerprint = "analysis", parent = "parent_analysis") |>
+    bind_rows(manifest) -> manifest
+  display(verbose, "\nAggregations")
+  relevant |>
+    transmute(
+      .data$hurdle, .data$month,
+      aggregated = map(
+        .data$hurdle, prepare_analysis_aggregate,
+        analysis_path = analysis_path, raw_repo = raw_repo, seed = seed,
+        verbose = verbose
+      )
+    ) |>
+    unnest("aggregated") -> relevant
+  relevant |>
+    transmute(
+      parent = map(.data$aggregated, slot, "AnalysisRelation")
+    ) |>
+    unnest("parent") |>
+    select(fingerprint = "analysis", parent = "parent_analysis") |>
+    bind_rows(manifest) -> manifest
+  display(verbose, "\nTrends")
+  relevant |>
+    transmute(
+      fingerprint = map2(
+        .data$aggregated, .data$month, prepare_analysis_index,
+        analysis_path = analysis_path, verbose = verbose
+      )
+    ) |>
+    unnest("fingerprint") |>
+    bind_rows(
+      relevant |>
+        transmute(
+          fingerprint = map2(
+            .data$aggregated, .data$month, prepare_analysis_smoother,
+            analysis_path = analysis_path, verbose = verbose
+          )
+        ) |>
+        unnest("fingerprint"),
+      manifest
+    ) -> manifest
+  display(verbose, "\nWintermaxima aggregation")
+  relevant |>
+    transmute(
+      aggregated = map(
+        .data$aggregated, prepare_analysis_agg_max,
+        analysis_path = analysis_path, verbose = verbose
+      )
+    ) -> wintermax
+  display(verbose, "\nWintermaxima trend")
+  wintermax |>
+    transmute(
+      fingerprint = map(
+        .data$aggregated, prepare_analysis_index, month = FALSE,
+        analysis_path = analysis_path, verbose = verbose
+      )
+    ) |>
+    unnest("fingerprint") |>
+    bind_rows(
+      wintermax |>
+        transmute(
+          fingerprint = map(.data$aggregated, slot, "AnalysisRelation")
+        ) |>
+        unnest("fingerprint") |>
+        select(fingerprint = "analysis", parent = "parent_analysis"),
+      wintermax |>
+        transmute(
+          fingerprint = map(
+            .data$aggregated, prepare_analysis_smoother, month = FALSE,
+            analysis_path = analysis_path, verbose = verbose
+          )
+        ) |>
+        unnest("fingerprint"),
+      manifest
+    ) |>
+    n2k_manifest() |>
     store_manifest_yaml(
-      manifest, base = analysis_path, project = "watervogels",
-      docker = "inbobmk/rn2k:0.4",
-      dependencies = c("inbo/n2khelper@v0.4.3", "inbo/n2kanalysis@v0.2.7",
-                       "inbo/n2kupdate@v0.1.1")
+      base = analysis_path, project = "watervogels",
+      docker = "inbobmk/rn2k:0.9",
+      dependencies = c(
+        "inbo/multimput@v0.2.14", "inbo/n2khelper@v0.5.0",
+        "inbo/n2kanalysis@v0.3.2"
+      )
+    ) |>
+    basename() |>
+    manifest_yaml_to_bash(
+      base = analysis_path, project = "watervogels", shutdown = TRUE
     )
-  }
 }

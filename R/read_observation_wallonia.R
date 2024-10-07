@@ -1,4 +1,4 @@
-#' Read the Wallon observations from a species
+#' Read the Walloon observations from a species
 #'
 #' All available imported data is used.
 #' @inheritParams read_observation
@@ -9,7 +9,9 @@
 #' @importFrom assertthat assert_that is.count
 #' @importFrom dplyr %>% filter mutate left_join transmute
 #' @importFrom rlang .data
-read_observation_wallonia <- function(species_id, first_year, latest_year, walloon_repo) {
+read_observation_wallonia <- function(
+    species_id, first_year, latest_year, walloon_repo
+) {
   assert_that(is.count(species_id), is.count(first_year), is.count(latest_year))
   first_year <- as.integer(first_year)
   latest_year <- as.integer(latest_year)

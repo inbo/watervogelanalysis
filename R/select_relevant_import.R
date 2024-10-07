@@ -1,17 +1,15 @@
 #' Select the relevant observations when importing the raw data
 #'
 #' Relevant observations have
-#' \itemize{
-#'  \item At least 4 presences per location
-#'  \item Only locations where the species was present during at least 3 winters
-#'  \item No winters without any presences at the beginning or end of the dataset
-#' }
+#' - At least 4 presences per location
+#' - Only locations where the species was present during at least 3 winters
+#' - No winters without any presences at the beginning or end of the dataset
 #' @inheritParams n2kanalysis::select_factor_threshold
 #' @importFrom assertthat assert_that has_name
 #' @importFrom dplyr %>% filter count semi_join distinct summarise
 #' @importFrom rlang .data
 #' @export
-select_relevant_import <- function(observation){
+select_relevant_import <- function(observation) {
   if (is.null(observation)) {
     return(NULL)
   }

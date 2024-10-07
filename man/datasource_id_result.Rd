@@ -7,9 +7,11 @@
 datasource_id_result(result_channel, develop = FALSE)
 }
 \arguments{
-\item{result_channel}{An open RODBC connection to the results database}
+\item{result_channel}{An open \code{RODBC} connection to the results database}
 
-\item{develop}{logical. Indicate whether the use the development database TRUE or the production database}
+\item{develop}{logical.
+Indicate whether the use the development database TRUE or the production
+database.}
 }
 \description{
 The raw data is the combination of the Flemish and Walloon source data

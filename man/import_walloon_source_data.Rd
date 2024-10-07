@@ -4,8 +4,15 @@
 \alias{import_walloon_source_data}
 \title{Add the raw data from Wallonia to the git repository}
 \usage{
-import_walloon_source_data(location_file, visit_file, species_file,
-  data_file, path = ".", walloon_repo, strict = TRUE)
+import_walloon_source_data(
+  location_file,
+  visit_file,
+  species_file,
+  data_file,
+  path = ".",
+  walloon_repo,
+  strict = TRUE
+)
 }
 \arguments{
 \item{location_file}{file with details on the location}
@@ -26,5 +33,8 @@ overwrites the data and the metadata with a warning listing the changes,
 Defaults to \code{TRUE}.}
 }
 \description{
-This functions reads the files and performs some basic checks on them. See the details section for the required format of the files. The median date is used in case of multiple dates per visit id. The maximum is used in case of multiple observations per visit id.
+This functions reads the files and performs some basic checks on them.
+See the details section for the required format of the files.
+The median date is used in case of multiple dates per visit id.
+The maximum is used in case of multiple observations per visit id.
 }

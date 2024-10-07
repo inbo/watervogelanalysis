@@ -4,17 +4,26 @@
 \alias{prepare_analysis_aggregate}
 \title{Create aggregation objects for imputed counts}
 \usage{
-prepare_analysis_aggregate(analysis_path, imputations, raw_repo,
-  seed = 19790402, verbose = TRUE)
+prepare_analysis_aggregate(
+  hurdle,
+  analysis_path,
+  raw_repo,
+  seed = 19790402,
+  verbose = TRUE
+)
 }
 \arguments{
-\item{analysis_path}{Path to store the analysis files. Must be either an existing local file path or an object of the \code{s3_bucket} class.}
+\item{hurdle}{An \code{n2kHurdleImputed} object.}
 
-\item{imputations}{a data.frame with the imputations per location group}
+\item{analysis_path}{Path to store the analysis files.
+Must be either an existing local file path or an object of the \code{s3_bucket}
+class.}
 
 \item{raw_repo}{a git_repository object to write the output to}
 
-\item{seed}{the seed for the random number generator. Defaults to 19790402 which refers to "Council Directive 79/409/EEC of 2 April 1979 on the conservation of wild birds".}
+\item{seed}{the seed for the random number generator.
+Defaults to 19790402 which refers to "Council Directive 79/409/EEC of 2 April
+1979 on the conservation of wild birds".}
 
 \item{verbose}{Display a progress bar when TRUE (default)}
 }

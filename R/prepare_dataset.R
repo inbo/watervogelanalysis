@@ -1,13 +1,18 @@
 #' Prepare the raw datasets and save them to the git repository
 #'
-#' The raw data is written to the git repository. All changes are always staged and committed. The commit is pushed when both username and password are provided.
+#' The raw data is written to the git repository.
+#' All changes are always staged and committed.
+#' The commit is pushed when both username and password are provided.
 #' @param scheme_id the id of the scheme
 #' @param raw_repo a git_repository object to write the output to
 #' @param flemish_channel a DBI connection to the Flemish database
 #' @param walloon_repo a git_repository object to the Walloon source data
 #' @param verbose Display a progress bar when TRUE (default)
 #' @param first_year first winter to import. defaults to 1992
-#' @param latest_year latest winter to import. Winter 2019 is defined as 2018-10-01 until 2019-03-31. Defaults the winter prior to last firsth of July. 2019-06-30 becomes 2018, 2019-07-01 becomes 2019
+#' @param latest_year latest winter to import.
+#' Winter 2019 is defined as 2018-10-01 until 2019-03-31.
+#' Defaults the winter prior to last firth of July.
+#' 2019-06-30 becomes 2018, 2019-07-01 becomes 2019.
 #' @inheritParams connect_flemish_source
 #' @inheritParams datasource_id_result
 #' @export

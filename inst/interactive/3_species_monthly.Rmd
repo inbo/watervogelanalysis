@@ -4,11 +4,11 @@
 results %>%
   filter(ModelType == "yearly imputed index: Total ~ Year + Month") %>%
   transmute(
-    area = LocationGroup, 
-    species = scientific_name, 
+    area = LocationGroup,
+    species = scientific_name,
     genus = str_replace(scientific_name, "([[:alpha:]]*) .*", "\\1"),
     year = as.integer(as.character(Parameter)),
-    p05 = p_population(Estimate, SE, 0.05), 
+    p05 = p_population(Estimate, SE, 0.05),
     p10 = p_population(Estimate, SE, 0.1),
     p30 = p_population(Estimate, SE, 0.3),
     p50 = p_population(Estimate, SE, 0.5),
