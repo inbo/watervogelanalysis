@@ -2,18 +2,19 @@
 #' @inheritParams prepare_dataset
 #' @inheritParams prepare_dataset_species
 #' @export
-#' @importFrom assertthat assert_that
-#' @importFrom dplyr %>% mutate filter semi_join transmute bind_rows
-#' @importFrom rlang .data
-#' @importFrom git2rdata read_vc
+#' @importFrom assertthat assert_that noNA
 #' @importFrom DBI dbGetQuery dbQuoteString
+#' @importFrom git2rdata read_vc
+#' @importFrom dplyr bind_rows filter mutate semi_join transmute
+#' @importFrom rlang .data
 read_location <- function(
-  result_channel, flemish_channel, walloon_repo, first_date, latest_date
+  flemish_channel, walloon_repo, first_date, latest_date
 ) {
-  assert_that(inherits(first_date, "POSIXct"), length(first_date) == 1,
-              inherits(latest_date, "POSIXct"), length(latest_date) == 1)
-  # read Flemish data from the database
-  datasource_id <- datasource_id_flanders(result_channel = result_channel)
+  assert_that(
+    inherits(first_date, "POSIXct"), length(first_date) == 1, noNA(first_date),
+    inherits(latest_date, "POSIXct"), length(latest_date) == 1,
+    noNA(latest_date)
+  )
 
   sprintf(
     "WITH cte_spa AS (
@@ -21,8 +22,9 @@ read_location <- function(
         LocationWVKey,
           MAX(
           CASE
-            WHEN LocationGroupTypeCode = 'EVRL'
-            THEN 1 ELSE 0 END
+            WHEN LocationGroupTypeCode = 'EVRL' THEN 1
+            WHEN LocationGroupTypeCode = 'EHRL' THEN 1
+            ELSE 0 END
           ) AS SPA
       FROM FactLocationGroup
       GROUP BY LocationWVKey
@@ -43,41 +45,41 @@ read_location <- function(
     SELECT
         lp.LocationWVCode AS external_code,
         lp.locationWVNaam AS description,
-        lp.StartDate,
-        lp.EndDate,
-        cs.SPA
+        lp.StartDate AS start_date,
+        lp.EndDate AS end_date,
+        cs.SPA AS natura2000,
+        'Flanders' AS region
       FROM DimLocationWV AS lp
       INNER JOIN cte_survey AS cv ON cv.LocationWVKey = lp.LocationWVKey
       INNER JOIN cte_parent AS cp ON cp.parent = lp.LocationWVKey
       LEFT JOIN cte_spa AS cs ON cs.LocationWVKey = lp.LocationWVKey
     ",
-    format(first_date, "%Y-%m-%d") %>%
+    format(first_date, "%Y-%m-%d") |>
       dbQuoteString(conn = flemish_channel),
-    format(latest_date, "%Y-%m-%d") %>%
+    format(latest_date, "%Y-%m-%d") |>
       dbQuoteString(conn = flemish_channel)
-  ) %>%
-    dbGetQuery(conn = flemish_channel) %>%
-    mutate(
-      datasource = datasource_id,
-      SPA = pmax(0, .data$SPA, na.rm = TRUE),
-      Region = "Flanders"
-    ) -> location
-  future <- !is.na(location$EndDate) & location$EndDate > latest_date
-  location$EndDate[future] <- NA
+  ) |>
+    dbGetQuery(conn = flemish_channel) -> location
+  future <- !is.na(location$end_date) & location$end_date > latest_date
+  location$end_date[future] <- NA
 
   # Read Walloon data from the git repository
-  read_vc(file = "visit", root = walloon_repo) %>%
-    filter(first_date <= .data$Date, .data$Date <= latest_date) %>%
+  read_vc(file = "visit", root = walloon_repo) |>
+    filter(first_date <= .data$date, .data$date <= latest_date) |>
     semi_join(
       x = read_vc(file = "location", root = walloon_repo),
-      by = "LocationID"
-    ) %>%
+      by = c("id" = "site")
+    ) |>
     transmute(
-      external_code = .data$LocationID,
-      description = .data$LocationName,
-      .data$SPA,
-      datasource = datasource_id_wallonia(result_channel = result_channel),
-      Region = "Wallonia"
-    ) %>%
-    bind_rows(location)
+      external_code = .data$id, description = .data$name,
+      .data$natura2000, region = "Wallonia"
+    ) |>
+    bind_rows(location) |>
+    transmute(
+      id = substring(.data$region, 1, 1) |>
+        paste(.data$external_code, sep = "_"),
+      region = factor(.data$region, levels = c("Flanders", "Wallonia")),
+      .data$external_code, .data$start_date, .data$end_date,
+      natura2000 = pmax(0, .data$natura2000, na.rm = TRUE), .data$description
+    )
 }
