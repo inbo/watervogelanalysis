@@ -30,12 +30,9 @@ Imports:
     Matrix,
     methods,
     n2kanalysis (>= 0.3.2),
-    n2khelper (>= 0.5.0),
-    n2kupdate (>= 0.1.1),
     purrr,
     rlang,
     splines,
-    tibble,
     tidyr,
     tidyselect
 Suggests:

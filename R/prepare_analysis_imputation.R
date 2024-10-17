@@ -65,7 +65,7 @@ prepare_analysis_imputation <- function(
 
   rawdata <- try(read_vc(metadata$filename, root = raw_repo), silent = TRUE)
   if (inherits(rawdata, "try-error")) {
-    return(tibble())
+    return(data.frame())
   }
   assert_that(
     has_name(rawdata, "location"), has_name(rawdata, "year"),

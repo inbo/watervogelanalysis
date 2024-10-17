@@ -3,17 +3,15 @@
 \name{prepare_dataset_observation}
 \alias{prepare_dataset_observation}
 \title{Read the observations for the raw data source, save them to the git
-repository and the results database}
+repository}
 \usage{
 prepare_dataset_observation(
   this_species,
   location,
-  location_group_id,
   flemish_channel,
   walloon_repo,
-  result_channel,
   raw_repo,
-  dataset
+  latest_year
 )
 }
 \arguments{
@@ -21,19 +19,18 @@ prepare_dataset_observation(
 
 \item{location}{a data frame with the full list of locations}
 
-\item{location_group_id}{the ID of the location group}
-
 \item{flemish_channel}{a DBI connection to the Flemish database}
 
 \item{walloon_repo}{a git_repository object to the Walloon source data}
 
-\item{result_channel}{An open \code{RODBC} connection to the results database}
-
 \item{raw_repo}{a git_repository object to write the output to}
 
-\item{dataset}{a data frame with a}
+\item{latest_year}{latest winter to import.
+Winter 2019 is defined as 2018-10-01 until 2019-03-31.
+Defaults the winter prior to last firth of July.
+2019-06-30 becomes 2018, 2019-07-01 becomes 2019.}
 }
 \description{
 Read the observations for the raw data source, save them to the git
-repository and the results database
+repository
 }

@@ -4,16 +4,14 @@
 #' @inheritParams prepare_dataset
 #' @inheritParams prepare_dataset_species
 #' @export
-#' @importFrom assertthat assert_that is.string noNA
 #' @importFrom dplyr bind_rows distinct filter mutate select
 #' @importFrom git2rdata update_metadata write_vc
 #' @importFrom n2kanalysis get_datafield_id
 #' @importFrom rlang .data
 prepare_dataset_location <- function(
-  flemish_channel, walloon_repo, raw_repo, scheme_id = "watervogels",
-  first_date, latest_date = as.POSIXct(Sys.time())
+  flemish_channel, walloon_repo, raw_repo, first_date,
+  latest_date = as.POSIXct(Sys.time())
 ) {
-  assert_that(is.string(scheme_id), noNA(scheme_id))
 
   # read the locations
   fl_loc <- get_datafield_id(
@@ -37,7 +35,7 @@ prepare_dataset_location <- function(
     write_vc(
       file = "location/location", root = raw_repo, stage = TRUE,
       sorting = "id"
-    ) -> hashes
+    )
   update_metadata(
     file = "location/location", root = raw_repo, stage = TRUE,
     name = "location", title = "List of locations",
@@ -114,8 +112,7 @@ WHERE
     write_vc(
       locationgroup, file = "location/locationgroup", root = raw_repo,
       sorting = "external_code", stage = TRUE
-    ) |>
-      c(hashes) -> hashes
+    )
   update_metadata(
     file = "location/locationgroup", root = raw_repo, stage = TRUE,
     name = "locationgroup", title = "List of groups of locations",
@@ -162,8 +159,7 @@ Flemish data covers 6 winter months, whereas Walloon data covers only 4 months."
     write_vc(
       "location/locationgroup_location", root = raw_repo,
       sorting = c("locationgroup", "location"), stage = TRUE
-    ) |>
-    c(hashes) -> hashes
+    )
   update_metadata(
     file = "location/locationgroup_location", root = raw_repo, stage = TRUE,
     name = "locationgroup_location",
@@ -174,11 +170,5 @@ Flemish data covers 6 winter months, whereas Walloon data covers only 4 months."
     )
   )
 
-  dataset <- data.frame(
-    filename = hashes, fingerprint = names(hashes), import_date = Sys.time()
-  )
-
-  return(
-    list(location = location, locationgroup = locationgroup, dataset = dataset)
-  )
+  return(location)
 }

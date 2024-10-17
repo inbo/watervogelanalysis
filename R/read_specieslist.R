@@ -1,100 +1,92 @@
 #' Read the relevant species list
-#' @inheritParams connect_flemish_source
 #' @inheritParams prepare_dataset
 #' @inheritParams prepare_dataset_species
 #' @export
-#' @importFrom dplyr %>% anti_join count filter full_join group_by inner_join
-#' mutate pull select semi_join summarise ungroup
+#' @importFrom dplyr count filter full_join group_by inner_join
+#' mutate n pull select semi_join summarise ungroup
 #' @importFrom DBI dbQuoteString dbGetQuery
 #' @importFrom git2rdata read_vc
 #' @importFrom rlang .data
-#' @importFrom stats na.omit
-read_specieslist <- function(result_channel, flemish_channel, walloon_repo,
-                             first_date, latest_date) {
+#' @importFrom tidyr replace_na
+read_specieslist <- function(
+  raw_repo, flemish_channel, walloon_repo, first_date, latest_date
+) {
+  datafield <- get_datafield_id(
+    table = "DimTaxonWV", field = "TaxonWVKey", root = raw_repo, stage = TRUE,
+    datasource = "W0004_00_Waterbirds database"
+  )
   sprintf(
     "WITH cte_survey AS (
-      SELECT f.TaxonWVKey, f.RecommendedTaxonTLI_Key AS NBNKey,
-             COUNT(f.TaxonCount) AS n, MIN(f.SampleDate) AS First
+      SELECT
+        f.TaxonWVKey, COUNT(f.TaxonCount) AS n_fl, MIN(f.SampleDate) AS first
       FROM FactAnalyseSetOccurrence AS f
       INNER JOIN DimAnalyseSet AS a ON  f.analysesetkey = a.analysesetkey
       INNER JOIN DimSample AS s ON f.samplekey = s.samplekey
       WHERE %s <= f.SampleDate AND f.SampleDate <= %s AND f.TaxonCount > 0 AND
             a.AnalysesetCode LIKE 'MIDMA%%' AND s.CoverageCode IN ('V', 'O')
-      GROUP BY f.TaxonWVKey, f.RecommendedTaxonTLI_Key
+      GROUP BY f.TaxonWVKey
     )
 
     SELECT
-      CASE WHEN c.NBNKey = '-               ' THEN NULL
-           ELSE c.NBNKey END AS NBNKey,
-      t.TaxonWVKey, CAST(t.euringcode AS int) AS euringcode,
-      t.scientificname AS ScientificName, t.commonname AS nl, c.n, c.First
+      t.TaxonWVKey AS external_code_fl, CAST(t.euringcode AS int) AS euring,
+      t.scientificname AS scientific_fl, t.commonname AS nl, c.n_fl, c.first
     FROM cte_survey AS c
     INNER JOIN DimTaxonWV AS t ON c.TaxonWVKey = t.TaxonWVKey",
-    format(first_date, "%Y-%m-%d") %>%
+    format(first_date, "%Y-%m-%d") |>
       dbQuoteString(conn = flemish_channel),
-    format(latest_date, "%Y-%m-%d") %>%
+    format(latest_date, "%Y-%m-%d") |>
       dbQuoteString(conn = flemish_channel)
-  ) %>%
-    dbGetQuery(conn = flemish_channel) %>%
-    mutate(First = round_date(.data$First, unit = "year") %>%
-             year()) %>%
-    group_by(.data$euringcode, .data$TaxonWVKey, .data$ScientificName,
-             .data$nl) %>%
-    summarise(NBNKey = sort(.data$NBNKey)[1], n = sum(.data$n),
-              First = min(.data$First)) %>%
-    ungroup() -> species_flanders
+  ) |>
+    dbGetQuery(conn = flemish_channel) |>
+    mutate(
+      first_fl = round_date(.data$first, unit = "year") |>
+        year(),
+      datafield_fl = datafield
+    ) -> species_flanders
 
-  if (any(is.na(species_flanders$NBNKey))) {
-    species_flanders %>%
-      filter(is.na(.data$NBNKey)) %>%
-      summarise(problem = paste(.data$ScientificName, collapse = ", ")) %>%
-      sprintf(fmt = "Species in Flemish dataset without NBN key: %s") %>%
+  if (any(is.na(species_flanders$euring))) {
+    species_flanders |>
+      filter(is.na(.data$euring)) |>
+      summarise(problem = paste(.data$scientific_name, collapse = ", ")) |>
+      sprintf(fmt = "Species in Flemish dataset without euringcode: %s") |>
       warning(call. = FALSE)
-    species_flanders %>%
-      filter(!is.na(.data$NBNKey)) -> species_flanders
-  }
-  if (any(is.na(species_flanders$euringcode))) {
-    species_flanders %>%
-      filter(is.na(.data$euringcode)) %>%
-      summarise(problem = paste(.data$ScientificName, collapse = ", ")) %>%
-      sprintf(fmt = "Species in Flemish dataset without euringcode: %s") %>%
-      warning(call. = FALSE)
-    species_flanders %>%
-      filter(!is.na(.data$euringcode)) -> species_flanders
+    species_flanders |>
+      filter(!is.na(.data$euring)) -> species_flanders
   }
 
-  read_vc("visit", walloon_repo) %>%
-    filter(.data$Date <= latest_date) %>%
-    mutate(Winter = round_date(.data$Date, unit = "year") %>%
-             year()) %>%
-    inner_join(read_vc("data", walloon_repo), by = "OriginalObservationID") %>%
-    inner_join(species_flanders, by = "euringcode") %>%
-    filter(.data$First <= .data$Winter) %>%
-    count(.data$euringcode, .data$First) %>%
-    inner_join(read_vc("species", walloon_repo), by = "euringcode") ->
-    species_wallonia
-  species_wallonia %>%
-    select("euringcode", nw = "n") %>%
-    full_join(species_flanders, by = "euringcode") %>%
-    mutate(n = ifelse(is.na(.data$n), 0, .data$n) +
-             ifelse(is.na(.data$nw), 0, .data$nw)) %>%
-    filter(.data$n >= 100) %>%
-    select("euringcode", "NBNKey", "nl") -> relevant
-  if (any(is.na(relevant$NBNKey))) {
-    relevant %>%
-      filter(is.na(relevant$NBNKey)) %>%
-      semi_join(x = species_wallonia, by = "euringcode") %>%
-      dplyr::pull("ScientificName") %>%
-      paste(collapse = ", ") %>%
-      sprintf(fmt = "Walloon species without NBN key: %s") %>%
-      warning(call. = FALSE)
-    relevant %>%
-      filter(!is.na(relevant$NBNKey)) -> relevant
-  }
-  return(
-    list(
-      flanders = semi_join(species_flanders, relevant, by = "euringcode"),
-      wallonia = inner_join(species_wallonia, relevant, by = "euringcode")
-    )
+  datafield <- get_datafield_id(
+    table = "DimTaxonWV", field = "TaxonWVKey", root = raw_repo, stage = TRUE,
+    datasource = "Wallonia waterbirds repo"
   )
+  read_vc("visit", walloon_repo) |>
+    filter(first_date <= .data$date, .data$date <= latest_date) |>
+    inner_join(x = read_vc("data", walloon_repo), by = c("visit" = "hash")) |>
+    group_by(.data$species) |>
+    summarise(
+      first_wal = min(.data$date) |>
+        round_date(unit = "year") |>
+        year(),
+      n_wal = n(), .groups = "drop"
+    ) |>
+    inner_join(
+      x = read_vc("species", walloon_repo), by = c("scientific" = "species")
+    ) |>
+    filter(!is.na(.data$euring)) |>
+    transmute(
+      .data$euring, external_code_wal = .data$euring,
+      scientific_wal = .data$scientific, fr = .data$french_name,
+      .data$first_wal, .data$n_wal, datafield_wal = datafield
+    ) -> species_wallonia
+  species_flanders |>
+    full_join(species_wallonia, by = "euring") |>
+    filter(replace_na(.data$n_fl, 0) + replace_na(.data$n_wal, 0) >= 100) |>
+    transmute(
+      .data$euring, scientific = ifelse(
+        is.na(.data$scientific_fl), .data$scientific_wal, .data$scientific_fl
+      ),
+      .data$external_code_fl, .data$datafield_fl, .data$external_code_wal,
+      .data$datafield_wal, .data$nl, .data$fr,
+      first = round_date(.data$first, unit = "year") |>
+        year()
+    )
 }

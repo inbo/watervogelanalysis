@@ -6,10 +6,8 @@
 \usage{
 prepare_dataset_species(
   raw_repo,
-  result_channel,
   flemish_channel,
   walloon_repo,
-  scheme_id,
   first_date,
   latest_date
 )
@@ -17,13 +15,9 @@ prepare_dataset_species(
 \arguments{
 \item{raw_repo}{a git_repository object to write the output to}
 
-\item{result_channel}{An open \code{RODBC} connection to the results database}
-
 \item{flemish_channel}{a DBI connection to the Flemish database}
 
 \item{walloon_repo}{a git_repository object to the Walloon source data}
-
-\item{scheme_id}{the id of the scheme}
 
 \item{first_date}{earliest records to take into account}
 

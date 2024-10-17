@@ -5,7 +5,7 @@
 \title{Read the relevant species list}
 \usage{
 read_specieslist(
-  result_channel,
+  raw_repo,
   flemish_channel,
   walloon_repo,
   first_date,
@@ -13,7 +13,7 @@ read_specieslist(
 )
 }
 \arguments{
-\item{result_channel}{An open \code{RODBC} connection to the results database}
+\item{raw_repo}{a git_repository object to write the output to}
 
 \item{flemish_channel}{a DBI connection to the Flemish database}
 

@@ -9,7 +9,6 @@ prepare_dataset_location(
   flemish_channel,
   walloon_repo,
   raw_repo,
-  scheme_id = "watervogels",
   first_date,
   latest_date = as.POSIXct(Sys.time())
 )
@@ -20,8 +19,6 @@ prepare_dataset_location(
 \item{walloon_repo}{a git_repository object to the Walloon source data}
 
 \item{raw_repo}{a git_repository object to write the output to}
-
-\item{scheme_id}{the id of the scheme}
 
 \item{first_date}{earliest records to take into account}
 

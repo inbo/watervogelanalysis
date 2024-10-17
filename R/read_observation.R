@@ -29,25 +29,25 @@
 #' @export
 #' @importFrom assertthat assert_that is.count
 #' @importFrom DBI dbQuoteString dbQuoteLiteral dbGetQuery
-#' @importFrom dplyr %>% group_by arrange slice ungroup desc add_count
+#' @importFrom dplyr group_by arrange slice ungroup desc add_count
 #' @importFrom rlang .data
 read_observation <- function(
-  species_id, first_year, latest_year, flemish_channel) {
+  species_id, first_year, latest_year, flemish_channel
+) {
   assert_that(is.count(species_id), is.count(first_year), is.count(latest_year))
   species_id <- as.integer(species_id)
   latest_year <- as.integer(latest_year)
 
   sprintf("
     SELECT
-      f.OccurrenceKey AS ObservationID,
-      d.YearNumber + IIF(d.MonthNumber >= 7, 1, 0) AS Year,
-      d.MonthNumber AS Month,
+      f.OccurrenceKey AS observation_id,
+      d.YearNumber + IIF(d.MonthNumber >= 7, 1, 0) AS year,
+      d.MonthNumber AS month,
       l.LocationWVCode AS external_code,
-      l.LocationWVKey,
-      f.TaxonCount AS Count,
-      'FactAnalyseSetOccurrence' AS TableName,
+      l.LocationWVKey AS loc_key,
+      f.TaxonCount AS count,
       CASE WHEN s.CoverageCode = 'V' THEN 1
-           ELSE 0 END AS Complete
+           ELSE 0 END AS complete
     FROM FactAnalyseSetOccurrence AS f
     INNER JOIN DimLocationWV AS l ON l.locationwvkey = f.locationwvkey
     INNER JOIN DimAnalyseSet AS a ON  a.analysesetkey = f.analysesetkey
@@ -61,34 +61,38 @@ read_observation <- function(
     sprintf("%i-06-30", latest_year) %>%
       dbQuoteString(conn = flemish_channel),
     dbQuoteLiteral(flemish_channel, species_id)
-  ) %>%
-    dbGetQuery(conn = flemish_channel) %>%
-    group_by(.data$Year, .data$Month, .data$external_code) %>%
-    arrange(desc(.data$Complete), desc(.data$Count), .data$ObservationID) %>%
-    slice(1) %>%
+  ) |>
+    dbGetQuery(conn = flemish_channel) |>
+    group_by(.data$year, .data$month, .data$external_code) |>
+    arrange(desc(.data$complete), desc(.data$count), .data$observation_id) |>
+    slice(1) |>
     ungroup() -> raw_observation
   "SELECT
-    p.LocationWVKey, p.ParentLocationWVKey, l.LocationWVCode AS extrenal_code
+    p.LocationWVKey AS loc_key, p.ParentLocationWVKey AS parent,
+    l.LocationWVCode AS external_code
   FROM DimLocationWVParent AS p
   INNER JOIN DimLocationWV AS l ON p.ParentLocationWVKey = l.LocationWVKey
-  WHERE ParentLocationWVKey IS NOT NULL" %>%
+  WHERE ParentLocationWVKey IS NOT NULL" |>
     dbGetQuery(conn = flemish_channel) -> parents
-  parents %>%
-    add_count(.data$ParentLocationWVKey, name = "target") %>%
-    inner_join(raw_observation, by = "LocationWVKey") %>%
-    add_count(.data$external_code, .data$Year, .data$Month,
-              name = "current") %>%
-    group_by(.data$external_code, .data$Year, .data$Month, .data$TableName) %>%
+  parents |>
+    add_count(.data$parent, name = "target") |>
+    inner_join(
+      raw_observation |>
+        select(-"external_code"),
+      by = "loc_key"
+    ) |>
+    add_count(
+      .data$external_code, .data$year, .data$month, name = "current"
+    ) |>
+    group_by(.data$external_code, .data$year, .data$month) |>
     summarise(
-      Count = sum(.data$Count),
-      Complete = min(.data$Complete, .data$current == .data$target),
-      ObservationID = min(.data$ObservationID)
-    ) %>%
-    ungroup() %>%
-    anti_join(raw_observation, by = c("external_code", "Year", "Month")) %>%
+      count = sum(.data$count),
+      complete = min(.data$complete, .data$current == .data$target),
+      observation_id = min(.data$observation_id), .groups = "drop"
+    ) |>
     bind_rows(
-      raw_observation %>%
-        anti_join(parents, by = "LocationWVKey") %>%
-        select(-"LocationWVKey")
+      raw_observation |>
+        anti_join(parents, by = "loc_key") |>
+        select(-"loc_key")
     )
 }

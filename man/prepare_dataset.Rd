@@ -5,31 +5,20 @@
 \title{Prepare the raw datasets and save them to the git repository}
 \usage{
 prepare_dataset(
-  scheme_id,
   raw_repo,
-  result_channel,
   walloon_repo,
   flemish_channel,
-  develop = FALSE,
   verbose = TRUE,
   first_year = 1992,
   latest_year = as.integer(format(Sys.time(), "\%Y"))
 )
 }
 \arguments{
-\item{scheme_id}{the id of the scheme}
-
 \item{raw_repo}{a git_repository object to write the output to}
-
-\item{result_channel}{An open \code{RODBC} connection to the results database}
 
 \item{walloon_repo}{a git_repository object to the Walloon source data}
 
 \item{flemish_channel}{a DBI connection to the Flemish database}
-
-\item{develop}{logical.
-Indicate whether the use the development database TRUE or the production
-database.}
 
 \item{verbose}{Display a progress bar when TRUE (default)}
 

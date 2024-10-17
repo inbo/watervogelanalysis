@@ -13,35 +13,36 @@ select_relevant_import <- function(observation) {
   if (is.null(observation)) {
     return(NULL)
   }
-  assert_that(inherits(observation, "data.frame"),
-              has_name(observation, "Count"), has_name(observation, "Year"),
-              has_name(observation, "LocationID"))
+  assert_that(
+    inherits(observation, "data.frame"), has_name(observation, "count"),
+    has_name(observation, "year"), has_name(observation, "location")
+  )
 
   # select locations with at least 4 occurrences
-  observation %>%
-    filter(.data$Count > 0) %>%
-    count(.data$LocationID) %>%
-    filter(.data$n >= 4) %>%
-    semi_join(x = observation, by = "LocationID") -> observation
+  observation |>
+    filter(.data$count > 0) |>
+    count(.data$location) |>
+    filter(.data$n >= 4) |>
+    semi_join(x = observation, by = "location") -> observation
   if (nrow(observation) == 0) {
     return(observation)
   }
 
   # select locations with occurrences in at least 3 years
-  observation %>%
-    filter(.data$Count > 0) %>%
-    distinct(.data$LocationID, .data$Year) %>%
-    count(.data$LocationID) %>%
-    filter(.data$n >= 3) %>%
-    semi_join(x = observation, by = "LocationID") -> observation
+  observation |>
+    filter(.data$count > 0) |>
+    distinct(.data$location, .data$year) |>
+    count(.data$location) |>
+    filter(.data$n >= 3) |>
+    semi_join(x = observation, by = "location") -> observation
   if (nrow(observation) == 0) {
     return(observation)
   }
 
-  # remove time periodes without occurrences at the start or end
-  observation %>%
-    filter(.data$Count > 0) %>%
-    summarise(start = min(.data$Year), end = max(.data$Year)) -> w_range
-  observation %>%
-    filter(w_range$start <= .data$Year, .data$Year <= w_range$end)
+  # remove time periods without occurrences at the start or end
+  observation |>
+    filter(.data$count > 0) |>
+    summarise(start = min(.data$year), end = max(.data$year)) -> w_range
+  observation |>
+    filter(w_range$start <= .data$year, .data$year <= w_range$end)
 }
