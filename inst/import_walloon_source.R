@@ -2,8 +2,9 @@ library(digest)
 library(git2rdata)
 library(lubridate)
 library(tidyverse)
-source_folder <- "~/Downloads/watervogels"
-target <- repository("~/n2k/waterbirds_wallonia")
+source_folder <- keyring::key_get("meetnetten", username = "walloon_download")
+keyring::key_get("meetnetten", username = "walloon_repo") |>
+  repository() -> target
 
 # import species
 file.path(source_folder, "winter_waterbirds_species_wallonia_brussels.csv") |>
@@ -14,6 +15,37 @@ species |>
   count(.data$scientific) |>
   filter(.data$n > 1) -> duplicate_species
 stopifnot(nrow(duplicate_species) == 0)
+data.frame(
+  euring = c(
+    1869L, 1619L, 1580L, 1630L, 1560L, 1574L, 5610L, 1680L, 1663L, 1690L, 1110L,
+    4970L, 5120L, 5100L, 4690L, 4700L, 1340L, 1540L, 1190L, 4500L, 6000L, 5750L,
+    5340L, 5320L, 2150L, 2130L, 2250L, 5170L, 1440L, 4860L, 100L, 4560L, 5450L,
+    5480L, 5460L
+  ),
+  scientific = c(
+    "Anas platyrhynchos forma domestica", "Anser anser forma domesticus",
+    "Anser brachyrhynchus", "Anser caerulescens",
+    "Anser cygnoides forma domestica", "Anser fabalis rossicus",
+    "Arenaria interpres", "Branta bernicla",
+    "Branta hutchinsii", "Branta ruficollis", "Bubulcus ibis",
+    "Calidris alba", "Calidris alpina", "Calidris maritima",
+    "Charadrius dubius", "Charadrius hiaticula", "Ciconia ciconia",
+    "Cygnus cygnus", "Egretta garzetta", "Haematopus ostralegus",
+    "Larus marinus", "Larus melanocephalus", "Limosa lapponica",
+    "Limosa limosa", "Melanitta fusca", "Melanitta nigra", "Oxyura jamaicensis",
+    "Philomachus pugnax", "Platalea leucorodia", "Pluvialis squatarola",
+    "Podiceps grisegena", "Recurvirostra avosetta", "Tringa erythropus",
+    "Tringa nebularia", "Tringa totanus"
+  )
+) -> extra
+species |>
+  filter(is.na(.data$euring)) |>
+  select(-"euring") |>
+  left_join(extra, by = "scientific") |>
+  bind_rows(
+    species |>
+      filter(!is.na(.data$euring))
+  ) -> species
 write_vc(
   species, file = "species", root = target, sorting = c("euring", "scientific")
 )
@@ -123,13 +155,11 @@ observations |>
   filter(.data$scientific != "no_species", .data$n > 0) |>
   inner_join(relevant_visits, by = c("site", "date")) |>
   group_by(
-    visit = factor(.data$hash, levels = visits$hash),
+    visit = factor(.data$hash, levels = relevant_visits$hash),
     species = factor(.data$scientific, levels = species$scientific)
   ) |>
   summarise(n = sum(.data$n), .groups = "drop") |>
-  write_vc(
-    "data", root = target, sorting = c("visit", "species"), strict = FALSE
-  )
+  write_vc(file = "data", root = target, sorting = c("visit", "species"))
 update_metadata(
   "data", root = target, name = "Observations",
   title = "Observations of the Wallonia waterbirds dataset",
