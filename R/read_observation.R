@@ -29,7 +29,8 @@
 #' @export
 #' @importFrom assertthat assert_that is.count
 #' @importFrom DBI dbQuoteString dbQuoteLiteral dbGetQuery
-#' @importFrom dplyr group_by arrange slice ungroup desc add_count
+#' @importFrom dplyr add_count anti_join arrange bind_rows desc group_by mutate
+#' select slice ungroup
 #' @importFrom rlang .data
 read_observation <- function(
   species_id, first_year, latest_year, flemish_channel
@@ -56,9 +57,9 @@ read_observation <- function(
     WHERE
       %s <= f.SampleDate AND f.SampleDate <= %s AND f.TaxonWVKey = %s AND
       a.AnalysesetCode LIKE 'MIDMA%%' AND s.CoverageCode IN ('V', 'O')",
-    sprintf("%i-10-01", first_year - 1) %>%
+    sprintf("%i-10-01", first_year - 1) |>
       dbQuoteString(conn = flemish_channel),
-    sprintf("%i-06-30", latest_year) %>%
+    sprintf("%i-06-30", latest_year) |>
       dbQuoteString(conn = flemish_channel),
     dbQuoteLiteral(flemish_channel, species_id)
   ) |>
@@ -66,7 +67,10 @@ read_observation <- function(
     group_by(.data$year, .data$month, .data$external_code) |>
     arrange(desc(.data$complete), desc(.data$count), .data$observation_id) |>
     slice(1) |>
-    ungroup() -> raw_observation
+    ungroup() |>
+    mutate(
+      observation_id = as.character(.data$observation_id)
+    ) -> raw_observation
   "SELECT
     p.LocationWVKey AS loc_key, p.ParentLocationWVKey AS parent,
     l.LocationWVCode AS external_code
@@ -86,13 +90,18 @@ read_observation <- function(
     ) |>
     group_by(.data$external_code, .data$year, .data$month) |>
     summarise(
-      count = sum(.data$count),
+      count = sum(.data$count), .groups = "drop",
       complete = min(.data$complete, .data$current == .data$target),
-      observation_id = min(.data$observation_id), .groups = "drop"
+      observation_id = sort(.data$observation_id) |>
+        paste(collapse = ",")
     ) |>
     bind_rows(
       raw_observation |>
         anti_join(parents, by = "loc_key") |>
         select(-"loc_key")
-    )
+    ) |>
+      group_by(.data$year, .data$month, .data$external_code) |>
+      arrange(desc(.data$complete), desc(.data$count), .data$observation_id) |>
+      slice(1) |>
+      ungroup()
 }

@@ -105,6 +105,10 @@ prepare_dataset_observation <- function(
   if (nrow(result) == 0) {
     return(invisible(NULL))
   }
+  stopifnot(
+"multiple observations for al least on combination of year, month and location"
+    = anyDuplicated(result[, c("year", "month", "location")]) == 0
+  )
   filename <- sprintf("observation/%06i", this_species$euring)
   write_vc(
     x = result, file = filename, root = raw_repo, stage = TRUE,
