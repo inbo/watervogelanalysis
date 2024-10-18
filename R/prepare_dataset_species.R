@@ -13,7 +13,7 @@ prepare_dataset_species <- function(
 ) {
   species <- read_specieslist(
     flemish_channel = flemish_channel, walloon_repo = walloon_repo,
-    first_date = first_date, latest_date = latest_date
+    first_date = first_date, latest_date = latest_date, raw_repo = raw_repo
   )
   species |>
     select(-"first") |>
