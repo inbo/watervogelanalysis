@@ -14,7 +14,7 @@
 #' 2019-06-30 becomes 2018, 2019-07-01 becomes 2019.
 #' @export
 #' @importFrom assertthat assert_that is.string is.flag noNA is.count
-#' @importFrom dplyr filter mutate pull
+#' @importFrom dplyr arrange filter mutate pull
 #' @importFrom git2rdata commit prune_meta rm_data write_vc
 #' @importFrom n2kanalysis display
 #' @importFrom purrr walk
@@ -60,15 +60,17 @@ prepare_dataset <- function(
   display(verbose, "Reading and saving observations")
   species |>
     mutate(id = .data$euring) |>
+    arrange(.data$id) |>
     nest(.by = "id") |>
     pull(.data$data) |>
     walk(
       ~ prepare_dataset_observation(
         this_species = .x, location = location, walloon_repo = walloon_repo,
         flemish_channel = flemish_channel, raw_repo = raw_repo,
-        latest_year = latest_year
+        latest_year = latest_year, verbose = verbose
       ), location = location, walloon_repo = walloon_repo, raw_repo = raw_repo,
-      flemish_channel = flemish_channel, latest_year = latest_year
+      flemish_channel = flemish_channel, latest_year = latest_year,
+      verbose = verbose
     )
   prune_meta(root = raw_repo, path = ".", stage = TRUE)
 

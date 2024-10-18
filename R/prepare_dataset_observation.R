@@ -7,19 +7,28 @@
 #' @importFrom assertthat assert_that has_name
 #' @importFrom dplyr bind_rows filter inner_join select transmute
 #' @importFrom git2rdata update_metadata write_vc
-#' @importFrom n2kanalysis get_datafield_id
+#' @importFrom n2kanalysis display get_datafield_id
 #' @importFrom tidyr complete
 #' @importFrom rlang .data
 prepare_dataset_observation <- function(
-  this_species, location, flemish_channel, walloon_repo, raw_repo, latest_year
+  this_species, location, flemish_channel, walloon_repo, raw_repo, latest_year,
+  verbose = TRUE
 ) {
   assert_that(
-    inherits(this_species, "data.frame"),
+    inherits(this_species, "data.frame"), is.flag(verbose), noNA(verbose),
     has_name(this_species, "external_code_fl"), has_name(this_species, "first"),
     has_name(this_species, "external_code_wal"),
+    has_name(this_species, "euring"), has_name(this_species, "scientific"),
     inherits(location, "data.frame"), has_name(location, "id"),
     has_name(location, "external_code"), has_name(location, "start_date"),
     has_name(location, "end_date"), has_name(location, "region")
+  )
+  display(
+    verbose,
+    sprintf(
+      "Reading observations for %i (%s)", this_species$euring,
+      this_species$scientific
+    )
   )
 
   flanders_id <- get_datafield_id(
