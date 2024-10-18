@@ -19,7 +19,7 @@ prepare_dataset_observation <- function(
     has_name(this_species, "external_code_wal"),
     inherits(location, "data.frame"), has_name(location, "id"),
     has_name(location, "external_code"), has_name(location, "start_date"),
-    has_name(location, "end_date"), has_name(location, "region"),
+    has_name(location, "end_date"), has_name(location, "region")
   )
 
   flanders_id <- get_datafield_id(
