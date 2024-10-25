@@ -5,7 +5,6 @@
 #' The median date is used in case of multiple dates per visit id.
 #' The maximum is used in case of multiple observations per visit id.
 #' @param location_file file with details on the location
-#' @param visit_file file with details on the visits to each location
 #' @param data_file file with observed species at each visit
 #' @param species_file file with all species
 #' @param path directory were the above files are stored
@@ -13,159 +12,201 @@
 #' @inheritParams prepare_dataset
 #' @export
 #' @importFrom assertthat assert_that is.string is.dir noNA
-#' @importFrom utils file_test read.table
-#' @importFrom dplyr %>% add_count anti_join arrange count filter group_by
-#' inner_join mutate_at select semi_join summarise ungroup
-#' @importFrom rlang !! .data
-#' @importFrom git2rdata write_vc commit
-#' @importFrom stats median
-#' @importFrom purrr map_chr map2_chr
 #' @importFrom digest sha1
+#' @importFrom dplyr anti_join arrange bind_rows count distinct filter group_by inner_join left_join mutate select semi_join slice_head slice_min transmute
+#' @importFrom git2rdata commit update_metadata write_vc
+#' @importFrom lubridate days
+#' @importFrom purrr map2_chr
+#' @importFrom rlang .data
+#' @importFrom stringr str_trunc
+#' @importFrom utils file_test
 import_walloon_source_data <- function(
-  location_file, visit_file, species_file, data_file, path = ".", walloon_repo,
+  location_file, species_file, data_file, path = ".", walloon_repo,
   strict = TRUE
 ) {
-  assert_that(is.string(location_file), is.string(visit_file),
-              is.string(species_file), is.string(data_file), is.dir(path))
+  assert_that(
+    is.string(location_file), is.string(species_file), is.string(data_file),
+    noNA(location_file), noNA(species_file), noNA(data_file), is.dir(path)
+  )
   location_file <- file.path(path, location_file)
-  visit_file <- file.path(path, visit_file)
   species_file <- file.path(path, species_file)
   data_file <- file.path(path, data_file)
-  assert_that(file_test("-f", location_file), file_test("-f", visit_file),
-              file_test("-f", data_file))
-
-  location <- read.table(location_file, header = TRUE, sep = "\t",
-                         stringsAsFactors = FALSE, fileEncoding = "Latin1")
-  old_names <- c(
-    LocationID = "CODE", LocationName = "NOM", SPA = "N2000",
-    Latitude = "X", Longitude = "Y", Start = "StartDate", End = "EndDate"
+  assert_that(
+    file_test("-f", location_file), file_test("-f", species_file),
+    file_test("-f", data_file)
   )
-  assert_that(all(old_names %in% colnames(location)))
-  select(location, !!old_names) %>%
-    mutate_at(c("Start", "End"), as.Date) -> location
-  if (anyDuplicated(location$LocationID)) {
-    warning("duplicate id in ", location_file)
-  }
 
-  visit <- read.table(visit_file, header = TRUE, sep = "\t",
-                      stringsAsFactors = FALSE, fileEncoding = "Latin1")
-  old_names <- c(
-    ObservationID = "id_visit", LocationID = "CODE_ULT", Date = "date"
-  )
-  assert_that(all(old_names %in% colnames(visit)))
-  select(visit, !!old_names) %>%
-    mutate_at("Date", as.Date) -> visit
-  if (anyDuplicated(visit$ObservationID)) {
-    warning("duplicate id in ", visit_file)
-    visit %>%
-      add_count(.data$ObservationID) %>%
-      arrange(.data$ObservationID, .data$Date) %>%
-      select("ObservationID", "LocationID", "Date") -> visit_duplicate
-    visit %>%
-      group_by(.data$ObservationID, .data$LocationID) %>%
-      summarise(Date = median(.data$Date)) %>%
-      ungroup() -> visit
-  } else {
-    visit_duplicate <- FALSE
-  }
-  visit %>%
-    anti_join(location, by = "LocationID") %>%
-    nrow() -> test
-  if (test > 0) {
-    stop(visit_file, " contains id which is not in ", location_file)
-  }
-  location %>%
-    anti_join(visit, by = "LocationID") %>%
-    nrow() -> test
-  if (test > 0) {
-    warning(location_file, " contains id which is not in ", visit_file)
-    location %>%
-      semi_join(visit, by = "LocationID") -> location
-  }
-
-  species <- read.table(species_file, header = TRUE, sep = "\t",
-                        stringsAsFactors = FALSE, fileEncoding = "Latin1")
-  old_names <- c(ScientificName = "species", euringcode = "code_euring")
-  assert_that(all(old_names %in% colnames(species)))
-  species <- select(species, !!old_names)
-  if (anyNA(species$euringcode)) {
-    species %>%
-      filter(is.na(.data$euringcode)) -> species_nomatch
-    warning(
-      "Species without euringcode will be ignored:\n",
-      paste(species_nomatch$ScientificName, collapse = "\n")
+  # import species
+  read.csv2(species_file, fileEncoding = "Latin1") |>
+    select("euring", scientific = "taxprio", "french_name") |>
+    filter(.data$scientific != "no_species") -> species
+  species |>
+    count(.data$scientific) |>
+    filter(.data$n > 1) -> duplicate_species
+  stopifnot(nrow(duplicate_species) == 0)
+  data.frame(
+    euring = c(
+      1869L, 1619L, 1580L, 1630L, 1560L, 1574L, 5610L, 1680L, 1663L, 1690L, 1110L,
+      4970L, 5120L, 5100L, 4690L, 4700L, 1340L, 1540L, 1190L, 4500L, 6000L, 5750L,
+      5340L, 5320L, 2150L, 2130L, 2250L, 5170L, 1440L, 4860L, 100L, 4560L, 5450L,
+      5480L, 5460L
+    ),
+    scientific = c(
+      "Anas platyrhynchos forma domestica", "Anser anser forma domesticus",
+      "Anser brachyrhynchus", "Anser caerulescens",
+      "Anser cygnoides forma domestica", "Anser fabalis rossicus",
+      "Arenaria interpres", "Branta bernicla",
+      "Branta hutchinsii", "Branta ruficollis", "Bubulcus ibis",
+      "Calidris alba", "Calidris alpina", "Calidris maritima",
+      "Charadrius dubius", "Charadrius hiaticula", "Ciconia ciconia",
+      "Cygnus cygnus", "Egretta garzetta", "Haematopus ostralegus",
+      "Larus marinus", "Larus melanocephalus", "Limosa lapponica",
+      "Limosa limosa", "Melanitta fusca", "Melanitta nigra", "Oxyura jamaicensis",
+      "Philomachus pugnax", "Platalea leucorodia", "Pluvialis squatarola",
+      "Podiceps grisegena", "Recurvirostra avosetta", "Tringa erythropus",
+      "Tringa nebularia", "Tringa totanus"
     )
-    species %>%
-      filter(!is.na(.data$euringcode)) -> species
-  } else {
-    species_nomatch <- NA
-  }
-  if (anyDuplicated(species$euringcode)) {
-    stop("duplicated euringcodes")
-  }
-
-  data <- read.table(data_file, header = TRUE, sep = "\t",
-                     stringsAsFactors = FALSE, fileEncoding = "Latin1")
-  old_names <- c(
-    ObservationID = "id_visit", Species = "species", Count = "n"
+  ) -> extra
+  species |>
+    filter(is.na(.data$euring)) |>
+    select(-"euring") |>
+    left_join(extra, by = "scientific") |>
+    bind_rows(
+      species |>
+        filter(!is.na(.data$euring))
+    ) -> species
+  write_vc(
+    species, file = "species", root = walloon_repo, sorting = c("euring", "scientific")
   )
-  assert_that(all(old_names %in% colnames(data)))
-  data <- select(data, !!old_names)
-  if (!all(data$ObservationID %in% visit$ObservationID)) {
-    stop(data_file, " contains id which is not in ", visit_file)
-  }
-  if (anyDuplicated(select(data, "ObservationID", "Species"))) {
-    warning(
-"Species with multiple counts per visit. Only the highest values is retained"
+  update_metadata(
+    "species", root = walloon_repo, name = "species",
+    title = "Species list of the Wallonia waterbirds dataset",
+    field_description = c(
+      euring = "Euring code https://euring.org/data-and-codes/euring-codes",
+      scientific = "Scientific name", french_name = "French name"
     )
-    data %>%
-      count(.data$ObservationID, .data$Species) %>%
-      filter(.data$n > 1) -> data_duplicate
-    data %>%
-      group_by(.data$ObservationID, .data$Species) %>%
-      summarise(Count = max(.data$Count)) %>%
-      ungroup() -> data
-  } else {
-    data_duplicate <- NA
-  }
+  )
 
-  if (any(is.na(location$LocationName))) {
-    warning("Locations without location names are ignored")
-    location <- filter(location, !is.na(.data$LocationName))
-  }
-  assert_that(noNA(location$LocationID), noNA(location$SPA))
-  visit %>%
-    filter(
-      as.integer(format(.data$Date, "%m")) %in% c(11, 12, 1, 2),
-      as.Date("1991-10-01") <= .data$Date
-    ) %>%
+  # import sites
+  file.path(path, location_file) |>
+    read.csv2(fileEncoding = "Latin1") |>
+    transmute(
+      id = .data$code_site, name = .data$nom_site,
+      natura2000 = as.logical(.data$natura2000)
+    ) |>
+    arrange(.data$id) -> all_sites
+  all_sites |>
+    slice_head(n = 1, by = "id") -> sites
+  write_vc(sites, file = "location", root = walloon_repo, sorting = "id")
+  update_metadata(
+    "location", root = walloon_repo, name = "sites",
+    title = "Sites list of the Wallonia waterbirds dataset",
+    field_description = c(
+      id = "Internal code of the site",
+      name = "name of the site",
+      natura2000 = "Indicates if the site is a Natura 2000 site"
+    )
+  )
+  all_sites |>
+    anti_join(sites, by = "name") |>
+    semi_join(x = all_sites, by = "id") |>
+    write_vc(
+      "problems/duplicate_site", root = walloon_repo, optimize = FALSE,
+      sorting = c("id", "name"), strict = strict
+    )
+
+  # import visits
+  file.path(path, data_file) |>
+    read.csv2(fileEncoding = "Latin1") |>
+    select(
+      site = "code_site", scientific = "taxprio", "euring", "n", "date",
+      visit_id = "visite"
+    ) |>
+    mutate(date = as.Date(.data$date)) -> observations
+  observations |>
+    anti_join(sites, by = c("site" = "id")) -> unknown_sites
+  stopifnot(nrow(unknown_sites) == 0)
+  observations |>
+    anti_join(species, by = "scientific") |>
+    filter(.data$scientific != "no_species") -> unknown_species
+  stopifnot(nrow(unknown_species) == 0)
+  observations |>
+    distinct(.data$scientific, .data$euring) |>
+    count(.data$scientific) |>
+    filter(.data$n > 1) -> duplicate_species
+  stopifnot(nrow(duplicate_species) == 0)
+  observations |>
+    distinct(.data$visit_id, .data$date, .data$site) -> visits
+  visits |>
+    count(.data$site, .data$date) |>
+    filter(.data$n > 1) |>
+    semi_join(x = observations, by = c("site", "date")) |>
+    write_vc(
+      "problems/duplicate_visit", root = walloon_repo, optimize = FALSE,
+      sorting = c("site", "date", "scientific", "visit_id", "n"), strict = FALSE
+    )
+  visits |>
+    distinct(.data$site, .data$date) |>
     mutate(
-      OriginalObservationID = .data$ObservationID,
-      ObservationID = map_chr(.data$OriginalObservationID, sha1)
-    ) -> visit
-  data %>%
-    semi_join(visit, by = c("ObservationID" = "OriginalObservationID")) %>%
-    inner_join(species, by = c("Species" = "ScientificName")) %>%
-    select(OriginalObservationID = "ObservationID", "euringcode", "Count") %>%
-    mutate(ObservationID = map2_chr(.data$OriginalObservationID,
-                                    .data$euringcode, ~sha1(list(.x, .y)))
-    ) %>%
-    write_vc(file = "data", sorting = c("OriginalObservationID", "euringcode"),
-             stage = TRUE, root = walloon_repo, strict = strict)
-  write_vc(species, file = "species", sorting = "euringcode", stage = TRUE,
-           root = walloon_repo, strict = strict)
-  write_vc(location, file = "location", sorting = "LocationID", stage = TRUE,
-           root = walloon_repo, strict = strict)
-  write_vc(visit, file = "visit", sorting = "ObservationID", stage = TRUE,
-           root = walloon_repo, strict = strict)
-  tryCatch(
-    commit(repo = walloon_repo, session = TRUE,
-            message = "scripted commit from watervogelanalysis"),
-    error = function(e) {
-      NULL
-    }
+      start = format(.data$date, "%Y-%m-01") |>
+        as.Date(),
+      end = .data$start + months(1) - days(1),
+      midpoint = difftime(.data$end, .data$start, units = "days") / 2 +
+        .data$start,
+      delta = difftime(.data$date, .data$midpoint, units = "days") |>
+        as.integer() |>
+        abs()
+    ) |>
+    slice_min(.data$delta, n = 1, with_ties = FALSE, by = "site") |>
+    transmute(
+      hash = map2_chr(.data$site, .data$date, ~sha1(c(site = .x, date = .y))) |>
+        str_trunc(width = 7, ellipsis = ""),
+      site = factor(.data$site, levels = sites$id), .data$date
+    ) -> relevant_visits
+  visits |>
+    anti_join(relevant_visits, by = c("site", "date")) |>
+    write_vc(
+      "problems/unused_visit", root = walloon_repo, optimize = FALSE,
+      sorting = c("site", "date", "visit_id"), strict = strict
+    )
+  write_vc(
+    relevant_visits, file = "visit", root = walloon_repo, sorting = "hash",
+    strict = strict
+  )
+  update_metadata(
+    "visit", root = walloon_repo, name = "visits",
+    title = "Visits list of the Wallonia waterbirds dataset",
+    field_description = c(
+      hash = "Unique identifier of the visit",
+      site = "Internal code of the site", date = "Date of the visit"
+    )
   )
 
-  return(list(DuplicateVisit = visit_duplicate, DuplicateData = data_duplicate,
-    UnmatchedSpecies = species_nomatch))
+  # store relevant observations
+  observations |>
+    filter(.data$scientific != "no_species", .data$n > 0) |>
+    inner_join(relevant_visits, by = c("site", "date")) |>
+    group_by(
+      visit = factor(.data$hash, levels = relevant_visits$hash),
+      species = factor(.data$scientific, levels = species$scientific)
+    ) |>
+    summarise(n = sum(.data$n), .groups = "drop") |>
+    write_vc(
+      file = "data", root = walloon_repo, sorting = c("visit", "species"),
+      strict = strict
+    )
+  update_metadata(
+    "data", root = walloon_repo, name = "Observations",
+    title = "Observations of the Wallonia waterbirds dataset",
+    field_description = c(
+      visit = "Unique identifier of the visit",
+      species = "Scientific name of the species",
+      n = "Observed number of species"
+    )
+  )
+  commit(
+    repo = walloon_repo, message = "Import Wallonia waterbirds dataset",
+    session = TRUE, all = TRUE
+  )
+  return(invisible(NULL))
 }

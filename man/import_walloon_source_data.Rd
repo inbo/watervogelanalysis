@@ -6,7 +6,6 @@
 \usage{
 import_walloon_source_data(
   location_file,
-  visit_file,
   species_file,
   data_file,
   path = ".",
@@ -16,8 +15,6 @@ import_walloon_source_data(
 }
 \arguments{
 \item{location_file}{file with details on the location}
-
-\item{visit_file}{file with details on the visits to each location}
 
 \item{species_file}{file with all species}
 
