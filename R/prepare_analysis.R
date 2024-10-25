@@ -3,7 +3,6 @@
 #' @inheritParams prepare_dataset
 #' @export
 #' @importFrom dplyr bind_rows distinct inner_join transmute
-#' @importFrom fs path
 #' @importFrom git2rdata verify_vc
 #' @importFrom lubridate round_date year
 #' @importFrom n2kanalysis display get_file_fingerprint manifest_yaml_to_bash
@@ -16,7 +15,7 @@ prepare_analysis <- function(
   analysis_path = ".", raw_repo, seed = 19790402, verbose = TRUE
 ) {
   set.seed(seed)
-  path("location", "location") |>
+  file.path("location", "location") |>
     verify_vc(root = raw_repo, variables = c("id", "start_date", "end_date")) |>
     transmute(
       .data$id,
@@ -26,11 +25,11 @@ prepare_analysis <- function(
         year()
     ) -> location
 
-  path("location", "locationgroup") |>
+  file.path("location", "locationgroup") |>
     verify_vc(root = raw_repo, variables = c("impute", "subset_months")) |>
     distinct(locationgroup = .data$impute, .data$subset_months) |>
     inner_join(
-      path("location", "locationgroup_location") |>
+      file.path("location", "locationgroup_location") |>
         verify_vc(root = raw_repo, variables = c("locationgroup", "location")),
       by = "locationgroup"
     ) |>
@@ -38,7 +37,7 @@ prepare_analysis <- function(
 
   display(verbose, "Prepare imputations")
 
-  path("species", "speciesgroup_species") |>
+  file.path("species", "speciesgroup_species") |>
     verify_vc(root = raw_repo, variables = c("speciesgroup", "species")) |>
     group_by(.data$speciesgroup) |>
     filter(n() == 1) |>
