@@ -4,10 +4,10 @@
 #' @inheritParams read_observation
 #' @inheritParams prepare_dataset
 #' @export
+#' @importFrom assertthat assert_that is.count
+#' @importFrom dplyr filter left_join mutate select semi_join transmute
 #' @importFrom git2rdata read_vc
 #' @importFrom lubridate round_date year
-#' @importFrom assertthat assert_that is.count
-#' @importFrom dplyr %>% filter mutate left_join transmute
 #' @importFrom rlang .data
 read_observation_wallonia <- function(
   species_id, first_year, latest_year, walloon_repo

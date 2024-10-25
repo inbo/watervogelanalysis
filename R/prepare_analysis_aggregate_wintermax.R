@@ -1,10 +1,7 @@
 #' Create aggregation objects for imputed counts
 #' @export
-#' @importFrom assertthat assert_that has_name
-#' @importFrom dplyr %>% rowwise do pull select mutate
-#' @importFrom n2kanalysis n2k_aggregate store_model get_file_fingerprint
-#' validObject
-#' @importFrom rlang .data
+#' @importFrom assertthat assert_that
+#' @importFrom n2kanalysis display n2k_aggregate store_model validObject
 #' @inheritParams prepare_analysis_imputation
 #' @inheritParams prepare_analysis_index
 #' @inheritParams prepare_dataset

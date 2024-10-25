@@ -14,8 +14,7 @@
 #' @return A data.frame with the species id number of rows in the analysis
 #' analysis dataset or NULL if not enough data.
 #' @importFrom assertthat assert_that has_name noNA is.flag is.count
-#' @importFrom dplyr across count inner_join filter mutate select row_number
-#' transmute
+#' @importFrom dplyr count inner_join filter mutate select row_number transmute
 #' @importFrom git2rdata read_vc recent_commit write_vc
 #' @importFrom methods slot
 #' @importFrom purrr map map2 map2_dfr map_dfr map_lgl
@@ -92,7 +91,7 @@ observation" = anyDuplicated(rawdata[, c("location", "year", "month")]) == 0
       count = ifelse(.data$complete, .data$count, NA)
     ) |>
     arrange(.data$location, .data$year, .data$month) |>
-    nest(.by = locationgroup) |>
+    nest(.by = "locationgroup") |>
     mutate(
       relevant = map(.data$data, select_relevant_analysis),
       rare_observation = map(.data$relevant, "rare_observation"),
@@ -130,14 +129,10 @@ observation" = anyDuplicated(rawdata[, c("location", "year", "month")]) == 0
 }
 
 #' @importFrom assertthat assert_that
-#' @importFrom dplyr across bind_cols group_by filter inner_join mutate select
+#' @importFrom dplyr bind_cols group_by filter inner_join mutate select
 #' summarise transmute
 #' @importFrom n2kanalysis n2k_inla
 #' @importFrom rlang .data
-#' @importFrom splines bs
-#' @importFrom stats setNames
-#' @importFrom tidyr pivot_longer
-#' @importFrom tidyselect all_of
 prepare_imputation_model <- function(
   location_group, relevant, extra, metadata, seed
 ) {

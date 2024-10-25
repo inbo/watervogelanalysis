@@ -13,12 +13,12 @@
 #' @export
 #' @importFrom assertthat assert_that is.string is.dir noNA
 #' @importFrom digest sha1
-#' @importFrom dplyr anti_join arrange bind_rows count distinct filter group_by inner_join left_join mutate select semi_join slice_head slice_min transmute
+#' @importFrom dplyr anti_join arrange bind_rows count distinct filter group_by
+#' inner_join left_join mutate select semi_join slice_head slice_min transmute
 #' @importFrom git2rdata commit update_metadata write_vc
 #' @importFrom lubridate days
 #' @importFrom purrr map2_chr
 #' @importFrom rlang .data
-#' @importFrom stringr str_trunc
 #' @importFrom utils file_test
 import_walloon_source_data <- function(
   location_file, species_file, data_file, path = ".", walloon_repo,
@@ -46,10 +46,10 @@ import_walloon_source_data <- function(
   stopifnot(nrow(duplicate_species) == 0)
   data.frame(
     euring = c(
-      1869L, 1619L, 1580L, 1630L, 1560L, 1574L, 5610L, 1680L, 1663L, 1690L, 1110L,
-      4970L, 5120L, 5100L, 4690L, 4700L, 1340L, 1540L, 1190L, 4500L, 6000L, 5750L,
-      5340L, 5320L, 2150L, 2130L, 2250L, 5170L, 1440L, 4860L, 100L, 4560L, 5450L,
-      5480L, 5460L
+      1869L, 1619L, 1580L, 1630L, 1560L, 1574L, 5610L, 1680L, 1663L, 1690L,
+      1110L, 4970L, 5120L, 5100L, 4690L, 4700L, 1340L, 1540L, 1190L, 4500L,
+      6000L, 5750L, 5340L, 5320L, 2150L, 2130L, 2250L, 5170L, 1440L, 4860L,
+      100L, 4560L, 5450L, 5480L, 5460L
     ),
     scientific = c(
       "Anas platyrhynchos forma domestica", "Anser anser forma domesticus",
@@ -61,10 +61,10 @@ import_walloon_source_data <- function(
       "Charadrius dubius", "Charadrius hiaticula", "Ciconia ciconia",
       "Cygnus cygnus", "Egretta garzetta", "Haematopus ostralegus",
       "Larus marinus", "Larus melanocephalus", "Limosa lapponica",
-      "Limosa limosa", "Melanitta fusca", "Melanitta nigra", "Oxyura jamaicensis",
-      "Philomachus pugnax", "Platalea leucorodia", "Pluvialis squatarola",
-      "Podiceps grisegena", "Recurvirostra avosetta", "Tringa erythropus",
-      "Tringa nebularia", "Tringa totanus"
+      "Limosa limosa", "Melanitta fusca", "Melanitta nigra",
+      "Oxyura jamaicensis", "Philomachus pugnax", "Platalea leucorodia",
+      "Pluvialis squatarola", "Podiceps grisegena", "Recurvirostra avosetta",
+      "Tringa erythropus", "Tringa nebularia", "Tringa totanus"
     )
   ) -> extra
   species |>
@@ -76,7 +76,8 @@ import_walloon_source_data <- function(
         filter(!is.na(.data$euring))
     ) -> species
   write_vc(
-    species, file = "species", root = walloon_repo, sorting = c("euring", "scientific")
+    species, file = "species", root = walloon_repo,
+    sorting = c("euring", "scientific"), strict = strict
   )
   update_metadata(
     "species", root = walloon_repo, name = "species",
@@ -160,7 +161,7 @@ import_walloon_source_data <- function(
     slice_min(.data$delta, n = 1, with_ties = FALSE, by = "site") |>
     transmute(
       hash = map2_chr(.data$site, .data$date, ~sha1(c(site = .x, date = .y))) |>
-        str_trunc(width = 7, ellipsis = ""),
+        substr(start = 1, stop = 7),
       site = factor(.data$site, levels = sites$id), .data$date
     ) -> relevant_visits
   visits |>

@@ -6,7 +6,7 @@
 #' - No winters without any presences at the beginning or end of the dataset
 #' @inheritParams n2kanalysis::select_factor_threshold
 #' @importFrom assertthat assert_that has_name
-#' @importFrom dplyr %>% filter count semi_join distinct summarise
+#' @importFrom dplyr count distinct filter semi_join summarise
 #' @importFrom rlang .data
 #' @export
 select_relevant_import <- function(observation) {

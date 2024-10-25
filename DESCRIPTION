@@ -31,9 +31,7 @@ Imports:
     n2kanalysis (>= 0.3.2),
     purrr,
     rlang,
-    splines,
-    tidyr,
-    tidyselect
+    tidyr
 Suggests:
     crosstalk,
     DT,
