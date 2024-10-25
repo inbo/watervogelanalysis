@@ -29,7 +29,7 @@ prepare_analysis_imputation <- function(
   set.seed(seed)
   assert_that(
     inherits(location, "data.frame"), has_name(location, "location"),
-    has_name(location, "locationgroup"), has_name(location, "subset_month"),
+    has_name(location, "locationgroup"), has_name(location, "subset_months"),
     has_name(location, "start_year"), has_name(location, "end_year"),
     noNA(location$location), noNA(location$locationgroup),
     noNA(location$subset_month), inherits(speciesgroupspecies, "data.frame"),
@@ -46,73 +46,53 @@ prepare_analysis_imputation <- function(
       nrow(speciesgroupspecies) == 1
   )
 
-  read_vc(file = "metadata", root = raw_repo) |>
-    inner_join(speciesgroupspecies, by = c("species_id" = "species")) |>
-    inner_join(
-      read_vc(file = "species/speciesgroup", root = raw_repo) |>
-        select("id", "distribution"),
-      by = c("speciesgroup" = "id")
-    ) |>
-    mutate(
-      datasource = as.character(.data$datasource),
-      filename = sprintf("observation/%06i", .data$species_id),
-      distribution = as.character(.data$distribution)
-    ) -> metadata
+  sprintf("observation/%06i", speciesgroupspecies$species) |>
+    verify_vc(
+      root = raw_repo,
+      variables = c(
+        "year", "month", "location", "count", "complete", "observation_id",
+        "datafield"
+      )
+    ) -> rawdata
   assert_that(
-    has_name(metadata, "first_imported_year"),
-    has_name(metadata, "last_imported_year")
-  )
-
-  rawdata <- try(read_vc(metadata$filename, root = raw_repo), silent = TRUE)
-  if (inherits(rawdata, "try-error")) {
-    return(data.frame())
-  }
-  assert_that(
-    has_name(rawdata, "location"), has_name(rawdata, "year"),
-    has_name(rawdata, "month"), has_name(rawdata, "id"),
-    has_name(rawdata, "complete"), has_name(rawdata, "count"),
-    has_name(rawdata, "datafield_id"),
-    noNA(select(rawdata, "datafield_id", "location", "year", "month", "id"))
+    rawdata |>
+      filter(!is.na(.data$count)) |>
+      noNA()
   )
   stopifnot(
 "Each combination of location, year and month must have exactly one
 observation" = anyDuplicated(rawdata[, c("location", "year", "month")]) == 0
   )
-
-  metadata$analysis_date <- recent_commit(
-    metadata$filename, raw_repo, TRUE
-  )$when
-
+  sprintf("observation/%06i", speciesgroupspecies$species) |>
+    recent_commit(root = raw_repo, data = TRUE) |>
+    select(analysis_date = "when") |>
+    bind_cols(
+      rawdata |>
+        summarise(
+          first_imported_year = min(.data$year),
+          last_imported_year = max(.data$year)
+        ),
+      speciesgroupspecies
+    ) -> metadata
   rawdata |>
-    mutate(
-      month = factor(
-        .data$month, levels = c(10:12, 1:3),
-        labels = c(
-          "October", "November", "December", "January", "February", "March"
-        )
-      )
-    ) |>
-    complete(
-      .data$year, .data$month, .data$location, fill = list(datafield_id = -1)
-    ) |>
-    inner_join(location, by = "location") |>
+    complete(.data$year, .data$month, .data$location) |>
+    inner_join(location, by = "location", relationship = "many-to-many") |>
     filter(
-      !.data$subset_month |
+      !.data$subset_months |
         .data$month %in% c("November", "December", "January", "February"),
       is.na(.data$start_year) | .data$start_year <= .data$year,
       is.na(.data$end_year) | .data$year <= .data$end_year
     ) |>
     transmute(
-      observation_id = ifelse(is.na(.data$id), -row_number(), .data$id),
-      .data$datafield_id, .data$locationgroup,
-      location = as.character(.data$location), .data$year,
-      .data$month, minimum = pmax(0, .data$count),
+      observation_id = ifelse(
+        is.na(.data$observation_id), -row_number(), .data$observation_id
+      ),
+      datafield_id = replace_na(.data$datafield, -1), .data$locationgroup,
+      .data$location, .data$year, .data$month, minimum = pmax(0, .data$count),
       count = ifelse(.data$complete, .data$count, NA)
     ) |>
     arrange(.data$location, .data$year, .data$month) |>
-    group_by(.data$locationgroup) |>
-    nest() |>
-    ungroup() |>
+    nest(.by = locationgroup) |>
     mutate(
       relevant = map(.data$data, select_relevant_analysis),
       rare_observation = map(.data$relevant, "rare_observation"),
@@ -124,7 +104,7 @@ observation" = anyDuplicated(rawdata[, c("location", "year", "month")]) == 0
           location_group = .data$locationgroup, relevant = .data$relevant,
           extra = .data$rare_observation
         ),
-        prepare_imputation_model, metadata = metadata, seed = seed
+        prepare_imputation_model, seed = seed, metadata = metadata
       )
     ) |>
     unnest("model") |>
@@ -136,7 +116,11 @@ observation" = anyDuplicated(rawdata[, c("location", "year", "month")]) == 0
     ) -> selected
 
   map_dfr(selected$model, slot, "AnalysisMetadata") |>
-    filter(.data$status != "insufficient_data") |>
+    filter(.data$status != "insufficient_data") -> relevant
+  if (nrow(relevant) == 0) {
+    return(data.frame())
+  }
+  relevant |>
     transmute(
       impute = .data$location_group_id, .data$species_group_id,
       type = ifelse(grepl(" binomial:", .data$model_type), "presence", "count"),
@@ -159,16 +143,14 @@ prepare_imputation_model <- function(
 ) {
   if (nrow(relevant) == 0) {
     model <- n2k_inla(
-      data = relevant, result_datasource_id = metadata$datasource,
+      data = relevant, result_datasource_id = "watervogels",
       scheme_id = "watervogels", formula = "count ~ 1",
       location_group_id = as.character(location_group),
-      species_group_id = as.character(metadata$speciesgroup),
-      model_type = sprintf(
-        "inla %s: year * (location + month)", metadata$distribution
-      ),
+      species_group_id = metadata$speciesgroup,
+      model_type = "inla zeroinflatednbinomial0: year * (location + month)",
       first_imported_year = metadata$first_imported_year, seed = seed,
       last_imported_year = metadata$last_imported_year,
-      family = metadata$distribution, analysis_date = metadata$analysis_date,
+      family = "zeroinflatednbinomial0", analysis_date = metadata$analysis_date,
       status = "insufficient_data"
     )
     return(list(count = model))
@@ -239,9 +221,9 @@ prepare_imputation_model <- function(
     sprintf(fmt = "count ~ %s") |>
     n2k_inla(
       data = truncated_zero, status = "new", family = "zeroinflatednbinomial0",
-      result_datasource_id = metadata$datasource, scheme_id = "watervogels",
+      result_datasource_id = "watervogels", scheme_id = "watervogels",
       location_group_id = as.character(location_group), extra = extra_count,
-      species_group_id = as.character(metadata$speciesgroup),
+      species_group_id = metadata$speciesgroup,
       model_type = "inla zeroinflatednbinomial0: year * (location + month)",
       first_imported_year = metadata$first_imported_year, seed = seed,
       last_imported_year = metadata$last_imported_year, minimum = "minimum",
@@ -256,9 +238,9 @@ prepare_imputation_model <- function(
     sprintf(fmt = "present ~ %s") |>
     n2k_inla(
       data = present, status = "new", family = "binomial",
-      result_datasource_id = metadata$datasource, scheme_id = "watervogels",
+      result_datasource_id = "watervogels", scheme_id = "watervogels",
       location_group_id = as.character(location_group),
-      species_group_id = as.character(metadata$speciesgroup),
+      species_group_id = metadata$speciesgroup,
       model_type = "inla binomial: year * (location + month)",
       first_imported_year = metadata$first_imported_year, seed = seed,
       last_imported_year = metadata$last_imported_year,

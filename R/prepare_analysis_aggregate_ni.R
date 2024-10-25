@@ -23,12 +23,12 @@ prepare_analysis_aggregate_ni <- function(
 
   verify_vc(
     file = "location/locationgroup", root = raw_repo,
-    variables = c("id", "impute")
+    variables = c("external_code", "impute")
   ) |>
     filter(
-      .data$impute == as.integer(count@AnalysisMetadata$location_group_id)
+      .data$impute == count@AnalysisMetadata$location_group_id
     ) |>
-    select(location_group_id = "id") |>
+    select(location_group_id = "external_code") |>
     inner_join(
       verify_vc(
         file = "location/locationgroup_location", root = raw_repo,

@@ -17,21 +17,21 @@ prepare_analysis <- function(
 ) {
   set.seed(seed)
   path("location", "location") |>
-    verify_vc(root = raw_repo, variables = c("id", "start", "end")) |>
+    verify_vc(root = raw_repo, variables = c("id", "start_date", "end_date")) |>
     transmute(
       .data$id,
-      start_year = round_date(.data$start, unit = "year") |>
+      start_year = round_date(.data$start_date, unit = "year") |>
         year(),
-      end_year = round_date(.data$end, unit = "year") |>
+      end_year = round_date(.data$end_date, unit = "year") |>
         year()
     ) -> location
 
   path("location", "locationgroup") |>
-    verify_vc(root = raw_repo, variables = c("impute", "subset_month")) |>
-    distinct(locationgroup = .data$impute, .data$subset_month) |>
+    verify_vc(root = raw_repo, variables = c("impute", "subset_months")) |>
+    distinct(locationgroup = .data$impute, .data$subset_months) |>
     inner_join(
       path("location", "locationgroup_location") |>
-        read_vc(root = raw_repo),
+        verify_vc(root = raw_repo, variables = c("locationgroup", "location")),
       by = "locationgroup"
     ) |>
     inner_join(location, by = c("location" = "id")) -> location
@@ -40,7 +40,10 @@ prepare_analysis <- function(
 
   path("species", "speciesgroup_species") |>
     verify_vc(root = raw_repo, variables = c("speciesgroup", "species")) |>
-    nest(.by = "speciesgroup") |>
+    group_by(.data$speciesgroup) |>
+    filter(n() == 1) |>
+    nest() |>
+    arrange(as.integer(.data$speciesgroup)) |>
     transmute(
       speciesgroup = map2(
         .data$speciesgroup, .data$data, ~mutate(.y, speciesgroup = .x)

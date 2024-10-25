@@ -110,6 +110,8 @@ select_relevant_analysis <- function(observation) {
       ) -> rare_observation
   }
 
+  # keep only locations where the ratio between the top year and the 5th year
+  # is less than 10
   observation |>
     filter(.data$count > 0) |>
     nest(.by = "location") |>
@@ -134,7 +136,7 @@ select_relevant_analysis <- function(observation) {
         diff() |>
         exp()
     ) |>
-    filter(1 / .data$delta > 0.1) -> to_keep
+    filter(.data$delta < 10) -> to_keep
   observation |>
     anti_join(to_keep, by = "location") |>
     filter(.data$count > 0) |>
@@ -158,6 +160,24 @@ select_relevant_analysis <- function(observation) {
       bind_rows(relevant$rare_observation) -> relevant$rare_observation
     relevant$observation <- relevant$observation[0, ]
   }
+
+  # don't impute when nearest observation at the location is more than 5 years
+  # away
+  relevant$observation |>
+    filter(.data$minimum > 0) |>
+    distinct(.data$location, observed = .data$year) |>
+    inner_join(
+      relevant$observation |>
+        filter(is.na(.data$count)),
+      by = "location", relationship = "many-to-many"
+    ) |>
+    filter(abs(.data$observed - .data$year) <= 5) |>
+    distinct(.data$observation_id) |>
+    pull("observation_id") -> to_impute
+  relevant$observation |>
+    filter(
+      !is.na(.data$count) | .data$observation_id %in% to_impute
+    ) -> relevant$observation
 
   return(relevant)
 }

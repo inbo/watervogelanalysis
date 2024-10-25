@@ -25,10 +25,10 @@ prepare_analysis_aggregate <- function(
 
   verify_vc(
     file = "location/locationgroup", root = raw_repo,
-    variables = c("id", "impute")
+    variables = c("external_code", "impute")
   ) |>
-    filter(.data$impute == as.integer(get_location_group_id(hurdle))) |>
-    select(location_group_id = "id") |>
+    filter(.data$impute == get_location_group_id(hurdle)) |>
+    select(location_group_id = "external_code") |>
     inner_join(
       verify_vc(
         file = "location/locationgroup_location", root = raw_repo,
