@@ -176,5 +176,14 @@ prepare_analysis_index <- function(
     x, base = analysis_path, project = "watervogels", overwrite = FALSE
   )
   x@AnalysisRelation |>
-    select(fingerprint = "analysis", parent = "parent_analysis")
+    select(fingerprint = "analysis", parent = "parent_analysis") |>
+    mutate(
+      speciesgroup = aggregation@AnalysisMetadata$species_group_id,
+      locationgroup = aggregation@AnalysisMetadata$location_group_id,
+      first_imported_year = aggregation@AnalysisMetadata$first_imported_year,
+      last_imported_year = aggregation@AnalysisMetadata$last_imported_year,
+      analysis_date = aggregation@AnalysisMetadata$analysis_date,
+      parent_status = x@AnalysisMetadata$status,
+      parentstatus_fingerprint = x@AnalysisMetadata$status_fingerprint
+    )
 }

@@ -113,17 +113,19 @@ observation" = anyDuplicated(rawdata[, c("location", "year", "month")]) == 0
         overwrite = FALSE
       )
     ) -> selected
+  names(selected$model) <- selected$filename
 
   map_dfr(selected$model, slot, "AnalysisMetadata") |>
     filter(.data$status != "insufficient_data") -> relevant
   if (nrow(relevant) == 0) {
     return(data.frame())
   }
+
   relevant |>
     transmute(
       impute = .data$location_group_id, .data$species_group_id,
       type = ifelse(grepl(" binomial:", .data$model_type), "presence", "count"),
-      model = selected$model
+      model = selected$model[relevant$file_fingerprint]
     ) |>
     pivot_wider(names_from = "type", values_from = "model")
 }

@@ -38,14 +38,17 @@ prepare_analysis <- function(
   display(verbose, "Prepare imputations")
 
   file.path("species", "speciesgroup_species") |>
-    verify_vc(root = raw_repo, variables = c("speciesgroup", "species")) |>
-    group_by(.data$speciesgroup) |>
-    filter(n() == 1) |>
-    nest() |>
+    verify_vc(
+      root = raw_repo, variables = c("speciesgroup", "species")
+    ) -> speciesgroupspecies
+  speciesgroupspecies |>
+    filter(grepl("[0-9]{3,5}", .data$speciesgroup)) |>
+    nest(.by = "speciesgroup") |>
     arrange(as.integer(.data$speciesgroup)) |>
     transmute(
       speciesgroup = map2(
-        .data$speciesgroup, .data$data, ~mutate(.y, speciesgroup = .x)
+        .data$speciesgroup, .data$data,
+        ~data.frame(species = .y$species, speciesgroup = .x)
       )
     ) |>
     pull("speciesgroup") |>
@@ -54,6 +57,7 @@ prepare_analysis <- function(
       seed = seed, analysis_path = analysis_path, raw_repo = raw_repo,
       verbose = verbose
     ) |>
+    filter(!is.null(.data$count)) |>
     mutate(
       month = map_lgl(
         .data$count,
@@ -67,6 +71,7 @@ prepare_analysis <- function(
       .data$count, fingerprint = map_chr(.data$count, get_file_fingerprint),
       parent = NA_character_
     ) -> manifest
+
   display(verbose, "\nDatasets without imputations")
   manifest |>
     transmute(
@@ -85,6 +90,7 @@ prepare_analysis <- function(
           parent = NA_character_
         )
     ) -> manifest
+
   display(verbose, "\nHurdle model")
   imputations |>
     transmute(
@@ -104,6 +110,7 @@ prepare_analysis <- function(
     unnest("parent") |>
     select(fingerprint = "analysis", parent = "parent_analysis") |>
     bind_rows(manifest) -> manifest
+
   display(verbose, "\nAggregations")
   relevant |>
     transmute(
@@ -122,7 +129,8 @@ prepare_analysis <- function(
     unnest("parent") |>
     select(fingerprint = "analysis", parent = "parent_analysis") |>
     bind_rows(manifest) -> manifest
-  display(verbose, "\nTrends")
+
+  display(verbose, "\nTrends index")
   relevant |>
     transmute(
       fingerprint = map2(
@@ -130,18 +138,19 @@ prepare_analysis <- function(
         analysis_path = analysis_path, verbose = verbose
       )
     ) |>
+    unnest("fingerprint") -> trends
+
+  display(verbose, "\nTrends smoother")
+  relevant |>
+    transmute(
+      fingerprint = map2(
+        .data$aggregated, .data$month, prepare_analysis_smoother,
+        analysis_path = analysis_path, verbose = verbose
+      )
+    ) |>
     unnest("fingerprint") |>
-    bind_rows(
-      relevant |>
-        transmute(
-          fingerprint = map2(
-            .data$aggregated, .data$month, prepare_analysis_smoother,
-            analysis_path = analysis_path, verbose = verbose
-          )
-        ) |>
-        unnest("fingerprint"),
-      manifest
-    ) -> manifest
+    bind_rows(trends, manifest) -> manifest
+
   display(verbose, "\nWintermaxima aggregation")
   relevant |>
     transmute(
@@ -150,6 +159,7 @@ prepare_analysis <- function(
         analysis_path = analysis_path, verbose = verbose
       )
     ) -> wintermax
+
   display(verbose, "\nWintermaxima trend")
   wintermax |>
     transmute(
@@ -175,14 +185,43 @@ prepare_analysis <- function(
         ) |>
         unnest("fingerprint"),
       manifest
+    ) -> manifest
+
+  display(verbose, "\nComposite trends")
+  trends |>
+    inner_join(speciesgroupspecies, by = "speciesgroup") |>
+    select(-"speciesgroup", -"parent", parent_analysis = "fingerprint") |>
+    inner_join(
+      speciesgroupspecies |>
+        filter(!grepl("[0-9]{3,5}", .data$speciesgroup)),
+      by = "species", relationship = "many-to-many"
     ) |>
+    nest(.by = c("speciesgroup", "locationgroup")) |>
+    transmute(
+      fingerprint = pmap(
+        list(
+          species_group_id = .data$speciesgroup,
+          location_group_id = .data$locationgroup,
+          models = .data$data
+        ),
+        prepare_analysis_composite, base = analysis_path,
+        verbose = verbose, project = "watervogels", seed = seed,
+        scheme_id = "watervogels"
+      )
+    ) |>
+    unnest("fingerprint") |>
+    bind_rows(manifest) -> manifest
+
+  display(verbose, "\nCreate manifest")
+  manifest |>
+    select("fingerprint", "parent") |>
     n2k_manifest() |>
     store_manifest_yaml(
       base = analysis_path, project = "watervogels",
-      docker = "inbobmk/rn2k:0.9",
+      docker = "inbobmk/rn2k:0.10",
       dependencies = c(
-        "inbo/multimput@v0.2.14", "inbo/n2khelper@v0.5.0",
-        "inbo/n2kanalysis@v0.3.2"
+        "inbo/multimput@hotfix", "inbo/n2khelper@v0.5.0",
+        "inbo/n2kanalysis@spde"
       )
     ) |>
     basename() |>
