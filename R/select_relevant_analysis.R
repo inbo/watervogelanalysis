@@ -151,6 +151,23 @@ select_relevant_analysis <- function(observation) {
     return(relevant)
   }
 
+  # keep only locations where is species was present during at least 50% of the
+  # season from at least 2 years
+  relevant$observation |>
+    filter(!is.na(.data$count)) |>
+    group_by(.data$location, .data$year) |>
+    summarise(season_duration = mean(.data$count > 0), .groups = "drop") |>
+    filter(.data$season_duration >= 0.5) |>
+    count(.data$location) |>
+    filter(.data$n >= 2) -> to_keep
+  relevant$observation |>
+    anti_join(to_keep, by = "location") |>
+    filter(.data$count > 0) |>
+    bind_rows(relevant$rare_observation) -> relevant$rare_observation
+  relevant$observation |>
+    semi_join(to_keep, by = "location") -> relevant$observation
+
+  # relevant observations need at least 6 locations
   relevant$observation |>
     distinct(.data$location) |>
     nrow() -> n_location
@@ -159,6 +176,7 @@ select_relevant_analysis <- function(observation) {
       filter(.data$count > 0) |>
       bind_rows(relevant$rare_observation) -> relevant$rare_observation
     relevant$observation <- relevant$observation[0, ]
+    return(relevant)
   }
 
   # don't impute when nearest observation at the location is more than 5 years

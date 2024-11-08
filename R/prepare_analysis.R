@@ -218,7 +218,7 @@ prepare_analysis <- function(
     n2k_manifest() |>
     store_manifest_yaml(
       base = analysis_path, project = "watervogels",
-      docker = "inbobmk/rn2k:0.10",
+      docker = "inbobmk/rn2k:dev-0.10",
       dependencies = c(
         "inbo/multimput@hotfix", "inbo/n2khelper@v0.5.0",
         "inbo/n2kanalysis@spde"
