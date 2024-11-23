@@ -18,7 +18,7 @@ prepare_analysis_composite <- function(
     has_name(models, "last_imported_year"), has_name(models, "analysis_date")
   )
   display(
-    verbose = verbose,
+    verbose = verbose, linefeed = FALSE,
     message = c(location_group_id, " ", species_group_id)
   )
 
