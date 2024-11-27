@@ -1,6 +1,6 @@
 project:
   type: website
-  output-dir: ../website
+  output-dir: ../../output/website
   lib-dir: libs
 
 knitr:

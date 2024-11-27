@@ -1,131 +1,106 @@
 library(git2rdata)
+library(keyring)
 library(knitr)
 library(quarto)
 library(tidyverse)
-conflicted::conflicts_prefer(dplyr::pull)
 n_head <- Inf
-results_folder <- "../../../watervogels/result"
-target_folder <- "../../../watervogels/quarto"
+root <- key_get("meetnetten", username = "watervogels_result")
+results_folder <- file.path(root, "data")
+target_folder <- file.path(root, "source", "website")
 dir.create(target_folder, showWarnings = FALSE)
 
 system.file("css_styles", package = "INBOmd") |>
-  file.copy(to = target_folder, recursive = TRUE)
+  file.copy(to = target_folder)
 file.path(target_folder, "css_styles") |>
   file.copy(from = "custom.css", overwrite = TRUE)
 c("index.qmd", "species_list.qmd") |>
   file.copy(target_folder, overwrite = TRUE)
 
-read_vc("species", results_folder) |>
-  select("id", species = "name_sc") |>
-  inner_join(read_vc(
-    "speciesgroup_species", results_folder), by = c("id" = "species")
+read_vc("analysis", results_folder) |>
+  # filter(
+  #   .data$locationgroup %in%
+  #     c("BEL", "VLAA", "WAL", "WALN2K", "BELN2K", "VLN2K")
+  # ) |>
+  filter(str_detect(.data$species, "^[0-9]+$")) |>
+  count(species = as.integer(.data$species), .data$locationgroup) |>
+  slice_max(.data$n, n = n_head, with_ties = FALSE) |>
+  arrange(.data$species, .data$locationgroup) |>
+  filter(
+    map2_lgl(
+      .data$species, .data$locationgroup,
+      ~sprintf(
+          "%s/%s/trend.csv",
+          str_replace_all(.y, " ", "-") |>
+            tolower(),
+          .x
+        ) |>
+        is_git2rdata(root = results_folder)
+      )
   ) |>
-  semi_join(
-    read_vc("observed", results_folder) |>
-      mutate(speciesgroup = as.integer(.data$species_group_id)),
-    by = "speciesgroup"
+  inner_join(
+    read_vc("species", results_folder), by = c("species" = "euring")
   ) |>
-  arrange(.data$speciesgroup) |>
-  head(n_head) |>
+  inner_join(
+    read_vc("locationgroup", results_folder) |>
+      mutate(
+        description = str_replace_all(.data$description, "België", "Belgium") |>
+          str_replace_all("Vlaanderen", "Flanders") |>
+          str_replace_all("Wallonië", "Wallonia")
+      ),
+    by = c("locationgroup" = "external_code")
+  ) |>
   mutate(
-    output_file = str_replace_all(.data$species, " ", "-") |>
+    output_file = str_replace_all(.data$scientific, " ", "-") |>
+      tolower() |>
+      sprintf(
+        fmt = "%2$s/%1$s/%3$s.qmd", target_folder,
+        tolower(.data$description) |>
+          str_replace_all(" ", "-") |>
+          str_replace("ë", "e")
+      )
+  ) -> species_location
+
+for (i in seq_len(nrow(species_location))) {
+  message(species_location$output_file[i])
+  dirname(species_location$output_file[i]) |>
+    dir.create(showWarnings = FALSE, recursive = TRUE)
+  knit_expand(
+    "species_location.qmd", this_species_name = species_location$scientific[i],
+    species = species_location$species[i],
+    locationgroup = species_location$locationgroup[i],
+    this_location_name = species_location$description[i],
+    this_default_reference = 2024
+  ) |>
+    writeLines(con = species_location$output_file[i])
+}
+
+species_location |>
+  distinct(.data$species, .data$scientific) |>
+  mutate(
+    output_file = str_replace_all(.data$scientific, " ", "-") |>
       tolower() |>
       sprintf(fmt = "%2$s/%1$s/index.qmd", target_folder)
   ) -> species
 for (i in seq_len(nrow(species))) {
+  message(species$output_file[i])
   dirname(species$output_file[i]) |>
-    dir.create(showWarnings = FALSE)
+    dir.create(showWarnings = FALSE, recursive = TRUE)
   knit_expand(
-    "species.qmd", species = species$species[i],
-    species_group_id = species$speciesgroup[i]
+    "species.qmd", this_species_name = species$scientific[i]
   ) |>
-    writeLines(species$output_file[i])
-}
-
-read_vc("observed", results_folder) |>
-  mutate(speciesgroup = as.integer(.data$species_group_id)) |>
-  inner_join(species, by = "speciesgroup") |>
-  distinct(.data$species, .data$speciesgroup, .data$location_group_id) |>
-  inner_join(
-    read_vc("locationgroup", results_folder) |>
-      transmute(
-        location_group_id = as.character(.data$id),
-        locationgroup = .data$description
-      ),
-    by = "location_group_id"
-  ) |>
-  arrange(.data$speciesgroup, as.integer(.data$location_group_id)) |>
-  head(n_head) |>
-  mutate(
-    output_file = sprintf(
-      "%s/%s/%s.qmd", target_folder, .data$species, .data$locationgroup
-    ) |>
-      tolower() |>
-      str_replace_all(" ", "-"),
-    title = sprintf("_%s_ in `%s`", .data$species, .data$locationgroup)
-  ) |>
-  left_join(
-    read_vc("yearly_change", results_folder) |>
-      group_by(
-        speciesgroup = as.integer(.data$species_group_id),
-        .data$location_group_id
-      ) |>
-      summarise(reference = min(.data$reference), .groups = "drop"),
-    by = c("speciesgroup", "location_group_id")
-  ) -> species_location
-for (i in seq_len(nrow(species_location))) {
-  dirname(species_location$output_file[i]) |>
-    dir.create(showWarnings = FALSE)
-  knit_expand(
-    "species_location.qmd", this_species_name = species_location$species[i],
-    this_species = species_location$speciesgroup[i],
-    this_location = species_location$location_group_id[i],
-    this_location_name = species_location$locationgroup[i],
-    title = species_location$title[i],
-    this_default_reference = species_location$reference[i]
-  ) |>
-    writeLines(species_location$output_file[i])
-}
-
-read_vc("locationgroup", results_folder) |>
-  transmute(
-    location_group_id = as.character(.data$id),
-    locationgroup = .data$description
-  ) |>
-  head(n_head) |>
-  mutate(
-    output_file = sprintf(
-      "%s/%s/index.qmd", target_folder, .data$locationgroup
-    ) |>
-      tolower() |>
-      str_replace_all(" ", "-")
-  ) -> location
-for (i in seq_len(nrow(location))) {
-  dirname(location$output_file[i]) |>
-    dir.create(showWarnings = FALSE)
-  knit_expand(
-    "location.qmd", this_location = location$location_group_id[i],
-    this_location_name = location$locationgroup[i]
-  ) |>
-    writeLines(location$output_file[i])
+    writeLines(con = species$output_file[i])
 }
 
 readLines("_quarto.yml") |>
   c(
     "    - text: \"Introduction\"", "      file: index.qmd",
-    "    - text: \"Species list\"", "      file: species_list.qmd",
-    "    - section: \"By location\"", "      contents:",
-    sprintf(
-      "      - text: %s\n        file: %s", location$locationgroup,
-      gsub(paste0(target_folder, "/"), "", location$output_file)
-    ),
     "    - section: \"By species\"", "      contents:",
     species_location |>
       mutate(
         yml = str_remove(.data$output_file, paste0(target_folder, "/")) |>
           sprintf(
             fmt = "        - text: \"%2$s\"\n          file: %1$s",
-            .data$locationgroup
+            .data$description
           )
       ) |>
       group_by(.data$species) |>
@@ -134,14 +109,14 @@ readLines("_quarto.yml") |>
           sprintf(fmt = "\n        contents:\n%s")
       ) |>
       left_join(x = species, by = "species") |>
-      arrange(.data$speciesgroup) |>
+      arrange(.data$species) |>
       transmute(
         yml = replace_na(.data$yml, ""),
         yml = str_remove(.data$output_file, paste0(target_folder, "/")) |>
           sprintf(
             fmt = "      - text: \"%2$s\"
         file: %1$s%3$s",
-            .data$species, .data$yml
+            .data$scientific, .data$yml
           )
       ) |>
       pull(.data$yml)
@@ -150,18 +125,7 @@ readLines("_quarto.yml") |>
 
 species$output_file |>
   dirname() |>
-  walk(
-    ~quarto_render(.x, use_freezer = TRUE, cache = TRUE, as_job = FALSE),
-    .progress = TRUE
-  )
-location$output_file |>
-  dirname() |>
-  walk(
-    ~quarto_render(.x, use_freezer = TRUE, cache = TRUE, as_job = FALSE),
-    .progress = TRUE
-  )
-target_folder |>
-  list.files(pattern = ".qmd", full.names = TRUE) |>
+  sort() |>
   walk(
     ~quarto_render(.x, use_freezer = TRUE, cache = TRUE, as_job = FALSE),
     .progress = TRUE
