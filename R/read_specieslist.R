@@ -87,6 +87,7 @@ read_specieslist <- function(
       .data$external_code_fl, .data$datafield_fl, .data$external_code_wal,
       .data$datafield_wal, .data$nl, .data$fr,
       first = round_date(.data$first, unit = "year") |>
-        year()
+        year(),
+      first = ifelse(is.na(.data$first), .data$first_wal, .data$first)
     )
 }

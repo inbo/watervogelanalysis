@@ -10,7 +10,8 @@ prepare_dataset_location(
   walloon_repo,
   raw_repo,
   first_date,
-  latest_date = as.POSIXct(Sys.time())
+  latest_date = as.POSIXct(Sys.time()),
+  strict = TRUE
 )
 }
 \arguments{
@@ -23,6 +24,11 @@ prepare_dataset_location(
 \item{first_date}{earliest records to take into account}
 
 \item{latest_date}{until which date should we import the species list}
+
+\item{strict}{What to do when the metadata changes. \code{strict = FALSE}
+overwrites the data and the metadata with a warning listing the changes,
+\code{strict = TRUE} returns an error and leaves the data and metadata as is.
+Defaults to \code{TRUE}.}
 }
 \value{
 a data.frame with the locations

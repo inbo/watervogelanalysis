@@ -35,21 +35,25 @@ prepare_dataset_observation <- function(
     table = "FactAnalyseSetOccurrence", field = "OccurrenceKey",
     datasource = "W0004_00_Waterbirds database", root = raw_repo, stage = TRUE
   )
-  read_observation(
-    species_id = this_species$external_code_fl, first_year = this_species$first,
-    latest_year = latest_year, flemish_channel = flemish_channel
-  ) |>
-    mutate(
-      datafield = flanders_id,
-      observation_id = as.character(.data$observation_id)
+  if (is.na(this_species$external_code_fl)) {
+    observation_flemish <- data.frame()
+  } else {
+    read_observation(
+      species_id = this_species$external_code_fl, first_year = this_species$first,
+      latest_year = latest_year, flemish_channel = flemish_channel
     ) |>
-    inner_join(
-      location |>
-        filter(.data$region == "Flanders") |>
-        select("location" = "id", "external_code"),
-      by = "external_code"
-    ) |>
-    select(-"external_code") -> observation_flemish
+      mutate(
+        datafield = flanders_id,
+        observation_id = as.character(.data$observation_id)
+      ) |>
+      inner_join(
+        location |>
+          filter(.data$region == "Flanders") |>
+          select("location" = "id", "external_code"),
+        by = "external_code"
+      ) |>
+      select(-"external_code") -> observation_flemish
+  }
 
   if (is.na(this_species$external_code_wal)) {
     observation_walloon <- data.frame()

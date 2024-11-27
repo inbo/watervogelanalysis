@@ -14,5 +14,5 @@ keyring::key_get("meetnetten", username = "raw_repo") |>
 library(watervogelanalysis)
 prepare_dataset(
   flemish_channel = flemish_channel, walloon_repo = walloon_repo,
-  raw_repo = raw_repo
+  raw_repo = raw_repo, strict = FALSE
 )

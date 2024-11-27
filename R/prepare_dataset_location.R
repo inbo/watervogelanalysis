@@ -3,6 +3,7 @@
 #' @return a data.frame with the locations
 #' @inheritParams prepare_dataset
 #' @inheritParams prepare_dataset_species
+#' @inheritParams git2rdata::write_vc
 #' @export
 #' @importFrom dplyr bind_rows distinct filter mutate select
 #' @importFrom git2rdata update_metadata write_vc
@@ -10,7 +11,7 @@
 #' @importFrom rlang .data
 prepare_dataset_location <- function(
   flemish_channel, walloon_repo, raw_repo, first_date,
-  latest_date = as.POSIXct(Sys.time())
+  latest_date = as.POSIXct(Sys.time()), strict = TRUE
 ) {
 
   # read the locations
@@ -157,7 +158,7 @@ Flemish data covers 6 winter months, whereas Walloon data covers only 4 months."
       location = factor(.data$location)
     ) |>
     write_vc(
-      "location/locationgroup_location", root = raw_repo,
+      "location/locationgroup_location", root = raw_repo, strict = strict,
       sorting = c("locationgroup", "location"), stage = TRUE
     )
   update_metadata(

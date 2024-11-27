@@ -12,6 +12,7 @@
 #' Winter 2019 is defined as 2018-10-01 until 2019-03-31.
 #' Defaults the winter prior to last firth of July.
 #' 2019-06-30 becomes 2018, 2019-07-01 becomes 2019.
+#' @inheritParams git2rdata::write_vc
 #' @export
 #' @importFrom assertthat assert_that is.string is.flag noNA is.count
 #' @importFrom dplyr arrange filter mutate pull
@@ -26,7 +27,7 @@
 #' }
 prepare_dataset <- function(
   raw_repo, walloon_repo, flemish_channel, verbose = TRUE, first_year = 1992,
-  latest_year = as.integer(format(Sys.time(), "%Y"))
+  latest_year = as.integer(format(Sys.time(), "%Y")), strict = TRUE
 ) {
   assert_that(
     is.flag(verbose), noNA(verbose), is.count(first_year),
@@ -47,7 +48,8 @@ prepare_dataset <- function(
   display(verbose, "Reading and saving locations")
   location <- prepare_dataset_location(
     flemish_channel = flemish_channel, walloon_repo = walloon_repo,
-    raw_repo = raw_repo, first_date = first_date, latest_date = latest_date
+    raw_repo = raw_repo, first_date = first_date, latest_date = latest_date,
+    strict = strict
   )
 
   display(verbose, "Reading and saving species")

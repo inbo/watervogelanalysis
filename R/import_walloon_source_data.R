@@ -147,6 +147,8 @@ import_walloon_source_data <- function(
   visits |>
     distinct(.data$site, .data$date) |>
     mutate(
+      month = format(.data$date, "%m") |>
+        as.integer(),
       start = format(.data$date, "%Y-%m-01") |>
         as.Date(),
       end = .data$start + months(1) - days(1),
@@ -156,6 +158,7 @@ import_walloon_source_data <- function(
         as.integer() |>
         abs()
     ) |>
+    filter(.data$month <= 3 | .data$month >= 10) |>
     slice_min(
       .data$delta, n = 1, with_ties = FALSE, by = c("site", "midpoint")
     ) |>

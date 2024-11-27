@@ -10,7 +10,8 @@ prepare_dataset(
   flemish_channel,
   verbose = TRUE,
   first_year = 1992,
-  latest_year = as.integer(format(Sys.time(), "\%Y"))
+  latest_year = as.integer(format(Sys.time(), "\%Y")),
+  strict = TRUE
 )
 }
 \arguments{
@@ -28,6 +29,11 @@ prepare_dataset(
 Winter 2019 is defined as 2018-10-01 until 2019-03-31.
 Defaults the winter prior to last firth of July.
 2019-06-30 becomes 2018, 2019-07-01 becomes 2019.}
+
+\item{strict}{What to do when the metadata changes. \code{strict = FALSE}
+overwrites the data and the metadata with a warning listing the changes,
+\code{strict = TRUE} returns an error and leaves the data and metadata as is.
+Defaults to \code{TRUE}.}
 }
 \description{
 The raw data is written to the git repository.
