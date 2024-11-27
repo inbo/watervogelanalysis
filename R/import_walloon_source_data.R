@@ -89,8 +89,7 @@ import_walloon_source_data <- function(
   )
 
   # import sites
-  file.path(path, location_file) |>
-    read.csv2(fileEncoding = "Latin1") |>
+  read.csv2(location_file, fileEncoding = "Latin1") |>
     transmute(
       id = .data$code_site, name = .data$nom_site,
       natura2000 = as.logical(.data$natura2000)
@@ -117,8 +116,7 @@ import_walloon_source_data <- function(
     )
 
   # import visits
-  file.path(path, data_file) |>
-    read.csv2(fileEncoding = "Latin1") |>
+  read.csv2(data_file, fileEncoding = "Latin1") |>
     select(
       site = "code_site", scientific = "taxprio", "euring", "n", "date",
       visit_id = "visite"
@@ -158,7 +156,9 @@ import_walloon_source_data <- function(
         as.integer() |>
         abs()
     ) |>
-    slice_min(.data$delta, n = 1, with_ties = FALSE, by = "site") |>
+    slice_min(
+      .data$delta, n = 1, with_ties = FALSE, by = c("site", "midpoint")
+    ) |>
     transmute(
       hash = map2_chr(.data$site, .data$date, ~sha1(c(site = .x, date = .y))) |>
         substr(start = 1, stop = 7),
