@@ -42,7 +42,7 @@ prepare_analysis <- function(
       root = raw_repo, variables = c("speciesgroup", "species")
     ) -> speciesgroupspecies
   speciesgroupspecies |>
-    filter(grepl("[0-9]{3,5}", .data$speciesgroup)) |>
+    filter(grepl("[0-9]{2,5}", .data$speciesgroup)) |>
     nest(.by = "speciesgroup") |>
     arrange(as.integer(.data$speciesgroup)) |>
     transmute(
@@ -57,15 +57,20 @@ prepare_analysis <- function(
       seed = seed, analysis_path = analysis_path, raw_repo = raw_repo,
       verbose = verbose
     ) |>
-    filter(!is.null(.data$count)) |>
     mutate(
       month = map_lgl(
         .data$count,
-        ~slot(.x, "AnalysisMetadata") |>
-          pull(formula) |>
-          grepl(pattern = "\nmonth +")
+        function(x) {
+          if (is.null(x)) {
+            return(NA)
+          }
+          slot(x, "AnalysisMetadata") |>
+            pull(formula) |>
+            grepl(pattern = "\nmonth +")
+        }
       )
-    ) -> imputations
+    ) |>
+    filter(!is.na(month)) -> imputations
   imputations |>
     transmute(
       .data$count, fingerprint = map_chr(.data$count, get_file_fingerprint),

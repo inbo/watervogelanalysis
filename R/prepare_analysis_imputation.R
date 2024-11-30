@@ -125,7 +125,7 @@ observation" = anyDuplicated(rawdata[, c("location", "year", "month")]) == 0
     transmute(
       impute = .data$location_group_id, .data$species_group_id,
       type = ifelse(grepl(" binomial:", .data$model_type), "presence", "count"),
-      model = selected$model[relevant$file_fingerprint]
+      model = selected$model[.data$file_fingerprint]
     ) |>
     pivot_wider(names_from = "type", values_from = "model")
 }
