@@ -6,7 +6,7 @@
 #' @importFrom git2rdata verify_vc
 #' @importFrom lubridate round_date year
 #' @importFrom n2kanalysis display get_file_fingerprint manifest_yaml_to_bash
-#' n2k_hurdle_imputed n2k_manifest store_manifest_yaml store_model
+#' n2k_hurdle_imputed n2k_manifest store_manifest store_model
 #' @importFrom methods slot
 #' @importFrom purrr map_chr map_dfr
 #' @importFrom rlang .data
@@ -28,6 +28,7 @@ prepare_analysis <- function(
   file.path("location", "locationgroup") |>
     verify_vc(root = raw_repo, variables = c("impute", "subset_months")) |>
     distinct(locationgroup = .data$impute, .data$subset_months) |>
+filter(locationgroup == "BEL") |>
     inner_join(
       file.path("location", "locationgroup_location") |>
         verify_vc(root = raw_repo, variables = c("locationgroup", "location")),
@@ -221,16 +222,5 @@ prepare_analysis <- function(
   manifest |>
     select("fingerprint", "parent") |>
     n2k_manifest() |>
-    store_manifest_yaml(
-      base = analysis_path, project = "watervogels",
-      docker = "inbobmk/rn2k:dev-0.10",
-      dependencies = c(
-        "inbo/multimput@hotfix", "inbo/n2khelper@v0.5.0",
-        "inbo/n2kanalysis@spde"
-      )
-    ) |>
-    basename() |>
-    manifest_yaml_to_bash(
-      base = analysis_path, project = "watervogels", shutdown = TRUE
-    )
+    store_manifest(base = analysis_path, project = "watervogels")
 }

@@ -1,8 +1,25 @@
-Sys.getenv("N2KBUCKET") |>
-  aws.s3::get_bucket(prefix = "watervogels", max = 1) |>
-  watervogelanalysis::prepare_analysis(
-    raw_repo = git2r::repository(fs::path("~", "n2k", "watervogels")),
-    seed = 19790402, verbose = TRUE, knot_interval = 10
+library(watervogelanalysis)
+Sys.setenv("AWS_ACCESS_KEY_ID" = keyring::key_get("n2kmonitoring-key"))
+Sys.setenv("AWS_SECRET_ACCESS_KEY" = keyring::key_get("n2kmonitoring-secret"))
+Sys.setenv("AWS_DEFAULT_REGION" =  keyring::key_get("n2kmonitoring-region"))
+keyring::key_get("n2kmonitoring-bucket") |>
+  aws.s3::get_bucket(prefix = "watervogels", max = 1) -> analysis_path
+keyring::key_get("meetnetten", username = "watervogels_repo") |>
+  git2r::repository() |>
+  prepare_analysis(
+    analysis_path = analysis_path, raw_repo = _, seed = 19790402, verbose = TRUE
+) |>
+  store_manifest_yaml(
+    base = analysis_path, project = "watervogels",
+    docker = "inbobmk/rn2k:dev-0.10",
+    dependencies = c(
+      "inbo/multimput@hotfix", "inbo/n2khelper@v0.5.0",
+      "inbo/n2kanalysis@spde"
+    )
+  ) |>
+  basename() |>
+  manifest_yaml_to_bash(
+    base = analysis_path, project = "watervogels", shutdown = TRUE
   ) |>
   sprintf(
     fmt = c(
@@ -11,6 +28,36 @@ Sys.getenv("N2KBUCKET") |>
       ""
     ) |>
       paste(collapse = "\n"),
-    Sys.getenv("N2KBUCKET")
+    keyring::key_get("n2kmonitoring-bucket")
   ) |>
   cat(sep = "\n")
+
+library(n2kanalysis)
+Sys.setenv("AWS_ACCESS_KEY_ID" = keyring::key_get("n2kmonitoring-key"))
+Sys.setenv("AWS_SECRET_ACCESS_KEY" = keyring::key_get("n2kmonitoring-secret"))
+Sys.setenv("AWS_DEFAULT_REGION" =  keyring::key_get("n2kmonitoring-region"))
+keyring::key_get("n2kmonitoring-bucket") |>
+  aws.s3::get_bucket(prefix = "watervogels", max = 1) -> base
+keyring::key_get("n2kmonitoring-bucket") |>
+  aws.s3::get_bucket_df(prefix = "watervogels/manifest") -> aws_objects
+aws_objects[which.max(as.POSIXct(aws_objects$LastModified)), "Key"] |>
+  basename() |>
+  fit_model(
+    base = base, project = "watervogels", status = c("new", "waiting")
+  )
+
+library(watervogelanalysis)
+Sys.setenv("AWS_ACCESS_KEY_ID" = keyring::key_get("n2kmonitoring-key"))
+Sys.setenv("AWS_SECRET_ACCESS_KEY" = keyring::key_get("n2kmonitoring-secret"))
+Sys.setenv("AWS_DEFAULT_REGION" =  keyring::key_get("n2kmonitoring-region"))
+keyring::key_get("n2kmonitoring-bucket") |>
+  aws.s3::get_bucket(prefix = "watervogels/manifest", max = 1) -> base
+keyring::key_get("meetnetten", username = "watervogels_repo") |>
+  git2r::repository() -> raw_data
+keyring::key_get("meetnetten", username = "watervogels_result") |>
+  git2r::repository() -> root
+project <- "watervogels"
+extract_results(
+  x = "fdf76f77481d3e879250f10cc54ba75255cd8334", base = base,
+  project = project, raw_data = raw_data, root = root, random = FALSE
+)
