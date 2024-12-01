@@ -28,7 +28,6 @@ prepare_analysis <- function(
   file.path("location", "locationgroup") |>
     verify_vc(root = raw_repo, variables = c("impute", "subset_months")) |>
     distinct(locationgroup = .data$impute, .data$subset_months) |>
-filter(locationgroup == "BEL") |>
     inner_join(
       file.path("location", "locationgroup_location") |>
         verify_vc(root = raw_repo, variables = c("locationgroup", "location")),
