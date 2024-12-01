@@ -52,7 +52,12 @@ prepare_analysis_imputation <- function(
         "year", "month", "location", "count", "complete", "observation_id",
         "datafield"
       )
-    ) -> rawdata
+    ) |>
+      mutate(
+        observation_id = ifelse(
+          .data$observation_id == "", NA, .data$observation_id
+        )
+      ) -> rawdata
   assert_that(
     rawdata |>
       filter(!is.na(.data$count)) |>
@@ -131,7 +136,7 @@ observation" = anyDuplicated(rawdata[, c("location", "year", "month")]) == 0
 }
 
 #' @importFrom assertthat assert_that
-#' @importFrom dplyr bind_cols group_by filter inner_join mutate select
+#' @importFrom dplyr arrange bind_cols group_by filter inner_join mutate select
 #' summarise transmute
 #' @importFrom n2kanalysis n2k_inla
 #' @importFrom rlang .data
@@ -182,10 +187,6 @@ prepare_imputation_model <- function(
     "1",
     "month"[length(unique(relevant$month)) > 1],
     "f(
-  cyear, model = \"rw1\", constr = TRUE, scale.model = TRUE,
-  hyper = list(theta = list(prior = \"pc.prec\", param = c(2, 0.01)))
-)",
-    "f(
   location, model = \"iid\", constr = TRUE,
   hyper = list(theta = list(prior = \"pc.prec\", param = c(1, 0.01)))
 )"
@@ -195,13 +196,15 @@ prepare_imputation_model <- function(
       count = ifelse(.data$count > 0, .data$count, NA), .data$cyear,
       .data$imonth, .data$location, .data$minimum, .data$observation_id,
       .data$datafield_id, .data$year, .data$month, .data$cyear2
-    ) -> truncated_zero
+    ) |>
+    arrange(.data$month, .data$location, .data$cyear) -> truncated_zero
   observations |>
     transmute(
       present = ifelse(.data$minimum > 0, 1, 0), .data$cyear,
       .data$imonth, .data$location, .data$observation_id,
       .data$datafield_id, .data$year, .data$month
-    ) -> present
+    ) |>
+    arrange(.data$month, .data$location, .data$cyear) -> present
   truncated_zero |>
     filter(.data$count > 0) |>
     count(.data$year, .data$month) |>
@@ -210,7 +213,12 @@ prepare_imputation_model <- function(
     summarise(median = median(.data$n)) |>
     pull(.data$median) -> medians
   form |>
-    c("f(
+    c(
+      "f(
+  cyear, model = \"rw1\", constr = TRUE, scale.model = TRUE,
+  hyper = list(theta = list(prior = \"pc.prec\", param = c(2, 0.01)))
+)",
+"f(
   cyear2, model = \"rw1\", constr = TRUE, replicate = imonth,
   hyper = list(theta = list(prior = \"pc.prec\", param = c(1, 0.01)))
 )"[all(medians >= 5)]) |>
@@ -231,7 +239,12 @@ prepare_imputation_model <- function(
         )
       )
     ) -> counts
-  paste(form, collapse = " +\n") |>
+  form |>
+    c("f(
+    cyear, model = \"rw2\", constr = TRUE, scale.model = TRUE,
+    hyper = list(theta = list(prior = \"pc.prec\", param = c(1, 0.01)))
+  )") |>
+    paste(collapse = " +\n") |>
     sprintf(fmt = "present ~ %s") |>
     n2k_inla(
       data = present, status = "new", family = "binomial",
