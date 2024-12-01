@@ -23,74 +23,42 @@ select_relevant_analysis <- function(observation) {
   relevant <- select_relevant_period(
     observation = observation, n_winters = 5, n_observations = 5
   )
-  if (nrow(relevant$observation) == 0) {
-    return(relevant)
-  }
-
   relevant <- select_min_winter_location(
     observation = relevant$observation,
     rare_observation = relevant$rare_observation, n_winters = 5
   )
-  if (nrow(relevant$observation) == 0) {
-    return(relevant)
-  }
-
   relevant <- select_month_location(
     observation = relevant$observation,
     rare_observation = relevant$rare_observation, n_locations = 1
   )
-  if (nrow(relevant$observation) == 0) {
-    return(relevant)
-  }
-
   relevant <- select_relevant_month(
     observation = relevant$observation,
     rare_observation = relevant$rare_observation, threshold = 0.05
   )
-  if (nrow(relevant$observation) == 0) {
-    return(relevant)
-  }
-
   relevant <- select_multi_month(
     observation = relevant$observation,
     rare_observation = relevant$rare_observation, n_winters = 3, n_months = 2
   )
-  if (nrow(relevant$observation) == 0) {
-    return(relevant)
-  }
-
+  relevant <- select_min_winter_location(
+    observation = relevant$observation,
+    rare_observation = relevant$rare_observation, n_winters = 5
+  )
   relevant <- select_top_ratio(
     observation = relevant$observation,
     rare_observation = relevant$rare_observation, n_rank = 5, max_ratio = 10
   )
-  if (nrow(relevant$observation) == 0) {
-    return(relevant)
-  }
-
   relevant <- select_min_season(
     observation = relevant$observation, n_winters = 2, fraction = 0.5,
     rare_observation = relevant$rare_observation
   )
-  if (nrow(relevant$observation) == 0) {
-    return(relevant)
-  }
-
   relevant <- select_location_winter(
     observation = relevant$observation, min_winters = 3, min_months = 2,
     rare_observation = relevant$rare_observation
   )
-  if (nrow(relevant$observation) == 0) {
-    return(relevant)
-  }
-
   relevant <- select_relevant_period(
     observation = relevant$observation,
     rare_observation = relevant$rare_observation
   )
-  if (nrow(relevant$observation) == 0) {
-    return(relevant)
-  }
-
   relevant <- select_multi_month(
     observation = relevant$observation,
     rare_observation = relevant$rare_observation, n_winters = 3, n_months = 2
@@ -149,6 +117,9 @@ select_relevant_period <- function(
     has_name(observation, "year"),
     is.null(rare_observation) || inherits(rare_observation, "data.frame")
   )
+  if (nrow(observation) == 0) {
+    return(list(observation = observation, rare_observation = rare_observation))
+  }
   observation |>
     filter(.data$count > 0) |>
     count(.data$year) |>
@@ -192,6 +163,9 @@ select_min_winter_location <- function(
     has_name(observation, "year"), has_name(observation, "location"),
     is.null(rare_observation) || inherits(rare_observation, "data.frame")
   )
+  if (nrow(observation) == 0) {
+    return(list(observation = observation, rare_observation = rare_observation))
+  }
   observation |>
     filter(!is.na(.data$count), .data$count > 0) |>
     distinct(.data$location, .data$year) |>
@@ -225,6 +199,9 @@ select_month_location <- function(
     has_name(observation, "year"), has_name(observation, "month"),
     is.null(rare_observation) || inherits(rare_observation, "data.frame")
   )
+  if (nrow(observation) == 0) {
+    return(list(observation = observation, rare_observation = rare_observation))
+  }
   observation |>
     filter(.data$count > 0) |>
     count(.data$month, .data$year) |>
@@ -270,7 +247,7 @@ select_relevant_month <- function(
     has_name(observation, "month"),
     is.null(rare_observation) || inherits(rare_observation, "data.frame")
   )
-  if (length(unique(observation$month)) == 0) {
+  if (nrow(observation) == 0 || length(unique(observation$month)) == 0) {
     return(list(observation = observation, rare_observation = rare_observation))
   }
   observation |>
@@ -323,7 +300,7 @@ select_multi_month <- function(
     has_name(observation, "month"), has_name(observation, "location"),
     is.null(rare_observation) || inherits(rare_observation, "data.frame")
   )
-  if (length(unique(observation$month)) <= 1) {
+  if (nrow(observation) == 0 || length(unique(observation$month)) <= 1) {
     return(list(observation = observation, rare_observation = rare_observation))
   }
   observation |>
@@ -376,6 +353,9 @@ select_top_ratio <- function(
     has_name(observation, "year"), has_name(observation, "location"),
     is.null(rare_observation) || inherits(rare_observation, "data.frame")
   )
+  if (nrow(observation) == 0) {
+    return(list(observation = observation, rare_observation = rare_observation))
+  }
   observation |>
     filter(.data$count > 0) |>
     nest(.by = "location") |>
@@ -434,6 +414,9 @@ select_min_season <- function(
     has_name(observation, "year"), has_name(observation, "location"),
     is.null(rare_observation) || inherits(rare_observation, "data.frame")
   )
+  if (nrow(observation) == 0) {
+    return(list(observation = observation, rare_observation = rare_observation))
+  }
   observation |>
     filter(!is.na(.data$count)) |>
     group_by(.data$location, .data$year) |>
@@ -469,6 +452,9 @@ select_location_winter <- function(
     has_name(observation, "year"), has_name(observation, "location"),
     is.null(rare_observation) || inherits(rare_observation, "data.frame")
   )
+  if (nrow(observation) == 0) {
+    return(list(observation = observation, rare_observation = rare_observation))
+  }
   observation |>
     filter(.data$count > 0) |>
     count(.data$location, .data$year) |>
