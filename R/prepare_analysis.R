@@ -65,12 +65,12 @@ prepare_analysis <- function(
             return(NA)
           }
           slot(x, "AnalysisMetadata") |>
-            pull(formula) |>
+            pull(.data$formula) |>
             grepl(pattern = "\nmonth +")
         }
       )
     ) |>
-    filter(!is.na(month)) -> imputations
+    filter(!is.na(.data$month)) -> imputations
   imputations |>
     transmute(
       .data$count, fingerprint = map_chr(.data$count, get_file_fingerprint),

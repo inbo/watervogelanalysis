@@ -247,7 +247,7 @@ select_relevant_month <- function(
     has_name(observation, "month"),
     is.null(rare_observation) || inherits(rare_observation, "data.frame")
   )
-  if (nrow(observation) == 0 || length(unique(observation$month)) == 0) {
+  if (nrow(observation) == 0 || length(unique(observation$month)) <= 1) {
     return(list(observation = observation, rare_observation = rare_observation))
   }
   observation |>
