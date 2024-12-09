@@ -39,7 +39,8 @@ prepare_dataset_observation <- function(
     observation_flemish <- data.frame()
   } else {
     read_observation(
-      species_id = this_species$external_code_fl, first_year = this_species$first,
+      species_id = this_species$external_code_fl,
+      first_year = this_species$first,
       latest_year = latest_year, flemish_channel = flemish_channel
     ) |>
       mutate(
