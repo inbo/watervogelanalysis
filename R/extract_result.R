@@ -19,7 +19,8 @@ extract_results.default <- function(x, ...) {
 #' @importFrom n2kanalysis order_manifest read_manifest read_model
 #' @importFrom purrr walk
 extract_results.character <- function(
-  x, base, project = "wateranalysis", raw_data, root, random = FALSE, ...
+  x, base, project = "wateranalysis", raw_data, root, random = FALSE,
+  verbose = TRUE, ...
 ) {
   assert_that(is.string(x), noNA(x), is.flag(random), noNA(random))
   verify_vc(
@@ -60,8 +61,7 @@ extract_results.character <- function(
     )
   )
   read_manifest(base = base, project = project, hash = x) |>
-    order_manifest() |>
-    rev() -> manifest
+    order_manifest() -> manifest
   if (is_git2rdata("analysis", root = root)) {
     file.path("data", "analysis") |>
       verify_vc(root = root, variables = "analysis") -> done
@@ -71,9 +71,22 @@ extract_results.character <- function(
   if (random) {
     manifest <- sample(manifest)
   }
-  for (i in manifest) {
-    message(i)
-    model <- try(read_model(i, base = base, project = project))
+  start_time <- Sys.time()
+  for (i in seq_along(manifest)) {
+    display(
+      verbose = verbose,
+      message = sprintf(
+        "Processing %i from %i (%.2f%%) %s ETA %s %s", i, length(manifest),
+        100 * (i - 1) / length(manifest),
+        format(Sys.time(), "%Y-%m-%d %H:%M:%S"),
+        format(
+          start_time + (Sys.time() - start_time) * length(manifest)  / (i - 1),
+          "%d %H:%M"
+        ),
+        manifest[i]
+      )
+    )
+    model <- try(read_model(manifest[i], base = base, project = project))
     if (inherits(model, "try-error")) {
       next
     }
