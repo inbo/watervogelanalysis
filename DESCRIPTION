@@ -44,6 +44,7 @@ Suggests:
     leaflet,
     pander,
     plotly,
+    rgbif,
     tidyverse
 Additional_repositories: https://inbo.r-universe.dev,
     https://inla.r-inla-download.org/R/stable
