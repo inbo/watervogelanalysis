@@ -120,17 +120,33 @@ extract_results.character <- function(
 }
 
 #' @export
-#' @importFrom dplyr across filter mutate select transmute
+#' @importFrom dplyr filter mutate select transmute
 #' @importFrom git2rdata write_vc
 extract_results.n2kModelImputed <- function(x, root, ...) {
   if (x@AnalysisMetadata$status != "converged") {
     return(invisible(NULL))
   }
   x@Results |>
-    mutate(
-      analysis = get_file_fingerprint(x),
-      across(c("Estimate", "SE", "LCL", "UCL"), ~round(.x, 3))
-    ) -> result
+    mutate(analysis = get_file_fingerprint(x)) -> result
+  if (nrow(result) == 0) {
+    x@AnalysisRelation |>
+      select("analysis", parent = "parent_analysis") |>
+      write_vc(
+        file.path("data", "relation"), root = root, optimize = FALSE,
+        append = TRUE, sorting = c("analysis", "parent")
+      )
+    x@AnalysisMetadata |>
+      select(
+        species = "species_group_id", locationgroup = "location_group_id",
+        "model_type", analysis = "file_fingerprint",
+        fingerprint = "status_fingerprint", "status"
+      ) |>
+      write_vc(
+        file.path("data", "analysis"), root = root, optimize = FALSE,
+        append = TRUE, sorting = "analysis"
+      )
+    return(invisible(NULL))
+  }
   file.path(
     "data", tolower(x@AnalysisMetadata$location_group_id),
     x@AnalysisMetadata$species_group_id
@@ -144,7 +160,7 @@ extract_results.n2kModelImputed <- function(x, root, ...) {
       estimate = .data$Estimate, se = .data$SE, lcl = .data$LCL, ucl = .data$UCL
     ) |>
     write_vc(
-      file.path(filename, "total"), root = root,
+      file.path(filename, "total"), root = root, digits = 4,
       sorting = c("analysis", "winter"), optimize = FALSE, append = TRUE
     )
   update_metadata(
@@ -154,7 +170,7 @@ extract_results.n2kModelImputed <- function(x, root, ...) {
       analysis = paste(
         "The unique identifier of the analysis.", "Links to the analysis table."
       ),
-      winter = "The winter season. Refers to the year of Januari 1st.",
+      winter = "The winter season. Refers to the year of January 1st.",
       estimate = "The estimate of the parameter in the log-scale.",
       se = "The standard error of the estimate in the log-scale.",
       lcl = "The lower confidence limit in the log-scale.",
@@ -173,7 +189,8 @@ extract_results.n2kModelImputed <- function(x, root, ...) {
     ) |>
     write_vc(
       file.path(filename, "trend"), root = root, optimize = FALSE,
-      sorting = c("analysis", "duration", "centre_winter"), append = TRUE
+      sorting = c("analysis", "duration", "centre_winter"), append = TRUE,
+      digits = c(centre_winter = 5, estimate = 4, se = 4, lcl = 4, ucl = 4)
     )
   update_metadata(
     file = file.path(filename, "trend"), root = root, name = "trend",
@@ -202,7 +219,8 @@ extract_results.n2kModelImputed <- function(x, root, ...) {
     ) |>
     write_vc(
       file.path(filename, "average"), root = root, optimize = FALSE,
-      sorting = c("analysis", "duration", "centre_winter"), append = TRUE
+      sorting = c("analysis", "duration", "centre_winter"), append = TRUE,
+      digits = c(centre_winter = 5, estimate = 4, se = 4, lcl = 4, ucl = 4)
     )
   update_metadata(
     file.path(filename, "average"), root = root, name = "average",
@@ -234,7 +252,10 @@ extract_results.n2kModelImputed <- function(x, root, ...) {
     write_vc(
       file.path(filename, "difference"), root = root, optimize = FALSE,
       append = TRUE,
-      sorting = c("analysis", "duration", "centre_start", "centre_end")
+      sorting = c("analysis", "duration", "centre_start", "centre_end"),
+      digits = c(
+        centre_start = 5, centre_end = 5, estimate = 4, se = 4, lcl = 4, ucl = 4
+      )
     )
   update_metadata(
     file = file.path(filename, "difference"), root = root, name = "difference",
@@ -265,7 +286,7 @@ extract_results.n2kModelImputed <- function(x, root, ...) {
       estimate = .data$Estimate, se = .data$SE, lcl = .data$LCL, ucl = .data$UCL
     ) |>
     write_vc(
-      file.path(filename, "month"), root = root,
+      file.path(filename, "month"), root = root, digits = 4,
       sorting = c("analysis", "month"), optimize = FALSE, append = TRUE
     )
   update_metadata(
@@ -349,16 +370,12 @@ extract_results.n2kAggregate <- function(x, root, ...) {
         month = factor(
           .data$month,
           levels = c(
-            "January", "Februari", "March", "October", "November", "December"
+            "January", "February", "March", "October", "November", "December"
           )
-        ),
-        across(
-          c("median", "min", "q05", "q20", "q35", "q65", "q80", "q95", "max"),
-          ~round(.x, 2)
         )
       ) |>
       write_vc(
-        filename, root = root, optimize = FALSE, append = TRUE,
+        filename, root = root, optimize = FALSE, append = TRUE, digits = 4,
         sorting = c("analysis", "winter", "month"), strict = FALSE
       )
     update_metadata(
@@ -401,15 +418,9 @@ extract_results.n2kAggregate <- function(x, root, ...) {
         q95 = quantile(.data$count, prob = 0.95),
         max = max(.data$count)
       ) |>
-      mutate(
-        analysis = get_file_fingerprint(x),
-        across(
-          c("median", "min", "q05", "q20", "q35", "q65", "q80", "q95", "max"),
-          ~round(.x, 2)
-        )
-      ) |>
+      mutate(analysis = get_file_fingerprint(x)) |>
       write_vc(
-        filename, root = root, optimize = FALSE, append = TRUE,
+        filename, root = root, optimize = FALSE, append = TRUE, digits = 4,
         sorting = c("analysis", "winter"), strict = FALSE
       )
     update_metadata(
@@ -490,15 +501,11 @@ extract_results.n2kHurdleImputed <- function(x, root, ...) {
         levels = c(
           "January", "February", "March", "October", "November", "December"
         )
-      ),
-      across(
-        c("median", "min", "q05", "q20", "q35", "q65", "q80", "q95", "max"),
-        ~round(.x, 2)
       )
     ) |>
     write_vc(
       filename, root = root, optimize = FALSE, append = TRUE, strict = FALSE,
-      sorting = c("analysis", "winter", "month", "location")
+      sorting = c("analysis", "winter", "month", "location"),  digits = 4
     )
   update_metadata(
     filename, root = root, name = "hurdle",
@@ -599,7 +606,7 @@ extract_results.n2kInla <- function(x, root, ...) {
 }
 
 #' @export
-#' @importFrom dplyr across filter mutate select transmute
+#' @importFrom dplyr filter mutate select transmute
 #' @importFrom git2rdata write_vc
 extract_results.n2kComposite <- function(x, root, ...) {
   if (x@AnalysisMetadata$status != "converged") {
@@ -613,8 +620,7 @@ extract_results.n2kComposite <- function(x, root, ...) {
     transmute(
       analysis = get_file_fingerprint(x), .data$value, .data$estimate,
       se = (.data$upper_confidence_limit - .data$estimate) / qnorm(0.975),
-      lcl = .data$lower_confidence_limit, ucl = .data$upper_confidence_limit,
-      across(c("estimate", "se", "lcl", "ucl"), ~round(.x, 3))
+      lcl = .data$lower_confidence_limit, ucl = .data$upper_confidence_limit
     ) -> result
   result |>
     filter(grepl("difference_", .data$value)) |>
@@ -630,7 +636,10 @@ extract_results.n2kComposite <- function(x, root, ...) {
     ) |>
     write_vc(
       filename, root = root, optimize = FALSE, append = TRUE,
-      sorting = c("analysis", "duration", "centre_start", "centre_end")
+      sorting = c("analysis", "duration", "centre_start", "centre_end"),
+      digits = c(
+        centre_start = 5, centre_end = 5, estimate = 4, se = 4, lcl = 4, ucl = 4
+      )
     )
   update_metadata(
     filename, root = root, name = "difference",
