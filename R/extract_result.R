@@ -94,6 +94,28 @@ extract_results.character <- function(
     rm(model)
     gc(verbose = FALSE)
   }
+  file.path("data", "relation") |>
+    update_metadata(
+      root = root, name = "relation", title = "Relation between analyses",
+      description = "List the analyses and their parent analyses.",
+      field_description = c(
+        analysis = "The unique identifier of the analysis.",
+        parent = "The parent analysis."
+      )
+    )
+  file.path("data", "analysis") |>
+    update_metadata(
+      root = root, name = "analysis", title = "Analysis metadata",
+      description = "List the analyses and their parent analyses.",
+      field_description = c(
+        species = "The species group identifier.",
+        locationgroup = "The location group identifier.",
+        model_type = "The type of the model.",
+        analysis = "The unique identifier of the analysis.",
+        fingerprint = "Status fingerprint of the analysis.",
+        status = "The status of the analysis."
+      )
+    )
   return(invisible(NULL))
 }
 
