@@ -14,10 +14,12 @@ extract_results.default <- function(x, ...) {
 
 #' @export
 #' @importFrom assertthat assert_that is.flag is.string noNA
-#' @importFrom dplyr anti_join distinct
+#' @importFrom dplyr anti_join distinct mutate select
 #' @importFrom git2rdata is_git2rdata verify_vc write_vc
 #' @importFrom n2kanalysis order_manifest read_manifest read_model
-#' @importFrom purrr walk
+#' @importFrom purrr map walk
+#' @importFrom rlang .data
+#' @importFrom tidyr unnest
 extract_results.character <- function(
   x, base, project = "wateranalysis", raw_data, root, random = FALSE,
   verbose = TRUE, ...
@@ -28,6 +30,18 @@ extract_results.character <- function(
     variables = c("euring", "scientific", "nl", "fr")
   ) |>
     select("euring", "scientific", "nl", "fr") |>
+    mutate(gbif = map(.data$scientific, get_gbif)) |>
+    unnest("gbif") |>
+    mutate(
+      vernacular = ifelse(
+        .data$language == "nld" & !is.na(.data$nl), .data$nl,
+        ifelse(
+          .data$language == "fra" & !is.na(.data$fr), .data$fr, .data$vernacular
+        )
+      )
+    ) -> species
+  species |>
+    distinct(.data$euring, .data$scientific, gbif = .data$key) |>
     write_vc(
       file.path("data", "species"), root = root, sorting = "euring",
       optimize = FALSE
@@ -38,10 +52,25 @@ extract_results.character <- function(
     field_description = c(
       euring = "The European bird ringing code.",
       scientific = "The scientific name of the species.",
-      nl = "The Dutch name of the species.",
-      fr = "The French name of the species."
+      gbif = "GBIF identifier."
     )
   )
+  species |>
+    select("euring", "language", "vernacular") |>
+    write_vc(
+      file.path("data", "vernacular"), root = root,
+      sorting = c("euring", "language"), optimize = FALSE
+    )
+  update_metadata(
+    file = file.path("data", "vernacular"), root = root, name = "vernacular",
+    title = "Vernacular species names",
+    field_description = c(
+      euring = "The European bird ringing code.",
+      language = "Identifier of the language.",
+      vernacular = "The vernacular name of the species."
+    )
+  )
+
   verify_vc(
     "location/locationgroup", root = raw_data,
     variables = c("external_code", "description")
@@ -62,7 +91,7 @@ extract_results.character <- function(
   )
   read_manifest(base = base, project = project, hash = x) |>
     order_manifest() -> manifest
-  if (is_git2rdata("analysis", root = root)) {
+  if (is_git2rdata("data/analysis", root = root)) {
     file.path("data", "analysis") |>
       verify_vc(root = root, variables = "analysis") -> done
     manifest <- manifest[!manifest %in% done$analysis]
