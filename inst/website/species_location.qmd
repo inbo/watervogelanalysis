@@ -8,14 +8,13 @@ library(effectclass)
 library(git2rdata)
 library(INBOtheme)
 library(kableExtra)
-library(keyring)
 library(knitr)
 library(plotly)
 library(tidyverse)
-conflicted::conflicts_prefer(dplyr::filter, plotly::layout)
+conflicted::conflicts_prefer(dplyr::filter, dplyr::pull, plotly::layout)
 threshold <- log(0.75)
 if (interactive()) {
-  key_get("meetnetten", username = "watervogels_result") |>
+  keyring::key_get("meetnetten", username = "watervogels_result") |>
     file.path("data") -> root
   read_vc("analysis", root = root) |>
     filter(!is.na(as.integer(.data$species))) |>
@@ -35,13 +34,46 @@ data_root <- file.path(root, tolower(loc_group), spec)
 
 ```{r data}
 read_vc(file = "analysis", root = root) |>
-  filter(.data$species == spec, .data$locationgroup == loc_group) -> analysis
+  filter(
+    .data$species == spec, .data$locationgroup == loc_group,
+    str_detect(.data$model_type, "composite", negate = TRUE)
+  ) -> analysis
 read_vc(file = "trend", root = data_root) -> trend
 read_vc(file = "total", root = data_root) -> total
 read_vc(file = "average", root = data_root) -> average
 read_vc(file = "difference", root = data_root) -> difference
 read_vc(file = "month", root = data_root) -> month
 ```
+
+```{r vernacular}
+read_vc(file = "species", root = root) |>
+  filter(.data$euring == as.integer(spec)) -> species
+read_vc(file = "vernacular", root = root) |>
+  filter(.data$euring == as.integer(spec)) |>
+  mutate(
+    language = factor(
+      .data$language, levels = c("eng", "nld", "fra", "deu"),
+      labels = c("English", "Nederlands", "Français", "Deutsch")
+    )
+  ) |>
+  arrange(.data$language) |>
+  group_by(.data$euring) |>
+  summarise(
+    markdown = sprintf("- **%s**: %s", .data$language, .data$vernacular) |>
+      paste(collapse = "\n")
+  ) |>
+  mutate(
+    markdown = sprintf(
+      "- EURING code %i\n%s
+
+More information on [GBIF](https://www.gbif.org/species/%s){target=\"_blank\"}",
+      .data$euring, .data$markdown, species$gbif
+    )
+  ) |>
+  pull(.data$markdown) -> vernacular
+```
+
+`r vernacular`
 
 ## Winter average
 
@@ -60,12 +92,14 @@ trend |>
     `yearly change` = format_ci(
       .data$estimate, lcl = .data$lcl, ucl = .data$ucl, link = "log",
       change = TRUE, percent = TRUE
-    ),
+    ) |>
+      paste(.data$classification),
     `change over period` = format_ci(
       .data$estimate * .data$duration, change = TRUE, link = "log",
       lcl = .data$lcl * .data$duration, ucl = .data$ucl * .data$duration,
       percent = TRUE
-    ),
+    ) |>
+      paste(.data$classification),
     period = sprintf(
       "%.0f--%.0f", .data$centre_winter - .data$duration / 2 + 0.5,
       .data$centre_winter + .data$duration / 2 - 0.5
@@ -74,7 +108,6 @@ trend |>
   arrange(.data$duration) -> latest
 ```
 
-
 ```{r tbl-average-monthly-trend}
 #| eval: !expr 'nrow(latest) > 0'
 #| tbl-cap: "Linear change in monthly average over the most recent periods for
@@ -82,7 +115,9 @@ trend |>
 latest |>
   select("duration", "period", "yearly change", "change over period") |>
   kable(align = "rccc") |>
-  kable_paper(c("hover", "striped", "responsive"), full_width = FALSE) |>
+  kable_styling(
+    c("hover", "striped", "responsive"), full_width = FALSE, position = "center"
+  ) |>
   column_spec(
     3:4, color = "white",
     background = effectclass:::detailed_signed_palette[latest$classification]
@@ -102,7 +137,7 @@ average |>
   transmute(
     .data$duration,
     period = sprintf(
-      "%i--%i", .data$centre_winter - .data$duration / 2 + 0.5,
+      "%.0f--%.0f", .data$centre_winter - .data$duration / 2 + 0.5,
       .data$centre_winter + .data$duration / 2 - 0.5
     ),
     average = format_ci(.data$estimate, .data$se, link = "log")
@@ -130,7 +165,8 @@ difference |>
     change = format_ci(
       .data$estimate, lcl = .data$lcl, percent = TRUE, ucl = .data$ucl,
       link = "log", change = TRUE
-    ),
+    ) |>
+      paste(.data$classification),
     from = paste(
       .data$centre_start - .data$duration / 2 + 0.5,
       .data$centre_start + .data$duration / 2 - 0.5, sep = "--"
@@ -144,7 +180,9 @@ difference |>
 delta |>
   select("duration", "from", "to", "change") |>
   kable(align = "rrrc") |>
-  kable_paper(c("hover", "striped", "responsive"), full_width = FALSE) |>
+  kable_paper(
+    c("hover", "striped", "responsive"), full_width = FALSE, position = "center"
+  ) |>
   column_spec(
     4, color = "white",
     background = effectclass:::detailed_signed_palette[delta$classification]
@@ -407,12 +445,14 @@ trend |>
     `yearly change` = format_ci(
       .data$estimate, lcl = .data$lcl, ucl = .data$ucl, link = "log",
       change = TRUE, percent = TRUE
-    ),
+    ) |>
+      paste(.data$classification),
     `change over period` = format_ci(
       .data$estimate * .data$duration, change = TRUE, link = "log",
       lcl = .data$lcl * .data$duration, ucl = .data$ucl * .data$duration,
       percent = TRUE
-    ),
+    ) |>
+      paste(.data$classification),
     period = sprintf(
       "%.0f--%.0f", .data$centre_winter - .data$duration / 2 + 0.5,
       .data$centre_winter + .data$duration / 2 - 0.5
@@ -428,7 +468,9 @@ trend |>
 latest |>
   select("duration", "period", "yearly change", "change over period") |>
   kable(align = "rccc") |>
-  kable_paper(c("hover", "striped", "responsive"), full_width = FALSE) |>
+  kable_paper(
+    c("hover", "striped", "responsive"), full_width = FALSE, position = "center"
+  ) |>
   column_spec(
     3:4, color = "white",
     background = effectclass:::detailed_signed_palette[latest$classification]
@@ -455,7 +497,9 @@ average |>
   ) |>
   arrange(.data$duration) |>
   kable(align = "rcc") |>
-  kable_paper(c("hover", "striped", "responsive"), full_width = FALSE)
+  kable_paper(
+    c("hover", "striped", "responsive"), full_width = FALSE, position = "center"
+  )
 ```
 
 ```{r tbl-wintermax-difference}
@@ -476,7 +520,8 @@ difference |>
     change = format_ci(
       .data$estimate, lcl = .data$lcl, percent = TRUE, ucl = .data$ucl,
       link = "log", change = TRUE
-    ),
+    ) |>
+      paste(.data$classification),
     from = paste(
       .data$centre_start - .data$duration / 2 + 0.5,
       .data$centre_start + .data$duration / 2 - 0.5, sep = "--"
@@ -490,7 +535,9 @@ difference |>
 delta |>
   select("duration", "from", "to", "change") |>
   kable(align = "rrrc") |>
-  kable_paper(c("hover", "striped", "responsive"), full_width = FALSE) |>
+  kable_paper(
+    c("hover", "striped", "responsive"), full_width = FALSE, position = "center"
+  ) |>
   column_spec(
     4, color = "white",
     background = effectclass:::detailed_signed_palette[delta$classification]

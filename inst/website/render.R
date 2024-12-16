@@ -10,17 +10,13 @@ target_folder <- file.path(root, "source", "website")
 dir.create(target_folder, showWarnings = FALSE)
 
 system.file("css_styles", package = "INBOmd") |>
-  file.copy(to = target_folder)
-file.path(target_folder, "css_styles") |>
-  file.copy(from = "custom.css", overwrite = TRUE)
-c("index.qmd", "species_list.qmd") |>
-  file.copy(target_folder, overwrite = TRUE)
+  file.copy(to = target_folder, recursive = TRUE)
+system.file("website/custom.css", package = "watervogelanalysis") |>
+  file.copy(to = file.path(target_folder, "css_styles"), overwrite = TRUE)
+system.file("website/index.qmd", package = "watervogelanalysis") |>
+  file.copy(to = target_folder, overwrite = TRUE)
 
 read_vc("analysis", results_folder) |>
-  # filter(
-  #   .data$locationgroup %in%
-  #     c("BEL", "VLAA", "WAL", "WALN2K", "BELN2K", "VLN2K")
-  # ) |>
   filter(str_detect(.data$species, "^[0-9]+$")) |>
   count(species = as.integer(.data$species), .data$locationgroup) |>
   slice_max(.data$n, n = n_head, with_ties = FALSE) |>
@@ -45,7 +41,7 @@ read_vc("analysis", results_folder) |>
       mutate(
         description = str_replace_all(.data$description, "België", "Belgium") |>
           str_replace_all("Vlaanderen", "Flanders") |>
-          str_replace_all("Wallonië", "Wallonia")
+          str_replace_all("Wallonië", "Wallonia-Brussels")
       ),
     by = c("locationgroup" = "external_code")
   ) |>
@@ -64,13 +60,15 @@ for (i in seq_len(nrow(species_location))) {
   message(species_location$output_file[i])
   dirname(species_location$output_file[i]) |>
     dir.create(showWarnings = FALSE, recursive = TRUE)
-  knit_expand(
-    "species_location.qmd", this_species_name = species_location$scientific[i],
-    species = species_location$species[i],
-    locationgroup = species_location$locationgroup[i],
-    this_location_name = species_location$description[i],
-    this_default_reference = 2024
-  ) |>
+  file.path("website", "species_location.qmd") |>
+    system.file(package = "watervogelanalysis") |>
+    knit_expand(
+      this_species_name = species_location$scientific[i],
+      species = species_location$species[i],
+      locationgroup = species_location$locationgroup[i],
+      this_location_name = species_location$description[i],
+      this_default_reference = 2024
+    ) |>
     writeLines(con = species_location$output_file[i])
 }
 
@@ -85,13 +83,17 @@ for (i in seq_len(nrow(species))) {
   message(species$output_file[i])
   dirname(species$output_file[i]) |>
     dir.create(showWarnings = FALSE, recursive = TRUE)
-  knit_expand(
-    "species.qmd", this_species_name = species$scientific[i]
-  ) |>
+  file.path("website", "species.qmd") |>
+    system.file(package = "watervogelanalysis") |>
+    knit_expand(
+      this_species_name = species$scientific[i], species = species$species[i]
+    ) |>
     writeLines(con = species$output_file[i])
 }
 
-readLines("_quarto.yml") |>
+file.path("website", "_quarto.yml") |>
+  system.file(package = "watervogelanalysis") |>
+  readLines() |>
   c(
     "    - text: \"Introduction\"", "      file: index.qmd",
     "    - section: \"By species\"", "      contents:",
@@ -127,6 +129,9 @@ species$output_file |>
   dirname() |>
   sort() |>
   walk(
-    ~quarto_render(.x, use_freezer = TRUE, cache = TRUE, as_job = FALSE),
+    ~quarto_render(
+      .x, use_freezer = is.infinite(n_head), cache = is.infinite(n_head),
+      as_job = FALSE
+    ),
     .progress = TRUE
   )

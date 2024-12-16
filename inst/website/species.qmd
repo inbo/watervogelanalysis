@@ -2,4 +2,162 @@
 title: "_{{this_species_name}}_"
 ---
 
-TO DO
+```{r setup}
+#| include: false
+library(dplyr)
+library(effectclass)
+library(git2rdata)
+library(kableExtra)
+library(knitr)
+library(leaflet)
+library(purrr)
+library(stringr)
+library(tidyr)
+conflicted::conflicts_prefer(dplyr::pull, dplyr::filter)
+threshold <- log(0.75)
+if (interactive()) {
+  keyring::key_get("meetnetten", username = "watervogels_result") |>
+    file.path("data") -> root
+  read_vc("analysis", root = root) |>
+    filter(!is.na(as.integer(.data$species))) |>
+    distinct() |>
+    count(.data$locationgroup, .data$species) |>
+    slice_max(.data$n, n = 1) |>
+    slice_sample(n = 1) -> tmp
+  spec <- tmp$species
+} else {
+  root <- file.path("..", "..", "..", "data")
+  spec <- "{{species}}"
+}
+```
+
+```{r read-data}
+read_vc("analysis", root = root) -> analysis
+read_vc("locationgroup", root = root) |>
+  transmute(
+    .data$external_code,
+    locationgroup = str_replace(.data$description, "België", "Belgium") |>
+      str_replace("Wallonië", "Wallonia-Brussels") |>
+      str_replace("Vlaanderen", "Flanders")
+  ) -> locationgroup
+dirs <- list.dirs(root, full.names = FALSE)
+dirs <- dirs[basename(dirs) == spec]
+dirs <- dirs[!grepl("model_check", dirs)]
+map_dfr(
+  dirs,
+  function(x) {
+    fn <- file.path(x, "trend")
+    if (is_git2rdata(file = fn, root = root)) {
+      return(read_vc(fn, root = root))
+    }
+    data.frame()
+  }
+) |>
+  inner_join(
+    analysis |>
+      filter(str_detect(.data$model_type, "Month")) |>
+      select("analysis", external_code = "locationgroup"),
+    by = "analysis"
+  ) |>
+  inner_join(locationgroup, by = "external_code") |>
+  group_by(.data$locationgroup, .data$duration) |>
+  slice_max(.data$centre_winter, n = 1) |>
+  ungroup() |>
+  mutate(
+    url = tolower(.data$locationgroup) |>
+      str_replace_all(" ", "-") |>
+      sprintf(fmt = "%s.html"),
+    classification = classification(
+      lcl = .data$duration * .data$lcl, ucl = .data$duration * .data$ucl,
+      threshold = threshold
+    ),
+    when = sprintf(
+      "%.0f--%.0f", .data$centre_winter - .data$duration / 2 + 0.5,
+      .data$centre_winter + .data$duration / 2 - 0.5
+    ),
+    yearly_change = format_ci(
+      .data$estimate, lcl = .data$lcl, change = TRUE,
+      ucl = .data$ucl, link = "log", percent = TRUE
+    ) |>
+      sprintf(fmt = "%1$s %2$s", .data$classification)
+  ) -> trends
+trends |>
+  group_by(.data$locationgroup) |>
+  slice_min(.data$duration, n = 1) |>
+  ungroup() |>
+  arrange(.data$classification, desc(.data$estimate)) |>
+  pull(.data$locationgroup) -> loc_lab
+trends <- trends |>
+  mutate(locationgroup = factor(.data$locationgroup, levels = loc_lab))
+```
+
+```{r vernacular}
+read_vc(file = "species", root = root) |>
+  filter(.data$euring == as.integer(spec)) -> species
+year_range <- c(1992, 2024)
+c(
+  srs = "EPSG:3857", taxonKey = species$gbif, bin = "hex", hexPerTile = 20,
+  style = "orange.marker", years = paste(year_range, collapse = ",")
+) %>%
+  paste(names(.), ., sep = "=", collapse = "&") |>
+  c(
+    "https://api.gbif.org/v2/map/occurrence/density/{z}/{x}/{y}@2x.png"
+  ) |>
+  rev() |>
+  paste(collapse = "?") -> url
+read_vc(file = "vernacular", root = root) |>
+  filter(.data$euring == as.integer(spec)) |>
+  mutate(
+    language = factor(
+      .data$language, levels = c("eng", "nld", "fra", "deu"),
+      labels = c("English", "Nederlands", "Français", "Deutsch")
+    )
+  ) |>
+  arrange(.data$language) |>
+  group_by(.data$euring) |>
+  summarise(
+    markdown = sprintf("- **%s**: %s", .data$language, .data$vernacular) |>
+      paste(collapse = "\n")
+  ) |>
+  mutate(
+    markdown = sprintf(
+      "- EURING code %i\n%s
+
+More information on [GBIF](https://www.gbif.org/species/%s){target=\"_blank\"}",
+      .data$euring, .data$markdown, species$gbif
+    )
+  ) |>
+  pull(.data$markdown) -> vernacular
+```
+
+`r vernacular`
+
+```{r fig-map}
+#| fig-cap: "Map of _{{this_species_name}}_ on GBIF"
+leaflet() |>
+  setView(4.37, 50.85, zoom = 7) |>
+  addTiles() |>
+  addTiles(urlTemplate = url)
+```
+
+```{r tbl-linear-trend}
+#| tbl-cap: "Overview of linear trends for _{{this_species_name}}_"
+bg_colour <- c(effectclass:::detailed_signed_palette, "NA" = "white")
+trends |>
+  transmute(.data$url, .data$locationgroup, .data$when, classification = as.character(.data$classification)) |>
+  pivot_wider(names_from  = "when", values_from = "classification", values_fill = "NA") |>
+  arrange(.data$locationgroup) -> classif
+trends |>
+  select("locationgroup", "when", "yearly_change") |>
+  pivot_wider(names_from  = "when", values_from = "yearly_change", values_fill = "") |>
+  arrange(.data$locationgroup) |>
+  kable(align = "lccc") |>
+  kable_paper(c("hover", "striped", "responsive"), full_width = FALSE) |>
+  kable_styling(position = "center") |>
+  column_spec(1, link = classif$url) -> this_table
+for (i in 3:ncol(classif)) {
+  this_table <- this_table |>
+    column_spec(i - 1, color = "white", background = bg_colour[classif[[i]]])
+}
+this_table
+```
