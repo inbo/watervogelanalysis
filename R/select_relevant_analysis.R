@@ -258,7 +258,7 @@ select_relevant_month <- function(
     month = gsub("month", "", names(month_coef)), estimate = month_coef
   ) |>
     mutate(estimate = .data$estimate - max(.data$estimate)) |>
-    filter(.data$estimate >= log(0.05)) -> to_keep
+    filter(.data$estimate >= log(threshold)) -> to_keep
   observation |>
     semi_join(to_keep, by = "month") |>
     mutate(month = factor(.data$month)) -> observation
