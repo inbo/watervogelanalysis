@@ -1,8 +1,14 @@
 # prepare the analysis objects and a bash script the run the analyses in docker
 library(watervogelanalysis)
-Sys.setenv("AWS_ACCESS_KEY_ID" = keyring::key_get("n2kmonitoring-key"))
-Sys.setenv("AWS_SECRET_ACCESS_KEY" = keyring::key_get("n2kmonitoring-secret"))
-Sys.setenv("AWS_DEFAULT_REGION" =  keyring::key_get("n2kmonitoring-region"))
+if (Sys.getenv("AWS_ACCESS_KEY_ID") == "") {
+  Sys.setenv("AWS_ACCESS_KEY_ID" = keyring::key_get("n2kmonitoring-key"))
+}
+if (Sys.getenv("AWS_SECRET_ACCESS_KEY") == "") {
+  Sys.setenv("AWS_SECRET_ACCESS_KEY" = keyring::key_get("n2kmonitoring-secret"))
+}
+if (Sys.getenv("AWS_DEFAULT_REGION") == "") {
+  Sys.setenv("AWS_DEFAULT_REGION" =  keyring::key_get("n2kmonitoring-region"))
+}
 keyring::key_get("n2kmonitoring-bucket") |>
   aws.s3::get_bucket(prefix = "watervogels", max = 1) -> analysis_path
 keyring::key_get("meetnetten", username = "watervogels_repo") |>

@@ -162,8 +162,8 @@ prepare_imputation_model <- function(
   )
   relevant |>
     mutate(
-      cyear = as.integer(.data$year - min(.data$year) + 1),
-      imonth = as.integer(.data$month), .data$location, cyear2 = .data$cyear
+      cyear = as.integer(.data$year - min(.data$year) + 1), .data$location,
+      cyear2 = .data$cyear, ilocation = as.integer(factor(.data$location))
     ) -> observations
   extra |>
     complete(
@@ -172,56 +172,51 @@ prepare_imputation_model <- function(
     ) |>
     mutate(
       cyear = as.integer(.data$year - min(relevant$year) + 1),
-      imonth = as.integer(.data$month), .data$location, cyear2 = .data$cyear
+      .data$location, cyear2 = .data$cyear, ilocation = NA_integer_
     ) |>
     filter(
       min(observations$cyear) <= .data$cyear,
       .data$cyear <= max(observations$cyear)
     ) |>
     transmute(
-      .data$count, .data$cyear, .data$imonth, .data$location, .data$minimum,
+      .data$count, .data$cyear, .data$cyear2, .data$location, .data$minimum,
       .data$observation_id, .data$datafield_id, .data$year, .data$month,
-      .data$cyear2
+      .data$ilocation
     ) -> extra_count
-  form <- c(
-    "1",
-    "month"[length(unique(relevant$month)) > 1],
-    "f(
-  location, model = \"iid\", constr = TRUE,
-  hyper = list(theta = list(prior = \"pc.prec\", param = c(1, 0.01)))
-)"
-  )
+  form <- c("1", "month"[length(unique(relevant$month)) > 1])
   observations |>
     transmute(
       count = ifelse(.data$count > 0, .data$count, NA), .data$cyear,
-      .data$imonth, .data$location, .data$minimum, .data$observation_id,
+      .data$location, .data$ilocation, .data$minimum, .data$observation_id,
       .data$datafield_id, .data$year, .data$month, .data$cyear2
     ) |>
     arrange(.data$month, .data$location, .data$cyear) -> truncated_zero
   observations |>
     transmute(
       present = ifelse(.data$minimum > 0, 1, 0), .data$cyear,
-      .data$imonth, .data$location, .data$observation_id,
-      .data$datafield_id, .data$year, .data$month
+      .data$location, .data$observation_id,
+      .data$datafield_id, .data$year, .data$month, .data$cyear2, .data$ilocation
     ) |>
     arrange(.data$month, .data$location, .data$cyear) -> present
-  truncated_zero |>
-    filter(.data$count > 0) |>
-    count(.data$year, .data$month) |>
-    complete(.data$year, .data$month, fill = list(n = 0)) |>
-    group_by(.data$month) |>
-    summarise(median = median(.data$n)) |>
-    pull(.data$median) -> medians
   form |>
     c(
       "f(
-  cyear, model = \"rw1\", constr = TRUE, scale.model = TRUE,
-  hyper = list(theta = list(prior = \"pc.prec\", param = c(2, 0.01)))
-)",
-"f(
-  cyear2, model = \"rw1\", constr = TRUE, replicate = imonth,
+  location, model = \"iid\", constr = TRUE,
   hyper = list(theta = list(prior = \"pc.prec\", param = c(1, 0.01)))
-)"[all(medians >= 5)]) |>
+)",
+      "f(
+  cyear, model = \"rw1\", constr = TRUE, scale.model = TRUE,
+  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.4, 0.01)))
+)",
+      "f(
+  month, model = \"iid\", constr = TRUE, replicate = cyear,
+  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.1, 0.01)))
+)",
+      "f(
+  cyear2, model = \"rw1\", constr = TRUE, replicate = ilocation,
+  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.1, 0.01)))
+)"
+  ) |>
     paste(collapse = " +\n") |>
     sprintf(fmt = "count ~ %s") |>
     n2k_inla(
@@ -240,10 +235,25 @@ prepare_imputation_model <- function(
       )
     ) -> counts
   form |>
-    c("f(
-    cyear, model = \"rw2\", constr = TRUE, scale.model = TRUE,
-    hyper = list(theta = list(prior = \"pc.prec\", param = c(1, 0.01)))
-  )") |>
+    c(
+      "f(
+  location, model = \"iid\", constr = TRUE,
+  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.5, 0.01)))
+)",
+      "f(
+  cyear, model = \"rw1\", constr = TRUE, scale.model = TRUE,
+  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.5, 0.01)))
+)",
+      "f(
+  month, model = \"iid\", replicate = cyear,
+  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.2, 0.01)))
+)",
+      "f(
+        cyear2, model = \"rw1\", constr = TRUE, scale.model = TRUE,
+        replicate = ilocation,
+        hyper = list(theta = list(prior = \"pc.prec\", param = c(0.1, 0.01)))
+      )"
+  ) |>
     paste(collapse = " +\n") |>
     sprintf(fmt = "present ~ %s") |>
     n2k_inla(
