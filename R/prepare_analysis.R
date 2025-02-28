@@ -6,13 +6,18 @@
 #' @importFrom git2rdata verify_vc
 #' @importFrom lubridate round_date year
 #' @importFrom n2kanalysis display get_file_fingerprint manifest_yaml_to_bash
-#' n2k_hurdle_imputed n2k_manifest store_manifest store_model
+#' n2k_hurdle_imputed n2k_manifest store_manifest_yaml store_model
 #' @importFrom methods slot
 #' @importFrom purrr map_chr map_dfr
 #' @importFrom rlang .data
 #' @importFrom tidyr unnest
 prepare_analysis <- function(
-  analysis_path = ".", raw_repo, seed = 19790402, verbose = TRUE
+  analysis_path = ".", raw_repo, seed = 19790402, verbose = TRUE,
+  docker = "inbobmk/rn2k:dev-0.10",
+  dependencies = c(
+    "inbo/multimput@v0.2.15", "inbo/n2khelper@v0.5.0",
+    "inbo/n2kanalysis@v0.4.0"
+  )
 ) {
   set.seed(seed)
   file.path("location", "location") |>
@@ -221,5 +226,8 @@ prepare_analysis <- function(
   manifest |>
     select("fingerprint", "parent") |>
     n2k_manifest() |>
-    store_manifest(base = analysis_path, project = "watervogels")
+    store_manifest_yaml(
+      base = analysis_path, project = "watervogels", docker = docker,
+      dependencies = dependencies
+    )
 }

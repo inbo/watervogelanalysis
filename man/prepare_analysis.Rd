@@ -8,7 +8,10 @@ prepare_analysis(
   analysis_path = ".",
   raw_repo,
   seed = 19790402,
-  verbose = TRUE
+  verbose = TRUE,
+  docker = "inbobmk/rn2k:dev-0.10",
+  dependencies = c("inbo/multimput@v0.2.15", "inbo/n2khelper@v0.5.0",
+    "inbo/n2kanalysis@v0.4.0")
 )
 }
 \arguments{
