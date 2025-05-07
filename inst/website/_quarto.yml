@@ -9,19 +9,58 @@ knitr:
     message: false
     warning: false
 
+lang: en-GB
+
 format:
-  html:
+  flandersqmd-website-html:
     css:
-      - css_styles/flanders_report.css
       - css_styles/custom.css
-    toc: true
 
 execute:
-  cache: true
-  freeze: true
+  echo: false
+  freeze: false
+  cache: false
+
+flandersqmd:
+  title: "Wintering waterbirds in Belgium"
+  shorttitle: "wintering-waterbirds-2024"
+  author:
+    - name:
+        given: Thierry
+        family: Onkelinx
+      email: thierry.onkelinx@inbo.be
+      orcid: 0000-0001-8804-4216
+      affiliation:
+        - Research Institute for Nature and Forest (INBO)
+      corresponding: true
+  entity: INBO
+  level: 2
+  funder: Research Institute for Nature and Forest (INBO)
+  rightsholder: Research Institute for Nature and Forest (INBO)
+  publisher: Instituut voor Natuur- en Bosonderzoek (INBO)
+  community: inbo
+  keywords: trend2; waterfowl; Belgium; Flanders; Brussels; Wallonia
+  publication_type: publication-report
+  link-citations: TRUE
 
 website:
-  title: Wintering waterbirds in Flanders, Belgium
+  navbar:
+    left:
+      - text: Cover
+        file: index.md
+    tools:
+      - icon: mastodon
+      - icon: facebook
+        href: https://www.facebook.com/INBOVlaanderen/
+        href: https://mastodon.online/&#64;inbo
+      - icon: bluesky
+        href: https://bsky.app/profile/inbo.be
+      - icon: github
+        menu:
+          - text: Source Code
+            url:  https://github.com/inbo/watervogelsanalysis
+          - text: Report a Bug
+            url:  https://github.com/inbo/watervogelsanalysis/issues
   sidebar:
     style: "docked"
     search: false

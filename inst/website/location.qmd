@@ -1,577 +1,388 @@
 ---
-title: "_{{this_location_name}}_"
+title: "Overview of winter {{type}} in {{this_location_name}}"
 ---
 
-```{r setup}
+```{r}
+#| label: setup
+#| include: false
 library(effectclass)
 library(git2rdata)
-library(kableExtra)
-library(knitr)
+library(gt)
 library(tidyverse)
-opts_chunk$set(echo = FALSE)
-conflicted::conflicts_prefer(dplyr::filter, dplyr::pull)
-if (interactive()) {
-  root <- "../../../watervogels/result"
-  read_vc("yearly_trend", root = root) |>
-    slice_sample(n = 1) |>
-    pull(.data$location_group_id) -> this_location
-  location_file <- "vlaanderen"
-} else {
-  root <- "../../result"
-  this_location <- {{this_location}}
-  tolower("{{this_location_name}}") |>
-    gsub(pattern = " ", replacement = "-") -> location_file
-}
+root <- "../../../data"
+locgroup <- tolower("{{this_location_code}}")
 threshold <- log(0.75)
+type <- "{{type}}" == "average"
 ```
 
-```{r read-species}
-read_vc("speciesgroup_species", root) |>
-  inner_join(read_vc("species", root), by = c("species" = "id")) |>
-  transmute(
-    species_group_id = as.character(.data$speciesgroup),
-    species = .data$name_sc,
-    url = tolower(.data$name_sc) |>
+```{r}
+#| label: prepare-data
+read_vc("species", root = root) |>
+  select(-"gbif") |>
+  mutate(
+    scientific = tolower(.data$scientific) |>
       gsub(pattern = " ", replacement = "-") |>
-      sprintf(fmt = "../%1$s/%2$s.html", location_file)
-  ) -> species
-```
-
-## Augmented monthly totals
-
-### Trends in augmented monthly totals
-
-```{r tbl-yearly-trend-10}
-#| tbl-cap: "Linear change in augmented monthly total over the most recent
-#|   10-year period in `{{this_location_name}}`."
-read_vc("yearly_trend", root) |>
+      sprintf(fmt = "[%2$s](../%1$s.html)", .data$scientific)
+  ) -> speciesname
+read_vc("analysis", root = root) |>
   filter(
-    .data$location_group_id == this_location,
-    .data$duration == 10
+    str_detect(.data$model_type, "yearly imputed index"),
+    str_detect(.data$model_type, "Month") == type
   ) |>
-  group_by(.data$species_group_id) |>
-  slice_max(.data$midyear, n = 1) |>
+  transmute(.data$analysis, .data$species, .data$model_type ) -> analysis
+file.path(root, locgroup) |>
+  list.files(pattern = "average.csv", recursive = TRUE) |>
+  map(~read_vc(.x, root = file.path(root, locgroup))) |>
+  bind_rows() |>
+  group_by(.data$analysis, .data$duration) |>
+  slice_max(.data$centre_winter, n = 1) |>
   ungroup() |>
+  transmute(
+    .data$analysis, .data$duration, .data$estimate,
+    ci = format_ci(
+      .data$estimate, lcl = .data$lcl, ucl = .data$ucl, link = "log"
+    ),
+    last_winter = .data$centre_winter + (.data$duration - 1) / 2,
+  ) |>
+  bind_rows(
+    file.path(root, locgroup) |>
+      list.files(pattern = "total.csv", recursive = TRUE) |>
+      map(~read_vc(.x, root = file.path(root, locgroup))) |>
+      bind_rows() |>
+      filter(!is.na(.data$estimate)) |>
+      group_by(.data$analysis) |>
+      slice_max(.data$winter, n = 1) |>
+      ungroup() |>
+      transmute(
+        .data$analysis, duration = 1, .data$estimate,
+        ci = format_ci(
+          .data$estimate, lcl = .data$lcl, ucl = .data$ucl, link = "log"
+        ),
+        last_winter = .data$winter
+      )
+  ) |>
+  inner_join(analysis, by = "analysis") |>
   mutate(
+    species = as.integer(.data$species),
+    period = ifelse(
+      .data$duration > 1, .data$duration,
+      grepl("smoothed", .data$model_type) + 1
+    ) |>
+      factor(
+        levels = c(10, 5, 2, 1),
+        labels = c(
+          "10 winter average", "5 winter average", "smoother", "winter estimate"
+        )
+      )
+  ) |>
+  filter(!is.na(.data$period)) |>
+  select(-"model_type", -"duration", -"analysis") |>
+  inner_join(speciesname, by = c("species" = "euring")) |>
+  select(-"species", species = "scientific") -> estimates
+file.path(root, locgroup) |>
+  list.files(pattern = "trend.csv", recursive = TRUE) |>
+  map(~read_vc(.x, root = file.path(root, locgroup))) |>
+  bind_rows() |>
+  group_by(.data$analysis, .data$duration) |>
+  slice_max(.data$centre_winter, n = 1) |>
+  ungroup() |>
+  group_by(.data$duration) |>
+  filter(.data$centre_winter == max(.data$centre_winter)) |>
+  ungroup() |>
+  transmute(
+    .data$analysis, .data$centre_winter, .data$duration, .data$estimate,
     classification = classification(
-      lcl = .data$duration * .data$lower_confidence_limit,
-      ucl = .data$duration * .data$upper_confidence_limit,
+      .data$duration * .data$lcl, .data$duration * .data$ucl,
       threshold = threshold
     ),
-    `yearly change` = format_ci(
-      .data$estimate, lcl = .data$lower_confidence_limit,
-      ucl = .data$upper_confidence_limit, link = "log", change = TRUE,
-      percent = TRUE
-    ),
-    `change over period` = format_ci(
-      .data$estimate * .data$duration, change = TRUE, link = "log",
-      lcl = .data$lower_confidence_limit * .data$duration,
-      ucl = .data$upper_confidence_limit * .data$duration, percent = TRUE
-    ),
-    period = sprintf(
-      "%.0f--%.0f", .data$midyear - .data$duration / 2 + 0.5,
-      .data$midyear + .data$duration / 2 - 0.5
-    )
+    ci = format_ci(
+      .data$estimate, lcl = .data$lcl, ucl = .data$ucl, link = "log",
+      percent = TRUE, change = TRUE
+    ) |>
+      paste(.data$classification),
+    ci_total = format_ci(
+      .data$duration * .data$estimate, lcl = .data$duration * .data$lcl,
+      ucl = .data$duration * .data$ucl, link = "log", percent = TRUE,
+      change = TRUE
+    ) |>
+      paste(.data$classification)
   ) |>
-  inner_join(species, by = "species_group_id") |>
-  arrange(.data$classification, desc(.data$estimate)) -> trend
-trend |>
-  select(
-    "species", "period", "yearly change", "change over period"
+  inner_join(analysis, by = "analysis") |>
+  select(-"analysis", -"model_type") |>
+  mutate(species = as.integer(.data$species)) |>
+  inner_join(speciesname, by = c("species" = "euring")) |>
+  select(-"species", species = "scientific") -> trends
+file.path(root, locgroup) |>
+  list.files(pattern = "difference.csv", recursive = TRUE) |>
+  map(~read_vc(.x, root = file.path(root, locgroup))) |>
+  bind_rows() |>
+  filter(.data$duration %in% c(1, 10)) |>
+  group_by(.data$analysis, .data$duration, .data$centre_start) |>
+  slice_max(.data$centre_end, n = 1) |>
+  group_by(.data$duration) |>
+  filter(.data$centre_end == max(.data$centre_end)) |>
+  group_by(.data$analysis, .data$duration) |>
+  slice_max(.data$centre_start, n = 1) |>
+  ungroup() |>
+  transmute(
+    .data$analysis, .data$centre_start, .data$centre_end, .data$duration,
+    .data$estimate,
+    classification = classification(.data$lcl, .data$ucl, threshold),
+    ci = format_ci(
+      .data$estimate, lcl = .data$lcl, ucl = .data$ucl, link = "log",
+      percent = TRUE, change = TRUE
+    ) |>
+      paste(.data$classification)
   ) |>
-  kable(align = "lrccc") |>
-  kable_paper(
-    c("hover", "striped", "responsive"), full_width = FALSE, fixed_thead = TRUE
+  inner_join(analysis, by = "analysis") |>
+  select(-"analysis", -"model_type") |>
+  mutate(species = as.integer(.data$species)) |>
+  inner_join(speciesname, by = c("species" = "euring")) |>
+  select(-"species", species = "scientific") -> differences
+```
+
+## Average number over a period
+
+```{r}
+#| label: tbl-average-last
+#| tbl-cap: "winter {{type}} for the most recent period per species in
+#|   {{this_location_name}}.
+#|   The latest winter refers to the latest winter in which the species
+#|   was present in the region.
+#|   The numbers between the brackets indicate the 90% credible interval
+#|   around the estimated average.
+#|   We rounded the estimate to a magnitude depending on the uncertainty of
+#|   the estimate."
+estimates |>
+  filter(.data$period == "10 winter average") |>
+  arrange(.data$estimate) |>
+  pull(.data$species) -> species_order
+estimates |>
+  select("species", `latest winter` = "last_winter", "period", "ci") |>
+  pivot_wider(names_from = "period", values_from = "ci", names_sort = TRUE) |>
+  mutate(species = factor(.data$species, levels = rev(species_order))) |>
+  arrange(.data$species) |>
+  gt() |>
+  fmt_markdown(columns = "species") |>
+  cols_align(
+    columns = -"species",
+    align = "center"
   ) |>
-  column_spec(1, link = trend$url) |>
-  column_spec(
-    3:4, color = "white",
-    background = effectclass:::detailed_signed_palette[trend$classification]
+  opt_interactive(
+    use_search = TRUE, use_pagination = FALSE, use_resizers = TRUE,
+    use_highlight = TRUE, use_compact_mode = TRUE
   )
 ```
 
-```{r tbl-yearly-trend-12}
-#| tbl-cap: "Linear change in augmented monthly total over the most recent
-#|   12-year period in `{{this_location_name}}`."
-read_vc("yearly_trend", root) |>
-  filter(
-    .data$location_group_id == this_location,
-    .data$duration == 12
-  ) |>
-  group_by(.data$species_group_id) |>
-  slice_max(.data$midyear, n = 1) |>
-  ungroup() |>
-  mutate(
-    classification = classification(
-      lcl = .data$duration * .data$lower_confidence_limit,
-      ucl = .data$duration * .data$upper_confidence_limit,
-      threshold = threshold
-    ),
-    `yearly change` = format_ci(
-      .data$estimate, lcl = .data$lower_confidence_limit,
-      ucl = .data$upper_confidence_limit, link = "log", change = TRUE,
-      percent = TRUE
-    ),
-    `change over period` = format_ci(
-      .data$estimate * .data$duration, change = TRUE, link = "log",
-      lcl = .data$lower_confidence_limit * .data$duration,
-      ucl = .data$upper_confidence_limit * .data$duration, percent = TRUE
-    ),
-    period = sprintf(
-      "%.0f--%.0f", .data$midyear - .data$duration / 2 + 0.5,
-      .data$midyear + .data$duration / 2 - 0.5
-    )
-  ) |>
-  inner_join(species, by = "species_group_id") |>
-  arrange(.data$classification, desc(.data$estimate)) -> trend
-trend |>
-  select(
-    "species", "period", "yearly change", "change over period"
-  ) |>
-  kable(align = "lrccc") |>
-  kable_paper(
-    c("hover", "striped", "responsive"), full_width = FALSE, fixed_thead = TRUE
-  ) |>
-  column_spec(1, link = trend$url) |>
-  column_spec(
-    3:4, color = "white",
-    background = effectclass:::detailed_signed_palette[trend$classification]
-  )
-```
+# Linear trends
 
-```{r tbl-yearly-trend-max}
-#| tbl-cap: "Linear change in augmented monthly total over the entire time
-#|   series in `{{this_location_name}}`."
-read_vc("yearly_trend", root) |>
-  filter(.data$location_group_id == this_location) |>
-  group_by(.data$species_group_id) |>
+```{r}
+#| label: tbl-average-trend-short
+#| tbl-cap: "Short term linear trend in winter {{type}} per species still
+#|   present in {{this_location_name}}.
+#|   Expressed as a yearly percentage change."
+trends |>
+  filter(.data$duration %in% c(10, 12)) |>
+  group_by(.data$species) |>
   slice_max(.data$duration, n = 1) |>
-  slice_max(.data$midyear, n = 1) |>
-  ungroup() |>
-  mutate(
-    classification = classification(
-      lcl = .data$duration * .data$lower_confidence_limit,
-      ucl = .data$duration * .data$upper_confidence_limit,
-      threshold = threshold
+  arrange(.data$classification, desc(.data$estimate)) |>
+  pull(.data$species) -> species_order
+trends |>
+  filter(.data$duration %in% c(10, 12)) |>
+  transmute(
+    period = paste(
+      .data$centre_winter - (.data$duration - 1) / 2,
+      .data$centre_winter + (.data$duration - 1) / 2, sep = "-"
     ),
-    `yearly change` = format_ci(
-      .data$estimate, lcl = .data$lower_confidence_limit,
-      ucl = .data$upper_confidence_limit, link = "log", change = TRUE,
-      percent = TRUE
-    ),
-    `change over period` = format_ci(
-      .data$estimate * .data$duration, change = TRUE, link = "log",
-      lcl = .data$lower_confidence_limit * .data$duration,
-      ucl = .data$upper_confidence_limit * .data$duration, percent = TRUE
-    ),
-    period = sprintf(
-      "%.0f--%.0f", .data$midyear - .data$duration / 2 + 0.5,
-      .data$midyear + .data$duration / 2 - 0.5
-    )
+    .data$species, .data$ci, .data$classification
   ) |>
-  inner_join(species, by = "species_group_id") |>
-  arrange(.data$classification, desc(.data$estimate)) -> trend
-trend |>
-  select(
-    "species", "period", "duration", "yearly change", "change over period"
+  pivot_wider(names_from = "period", values_from = c("ci", "classification")) |>
+  rename_with(~gsub("ci_", "", .x)) |>
+  mutate(species = factor(.data$species, levels = species_order)) |>
+  arrange(.data$species) |>
+  gt() |>
+  fmt_markdown(columns = "species") |>
+  cols_align(
+    columns = -"species",
+    align = "center"
   ) |>
-  kable(align = "lrrccc") |>
-  kable_paper(
-    c("hover", "striped", "responsive"), full_width = FALSE, fixed_thead = TRUE
+  opt_interactive(
+    use_search = TRUE, use_pagination = FALSE, use_resizers = TRUE,
+    use_highlight = TRUE, use_compact_mode = TRUE
   ) |>
-  column_spec(1, link = trend$url) |>
-  column_spec(
-    4:5, color = "white",
-    background = effectclass:::detailed_signed_palette[trend$classification]
-  )
+  data_color(
+    columns = starts_with("classification"), direction = "column",
+    target_columns = 2:3,
+    palette = effectclass:::detailed_signed_palette
+  ) |>
+  cols_hide(columns = starts_with("classification"))
 ```
 
-### Long-term average of augmented monthly totals
-
-```{r tbl-yearly-average-5}
-#| tbl-cap: "Average augmented montly total over most recent 5-year period in
-#|   `{{this_location_name}}`."
-read_vc("yearly_average", root) |>
-  filter(
-    .data$location_group_id == this_location,
-    .data$duration == 5
-  ) |>
-  group_by(.data$species_group_id) |>
-  slice_max(.data$midyear, n = 1) |>
-  ungroup() |>
-  inner_join(species, by = "species_group_id") |>
-  arrange(desc(.data$estimate)) |>
-  mutate(
-    .data$species,
-    period = sprintf(
-      "%.0f--%.0f", .data$midyear - .data$duration / 2 + 0.5,
-      .data$midyear + .data$duration / 2 - 0.5
-    ),
-    average = format_ci(
-      .data$estimate, lcl = .data$lower_confidence_limit,
-      ucl = .data$upper_confidence_limit, link = "log"
-    )
-  ) -> average
-average |>
-  select("species", "period", "average") |>
-  kable(align = "lcc") |>
-  kable_paper(
-    c("hover", "striped", "responsive"), full_width = FALSE, fixed_thead = TRUE
-  ) |>
-  column_spec(1, link = average$url)
-```
-
-```{r tbl-yearly-average-10}
-#| tbl-cap: "Average augmented montly total over most recent 10-year period in
-#|   `{{this_location_name}}`."
-read_vc("yearly_average", root) |>
-  filter(
-    .data$location_group_id == this_location,
-    .data$duration == 10
-  ) |>
-  group_by(.data$species_group_id) |>
-  slice_max(.data$midyear, n = 1) |>
-  ungroup() |>
-  inner_join(species, by = "species_group_id") |>
-  arrange(desc(.data$estimate)) |>
-  mutate(
-    .data$species,
-    period = sprintf(
-      "%.0f--%.0f", .data$midyear - .data$duration / 2 + 0.5,
-      .data$midyear + .data$duration / 2 - 0.5
-    ),
-    average = format_ci(
-      .data$estimate, lcl = .data$lower_confidence_limit,
-      ucl = .data$upper_confidence_limit, link = "log"
-    )
-  ) -> average
-average |>
-  select("species", "period", "average") |>
-  kable(align = "lcc") |>
-  kable_paper(
-    c("hover", "striped", "responsive"), full_width = FALSE, fixed_thead = TRUE
-  ) |>
-  column_spec(1, link = average$url)
-```
-
-### Change in long-term average of augmented monthly totals
-
-```{r tbl-yearly-change-10}
-#| tbl-cap: "Change in average augmented monthly total between the most recent
-#|   10-year period compared to the oldest 10-year period in
-#|   `{{this_location_name}}`."
-read_vc("yearly_difference", root) |>
-  filter(
-    .data$location_group_id == this_location,
-    .data$duration == 10
-  ) |>
-  group_by(.data$species_group_id) |>
-  slice_max(.data$midend, n = 1) |>
-  slice_min(.data$midstart, n = 1) |>
-  ungroup() |>
-  mutate(
-    classification = classification(
-      lcl = .data$duration * .data$lower_confidence_limit,
-      ucl = .data$duration * .data$upper_confidence_limit,
-      threshold = threshold
-    ),
-    change = format_ci(
-      .data$estimate, lcl = .data$lower_confidence_limit,
-      ucl = .data$upper_confidence_limit, link = "log", change = TRUE,
-      percent = TRUE
-    ),
-    from = paste(
-      .data$midstart - .data$duration / 2 - 1,
-      .data$midstart + .data$duration / 2, sep = "--"
-    ),
-    to = paste(
-      .data$midend - .data$duration / 2 - 1,
-      .data$midend + .data$duration / 2, sep = "--"
-    )
-  ) |>
-  inner_join(species, by = "species_group_id") |>
-  arrange(.data$classification, desc(.data$estimate)) -> trend
-trend |>
-  select(
-    "species", "from", "to", "change"
-  ) |>
-  kable(align = "lrrc") |>
-  kable_paper(
-    c("hover", "striped", "responsive"), full_width = FALSE, fixed_thead = TRUE
-  ) |>
-  column_spec(1, link = trend$url) |>
-  column_spec(
-    4, color = "white",
-    background = effectclass:::detailed_signed_palette[trend$classification]
-  )
-```
-
-## Winter maximum
-
-### Trends in winter maxima
-
-```{r tbl-wintermax-trend-10}
-#| tbl-cap: "Linear change in winter maximum over the most recent
-#|   10-year period in `{{this_location_name}}`."
-read_vc("wintermax_trend", root) |>
-  filter(
-    .data$location_group_id == this_location,
-    .data$duration == 10
-  ) |>
-  group_by(.data$species_group_id) |>
-  slice_max(.data$midyear, n = 1) |>
-  ungroup() |>
-  mutate(
-    classification = classification(
-      lcl = .data$duration * .data$lower_confidence_limit,
-      ucl = .data$duration * .data$upper_confidence_limit,
-      threshold = threshold
-    ),
-    `yearly change` = format_ci(
-      .data$estimate, lcl = .data$lower_confidence_limit,
-      ucl = .data$upper_confidence_limit, link = "log", change = TRUE,
-      percent = TRUE
-    ),
-    `change over period` = format_ci(
-      .data$estimate * .data$duration, change = TRUE, link = "log",
-      lcl = .data$lower_confidence_limit * .data$duration,
-      ucl = .data$upper_confidence_limit * .data$duration, percent = TRUE
-    ),
-    period = sprintf(
-      "%.0f--%.0f", .data$midyear - .data$duration / 2 + 0.5,
-      .data$midyear + .data$duration / 2 - 0.5
-    )
-  ) |>
-  inner_join(species, by = "species_group_id") |>
-  arrange(.data$classification, desc(.data$estimate)) -> trend
-trend |>
-  select(
-    "species", "period", "yearly change", "change over period"
-  ) |>
-  kable(align = "lrccc") |>
-  kable_paper(
-    c("hover", "striped", "responsive"), full_width = FALSE, fixed_thead = TRUE
-  ) |>
-  column_spec(1, link = trend$url) |>
-  column_spec(
-    3:4, color = "white",
-    background = effectclass:::detailed_signed_palette[trend$classification]
-  )
-```
-
-```{r tbl-wintermax-trend-12}
-#| tbl-cap: "Linear change in winter maximum over the most recent
-#|   12-year period in `{{this_location_name}}`."
-read_vc("wintermax_trend", root) |>
-  filter(
-    .data$location_group_id == this_location,
-    .data$duration == 12
-  ) |>
-  group_by(.data$species_group_id) |>
-  slice_max(.data$midyear, n = 1) |>
-  ungroup() |>
-  mutate(
-    classification = classification(
-      lcl = .data$duration * .data$lower_confidence_limit,
-      ucl = .data$duration * .data$upper_confidence_limit,
-      threshold = threshold
-    ),
-    `yearly change` = format_ci(
-      .data$estimate, lcl = .data$lower_confidence_limit,
-      ucl = .data$upper_confidence_limit, link = "log", change = TRUE,
-      percent = TRUE
-    ),
-    `change over period` = format_ci(
-      .data$estimate * .data$duration, change = TRUE, link = "log",
-      lcl = .data$lower_confidence_limit * .data$duration,
-      ucl = .data$upper_confidence_limit * .data$duration, percent = TRUE
-    ),
-    period = sprintf(
-      "%.0f--%.0f", .data$midyear - .data$duration / 2 + 0.5,
-      .data$midyear + .data$duration / 2 - 0.5
-    )
-  ) |>
-  inner_join(species, by = "species_group_id") |>
-  arrange(.data$classification, desc(.data$estimate)) -> trend
-trend |>
-  select(
-    "species", "period", "yearly change", "change over period"
-  ) |>
-  kable(align = "lrccc") |>
-  kable_paper(
-    c("hover", "striped", "responsive"), full_width = FALSE, fixed_thead = TRUE
-  ) |>
-  column_spec(1, link = trend$url) |>
-  column_spec(
-    3:4, color = "white",
-    background = effectclass:::detailed_signed_palette[trend$classification]
-  )
-```
-
-```{r tbl-wintermax-trend-max}
-#| tbl-cap: "Linear change in winter maximum over the entire time
-#|   series in `{{this_location_name}}`."
-read_vc("wintermax_trend", root) |>
-  filter(.data$location_group_id == this_location) |>
-  group_by(.data$species_group_id) |>
+```{r}
+#| label: tbl-average-trend-long
+#| tbl-cap: "Long term linear trend in winter {{type}} per species still
+#|   present in {{this_location_name}}.
+#|   Expressed as a yearly percentage change."
+trends |>
+  filter(.data$duration > 12) |>
+  group_by(.data$species) |>
   slice_max(.data$duration, n = 1) |>
-  slice_max(.data$midyear, n = 1) |>
-  ungroup() |>
-  mutate(
-    classification = classification(
-      lcl = .data$duration * .data$lower_confidence_limit,
-      ucl = .data$duration * .data$upper_confidence_limit,
-      threshold = threshold
+  arrange(.data$classification, desc(.data$estimate)) |>
+  pull(.data$species) -> species_order
+trends |>
+  filter(.data$duration > 12) |>
+  transmute(
+    species = factor(.data$species, levels = species_order),
+    period = paste(
+      .data$centre_winter - (.data$duration - 1) / 2,
+      .data$centre_winter + (.data$duration - 1) / 2, sep = "-"
     ),
-    `yearly change` = format_ci(
-      .data$estimate, lcl = .data$lower_confidence_limit,
-      ucl = .data$upper_confidence_limit, link = "log", change = TRUE,
-      percent = TRUE
-    ),
-    `change over period` = format_ci(
-      .data$estimate * .data$duration, change = TRUE, link = "log",
-      lcl = .data$lower_confidence_limit * .data$duration,
-      ucl = .data$upper_confidence_limit * .data$duration, percent = TRUE
-    ),
-    period = sprintf(
-      "%.0f--%.0f", .data$midyear - .data$duration / 2 + 0.5,
-      .data$midyear + .data$duration / 2 - 0.5
-    )
+    trend = .data$ci, .data$classification
   ) |>
-  inner_join(species, by = "species_group_id") |>
-  arrange(.data$classification, desc(.data$estimate)) -> trend
-trend |>
-  select(
-    "species", "period", "duration", "yearly change", "change over period"
+  arrange(.data$species) |>
+  gt() |>
+  fmt_markdown(columns = "species") |>
+  cols_align(columns = -"species", align = "center") |>
+  opt_interactive(
+    use_search = TRUE, use_pagination = FALSE, use_resizers = TRUE,
+    use_highlight = TRUE, use_compact_mode = TRUE
   ) |>
-  kable(align = "lrrccc") |>
-  kable_paper(
-    c("hover", "striped", "responsive"), full_width = FALSE, fixed_thead = TRUE
+  data_color(
+    columns = "classification", direction = "column",
+    target_columns = "trend",
+    palette = effectclass:::detailed_signed_palette
   ) |>
-  column_spec(1, link = trend$url) |>
-  column_spec(
-    4:5, color = "white",
-    background = effectclass:::detailed_signed_palette[trend$classification]
-  )
+  cols_hide(columns = "classification")
 ```
 
-### Long-term average winter maximum
-
-```{r tbl-wintermax-average-5}
-#| tbl-cap: "Average winter maximum over most recent 5-year period in
-#|   `{{this_location_name}}`."
-read_vc("wintermax_average", root) |>
-  filter(
-    .data$location_group_id == this_location,
-    .data$duration == 5
-  ) |>
-  group_by(.data$species_group_id) |>
-  slice_max(.data$midyear, n = 1) |>
-  ungroup() |>
-  inner_join(species, by = "species_group_id") |>
-  arrange(desc(.data$estimate)) |>
-  mutate(
-    .data$species,
-    period = sprintf(
-      "%.0f--%.0f", .data$midyear - .data$duration / 2 + 0.5,
-      .data$midyear + .data$duration / 2 - 0.5
+```{r}
+#| label: tbl-average-trend-short2
+#| tbl-cap: "Short term linear trend in winter {{type}} per species still
+#|   present in {{this_location_name}}.
+#|   Expressed as a percentage change over the period."
+trends |>
+  filter(.data$duration %in% c(10, 12)) |>
+  group_by(.data$species) |>
+  slice_max(.data$duration, n = 1) |>
+  arrange(.data$classification, desc(.data$estimate)) |>
+  pull(.data$species) -> species_order
+trends |>
+  filter(.data$duration %in% c(10, 12)) |>
+  transmute(
+    period = paste(
+      .data$centre_winter - (.data$duration - 1) / 2,
+      .data$centre_winter + (.data$duration - 1) / 2, sep = "-"
     ),
-    average = format_ci(
-      .data$estimate, lcl = .data$lower_confidence_limit,
-      ucl = .data$upper_confidence_limit, link = "log"
-    )
-  ) -> average
-average |>
-  select("species", "period", "average") |>
-  kable(align = "lcc") |>
-  kable_paper(
-    c("hover", "striped", "responsive"), full_width = FALSE, fixed_thead = TRUE
+    .data$species, .data$ci_total, .data$classification
   ) |>
-  column_spec(1, link = average$url)
+  pivot_wider(
+    names_from = "period", values_from = c("ci_total", "classification")
+  ) |>
+  rename_with(~gsub("ci_total_", "", .x)) |>
+  mutate(species = factor(.data$species, levels = species_order)) |>
+  arrange(.data$species) |>
+  gt() |>
+  fmt_markdown(columns = "species") |>
+  cols_align(
+    columns = -"species",
+    align = "center"
+  ) |>
+  opt_interactive(
+    use_search = TRUE, use_pagination = FALSE, use_resizers = TRUE,
+    use_highlight = TRUE, use_compact_mode = TRUE
+  ) |>
+  data_color(
+    columns = starts_with("classification"), direction = "column",
+    target_columns = 2:3,
+    palette = effectclass:::detailed_signed_palette
+  ) |>
+  cols_hide(columns = starts_with("classification"))
 ```
 
-```{r tbl-wintermax-average-10}
-#| tbl-cap: "Average winter maximum over most recent 10-year period in
-#|   `{{this_location_name}}`."
-read_vc("wintermax_average", root) |>
-  filter(
-    .data$location_group_id == this_location,
-    .data$duration == 10
-  ) |>
-  group_by(.data$species_group_id) |>
-  slice_max(.data$midyear, n = 1) |>
-  ungroup() |>
-  inner_join(species, by = "species_group_id") |>
-  arrange(desc(.data$estimate)) |>
-  mutate(
-    .data$species,
-    period = sprintf(
-      "%.0f--%.0f", .data$midyear - .data$duration / 2 + 0.5,
-      .data$midyear + .data$duration / 2 - 0.5
+```{r}
+#| label: tbl-average-trend-long2
+#| tbl-cap: "Long term linear trend in winter {{type}} per species still present
+#|   in {{this_location_name}}.
+#|   Expressed as a percentage change over the period."
+trends |>
+  filter(.data$duration > 12) |>
+  group_by(.data$species) |>
+  slice_max(.data$duration, n = 1) |>
+  arrange(.data$classification, desc(.data$estimate)) |>
+  pull(.data$species) -> species_order
+trends |>
+  filter(.data$duration > 12) |>
+  transmute(
+    species = factor(.data$species, levels = species_order),
+    period = paste(
+      .data$centre_winter - (.data$duration - 1) / 2,
+      .data$centre_winter + (.data$duration - 1) / 2, sep = "-"
     ),
-    average = format_ci(
-      .data$estimate, lcl = .data$lower_confidence_limit,
-      ucl = .data$upper_confidence_limit, link = "log"
-    )
-  ) -> average
-average |>
-  select("species", "period", "average") |>
-  kable(align = "lcc") |>
-  kable_paper(
-    c("hover", "striped", "responsive"), full_width = FALSE, fixed_thead = TRUE
+    trend = .data$ci_total, .data$classification
   ) |>
-  column_spec(1, link = average$url)
+  arrange(.data$species) |>
+  gt() |>
+  fmt_markdown(columns = "species") |>
+  cols_align(columns = -"species", align = "center") |>
+  opt_interactive(
+    use_search = TRUE, use_pagination = FALSE, use_resizers = TRUE,
+    use_highlight = TRUE, use_compact_mode = TRUE
+  ) |>
+  data_color(
+    columns = "classification", direction = "column",
+    target_columns = "trend",
+    palette = effectclass:::detailed_signed_palette
+  ) |>
+  cols_hide(columns = "classification") |>
+  cols_width(period ~ px(100), trend ~ px(310))
 ```
 
-### Change in long-term average winter maximum
+# Difference between two periods
 
-```{r tbl-wintermax-change-10}
-#| tbl-cap: "Change in average winter maximum between the most recent
-#|   10-year period compared to the oldest 10-year period in
-#|   `{{this_location_name}}`."
-read_vc("wintermax_difference", root) |>
-  filter(
-    .data$location_group_id == this_location,
-    .data$duration == 10
-  ) |>
-  group_by(.data$species_group_id) |>
-  slice_max(.data$midend, n = 1) |>
-  slice_min(.data$midstart, n = 1) |>
-  ungroup() |>
-  mutate(
-    classification = classification(
-      lcl = .data$duration * .data$lower_confidence_limit,
-      ucl = .data$duration * .data$upper_confidence_limit,
-      threshold = threshold
+```{r}
+#| label: tbl-average-difference
+#| tbl-cap: "Difference between two periods in winter {{type}} per species
+#|   still present in {{this_location_name}}."
+differences |>
+  group_by(.data$species) |>
+  slice_max(.data$duration, n = 1) |>
+  arrange(.data$classification, desc(.data$estimate)) |>
+  pull(.data$species) -> species_order
+differences |>
+  transmute(
+    period = ifelse(
+      .data$duration == 1,
+      sprintf("%.0f vs %.0f", .data$centre_end, .data$centre_start),
+      sprintf(
+        "%i-%i vs %i-%i",
+        .data$centre_end - (.data$duration - 1) / 2,
+        .data$centre_end + (.data$duration - 1) / 2,
+        .data$centre_start - (.data$duration - 1) / 2,
+        .data$centre_start + (.data$duration - 1) / 2
+      )
     ),
-    change = format_ci(
-      .data$estimate, lcl = .data$lower_confidence_limit,
-      ucl = .data$upper_confidence_limit, link = "log", change = TRUE,
-      percent = TRUE
-    ),
-    from = paste(
-      .data$midstart - .data$duration / 2 - 1,
-      .data$midstart + .data$duration / 2, sep = "--"
-    ),
-    to = paste(
-      .data$midend - .data$duration / 2 - 1,
-      .data$midend + .data$duration / 2, sep = "--"
-    )
+    .data$species, .data$ci, .data$classification
   ) |>
-  inner_join(species, by = "species_group_id") |>
-  arrange(.data$classification, desc(.data$estimate)) -> trend
-trend |>
-  select(
-    "species", "from", "to", "change"
+  pivot_wider(
+    names_from = "period", values_from = c("ci", "classification")
   ) |>
-  kable(align = "lrrc") |>
-  kable_paper(
-    c("hover", "striped", "responsive"), full_width = FALSE, fixed_thead = TRUE
+  rename_with(~gsub("ci_", "", .x)) |>
+  mutate(species = factor(.data$species, levels = species_order)) |>
+  arrange(.data$species) |>
+  gt() |>
+  fmt_markdown(columns = "species") |>
+  cols_align(
+    columns = -"species",
+    align = "center"
   ) |>
-  column_spec(1, link = trend$url) |>
-  column_spec(
-    4, color = "white",
-    background = effectclass:::detailed_signed_palette[trend$classification]
-  )
+  opt_interactive(
+    use_search = TRUE, use_pagination = FALSE, use_resizers = TRUE,
+    use_highlight = TRUE, use_compact_mode = TRUE
+  ) |>
+  data_color(
+    columns = starts_with("classification"), direction = "column",
+    target_columns = 2:3,
+    palette = effectclass:::detailed_signed_palette
+  ) |>
+  cols_hide(columns = starts_with("classification"))
 ```
-

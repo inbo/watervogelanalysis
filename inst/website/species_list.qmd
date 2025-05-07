@@ -2,4 +2,43 @@
 title: "Species list"
 ---
 
-To do
+```{r}
+#| label: setup
+#| include: false
+library(git2rdata)
+library(gt)
+library(tidyverse)
+root <- "../../data"
+```
+
+```{r}
+#| label: prepare-data
+read_vc("species", root = root) |>
+  inner_join(
+    read_vc("vernacular", root = root) |>
+      mutate(
+        language = factor(
+          .data$language, levels = c("eng", "nld", "fra", "deu"),
+          labels = c("English", "Nederlands", "Fran\u00e7ais", "Deutsch")
+        )
+      ) |>
+      pivot_wider(
+        names_from = "language", values_from = "vernacular", names_sort = TRUE,
+        values_fill = ""
+      ),
+    by = "euring"
+  ) |>
+  arrange(.data$scientific) |>
+  mutate(
+    scientific = tolower(.data$scientific) |>
+      gsub(pattern = " ", replacement = "-") |>
+      sprintf(fmt = "[%2$s](../%1$s.html)", .data$scientific)
+  ) |>
+  select(-"euring", -"gbif") |>
+  gt() |>
+  fmt_markdown(columns = "scientific") |>
+  opt_interactive(
+    use_search = TRUE, use_pagination = FALSE, use_resizers = TRUE,
+    use_highlight = TRUE, use_compact_mode = TRUE
+  )
+```

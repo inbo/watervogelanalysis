@@ -1,103 +1,196 @@
 ---
-title: "_{{this_species_name}}_"
+title: Evolution of the number of wintering _${speciesname.scientific}_ in Belgium
 ---
 
-```{r setup}
+::: {.panel-fill}
+
+```{r}
+#| label: setup
 #| include: false
-library(dplyr)
 library(effectclass)
 library(git2rdata)
-library(kableExtra)
-library(knitr)
 library(leaflet)
-library(purrr)
-library(stringr)
-library(tidyr)
-conflicted::conflicts_prefer(dplyr::pull, dplyr::filter)
-threshold <- log(0.75)
-if (interactive()) {
-  keyring::key_get("meetnetten", username = "watervogels_result") |>
-    file.path("data") -> root
+library(tidyverse)
+root <- "../../data"
+species <- {{species}}
+```
+
+```{r}
+#| label: import-function
+import_estimate <- function(path, root) {
+  read_vc(path, root = root) |>
+    inner_join(read_vc("analysis", root = root), by = "analysis") |>
+    transmute(
+      .data$winter, .data$estimate, .data$se,
+      wintermax = grepl("+ Month", .data$model_type) |>
+        as.integer(),
+      smoothing = grepl("smoothed", .data$model_type) |>
+        as.integer()
+    ) |>
+    bind_rows(
+      gsub("/total", "/average", path) |>
+        read_vc(root = root) |>
+        inner_join(read_vc("analysis", root = root), by = "analysis") |>
+        transmute(
+          winter = .data$centre_winter, .data$estimate, .data$se,
+          wintermax = grepl("+ Month", .data$model_type) |>
+            as.integer(),
+          smoothing = ifelse(.data$duration == 5, 2, 3)
+        )    
+    ) |>
+    mutate(locgroup = gsub("(.*?)/.*", "\\1", path))
+}
+import_difference <- function(path, root) {
   read_vc("analysis", root = root) |>
-    filter(!is.na(as.integer(.data$species))) |>
-    distinct() |>
-    count(.data$locationgroup, .data$species) |>
-    slice_max(.data$n, n = 1) |>
-    slice_sample(n = 1) -> tmp
-  spec <- tmp$species
-} else {
-  root <- file.path("..", "..", "..", "data")
-  spec <- "{{species}}"
+    filter(str_detect(.data$model_type, "imputed index")) |>
+    inner_join(read_vc(path, root = root), by = "analysis") |>
+    transmute(
+      .data$centre_start, .data$centre_end, .data$estimate, .data$se,
+      .data$duration,
+      wintermax = grepl("+ Month", .data$model_type) |>
+        as.integer()
+    ) |>
+    mutate(locgroup = gsub("(.*?)/.*", "\\1", path))
+}
+import_trend <- function(path, root) {
+  read_vc(path, root = root) |>
+    inner_join(read_vc("analysis", root = root), by = "analysis") |>
+    transmute(
+      .data$centre_winter, .data$estimate, .data$se,
+      .data$duration,
+      wintermax = grepl("+ Month", .data$model_type) |>
+        as.integer()
+    ) |>
+    mutate(locgroup = gsub("(.*?)/.*", "\\1", path))
+}
+import_imputation <- function(path, root) {
+  read_vc(path, root = root) |>
+    inner_join(read_vc("analysis", root = root), by = "analysis") |>
+    mutate(
+      locgroup = gsub("(.*?)/.*", "\\1", path),
+      wintermax = grepl("+ Month", .data$model_type) |>
+        as.integer(),
+      month = replace_na(.data$month, "Februari"),
+      not_imputed = grepl("not imputed", .data$model_type)
+    ) |>
+    select(
+      -"fingerprint", -"status", -"species", -"analysis",
+      -"locationgroup", -"model_type"
+    )
 }
 ```
 
-```{r read-data}
-read_vc("analysis", root = root) -> analysis
+```{r}
+#| label: prepare-data
+read_vc("species", root = root) |>
+  filter(.data$euring == species) -> speciesname
 read_vc("locationgroup", root = root) |>
-  transmute(
-    .data$external_code,
-    locationgroup = str_replace(.data$description, "België", "Belgium") |>
-      str_replace("Wallonië", "Wallonia-Brussels") |>
-      str_replace("Vlaanderen", "Flanders")
-  ) -> locationgroup
-dirs <- list.dirs(root, full.names = FALSE)
-dirs <- dirs[basename(dirs) == spec]
-dirs <- dirs[!grepl("model_check", dirs)]
-map_dfr(
-  dirs,
-  function(x) {
-    fn <- file.path(x, "trend")
-    if (is_git2rdata(file = fn, root = root)) {
-      return(read_vc(fn, root = root))
-    }
-    data.frame()
-  }
-) |>
-  inner_join(
-    analysis |>
-      filter(str_detect(.data$model_type, "Month")) |>
-      select("analysis", external_code = "locationgroup"),
-    by = "analysis"
-  ) |>
-  inner_join(locationgroup, by = "external_code") |>
-  group_by(.data$locationgroup, .data$duration) |>
-  slice_max(.data$centre_winter, n = 1) |>
-  ungroup() |>
   mutate(
-    url = tolower(.data$locationgroup) |>
-      str_replace_all(" ", "-") |>
-      sprintf(fmt = "%s.html"),
-    classification = classification(
-      lcl = .data$duration * .data$lcl, ucl = .data$duration * .data$ucl,
-      threshold = threshold
-    ),
-    when = sprintf(
-      "%.0f--%.0f", .data$centre_winter - .data$duration / 2 + 0.5,
-      .data$centre_winter + .data$duration / 2 - 0.5
-    ),
-    yearly_change = format_ci(
-      .data$estimate, lcl = .data$lcl, change = TRUE,
-      ucl = .data$ucl, link = "log", percent = TRUE
-    ) |>
-      sprintf(fmt = "%1$s %2$s", .data$classification)
-  ) -> trends
-trends |>
-  group_by(.data$locationgroup) |>
-  slice_min(.data$duration, n = 1) |>
+    external_code = tolower(.data$external_code),
+    description = str_replace(.data$description, "België", "Belgium") |>
+      str_replace("Vlaanderen", "Flanders") |>
+      str_replace("Wallonië", "Brussels & Wallonia")
+  ) -> loc_group
+file.path(root, loc_group$external_code, species) |>
+  list.files(pattern = "^total.csv", full.names = TRUE) |>
+  gsub(pattern = ".*/data/", replacement = "") |>
+  map(import_estimate, root = root) |>
+  bind_rows() |>
+  mutate(
+    label = format_ci(.data$estimate, .data$se, link = "log", si = TRUE),
+    label2 = gsub(" .*", "", .data$label)
+  ) -> total
+file.path(root, loc_group$external_code, species) |>
+  list.files(pattern = "^difference.csv", full.names = TRUE) |>
+  gsub(pattern = ".*/data/", replacement = "") |>
+  map(import_difference, root = root) |>
+  bind_rows() -> difference
+difference |>
+  slice_max(
+    .data$centre_start, n = 1, by = c("wintermax", "duration", "locgroup")
+  ) |>
+  group_by(.data$duration) |>
+  filter(.data$centre_end == max(.data$centre_end)) |>
+  ungroup() -> recent_difference
+difference |>
+  filter(.data$duration == 1) |>
+  select(-"duration") -> difference
+file.path(root, loc_group$external_code, species) |>
+  list.files(pattern = "^trend.csv", full.names = TRUE) |>
+  gsub(pattern = ".*/data/", replacement = "") |>
+  map(import_trend, root = root) |>
+  bind_rows() |>
+  slice_max(
+    .data$centre_winter, n = 1, by = c("locgroup", "wintermax", "duration")
+  ) |>
+  group_by(max_duration = pmin(.data$duration, 13)) |>
+  filter(.data$centre_winter == max(.data$centre_winter)) |>
   ungroup() |>
-  arrange(.data$classification, desc(.data$estimate)) |>
-  pull(.data$locationgroup) -> loc_lab
-trends <- trends |>
-  mutate(locationgroup = factor(.data$locationgroup, levels = loc_lab))
-```
-
-```{r vernacular}
+  select(-"max_duration") -> trend
+file.path(root, loc_group$external_code, species) |>
+  list.files(pattern = "^imputed_total_month.csv", full.names = TRUE) |>
+  gsub(pattern = ".*/data/", replacement = "") |>
+  map(import_imputation, root = root) |>
+  bind_rows() |>
+  mutate(
+    month = factor(
+      .data$month,
+      levels = c(
+        "October", "November", "December", "January", "Februari", "March"
+      ),
+      labels = c(
+        "October", "November", "December", "January", "February", "March"
+      )
+    )
+  ) |>
+  arrange(.data$locgroup, .data$winter, .data$month) -> imputation
+imputation |>
+  filter(.data$not_imputed) |>
+  select("locgroup", "winter", "month", unimputed = "median") |>
+  inner_join(
+    imputation |>
+      filter(!.data$not_imputed) |>
+      select(
+        "locgroup", "winter", "month", "median", "min", "max"
+      ),
+    by = c("locgroup", "winter", "month")
+  ) -> imputation
+total |>
+  filter(.data$smoothing == 0) |>
+  select("locgroup", "estimate") |>
+  slice_max(.data$estimate, n = 1, by = "locgroup") |>
+  inner_join(loc_group, by = c("locgroup" = "external_code")) |>
+  arrange(desc(.data$estimate)) |>
+  select(-"estimate") -> loc_group
+difference |>
+  rename(old = "centre_start", centre_start = "centre_end") |>
+  rename(centre_end = "old") |>
+  mutate(estimate = -.data$estimate) |>
+  bind_rows(difference) |>
+  transmute(
+    .data$wintermax, .data$locgroup, .data$centre_start,
+    lcl = qnorm(0.05, .data$estimate, .data$se),
+    ucl = qnorm(0.95, .data$estimate, .data$se)
+  ) |>
+  pivot_longer(c("lcl", "ucl")) |>
+  group_by(.data$wintermax, .data$locgroup, .data$centre_start) |>
+  summarise(
+    lcl = min(.data$value), ucl = max(.data$value), .groups = "drop"
+  ) |>
+  transmute(
+    .data$wintermax, .data$locgroup, .data$centre_start,
+    breaks = map2(
+      .data$lcl, .data$ucl,
+      ~change_breaks(n = 3, extra = c(-1, 1) * log(0.75))(c(.x, .y))
+    ) |>
+      map(~data.frame(breaks = .x, labels = change_labels(.x)))
+  ) |>
+  unnest("breaks") -> breaks
 read_vc(file = "species", root = root) |>
-  filter(.data$euring == as.integer(spec)) -> species
-year_range <- c(1992, 2024)
+  filter(.data$euring == as.integer(species)) -> gbif
 c(
-  srs = "EPSG:3857", taxonKey = species$gbif, bin = "hex", hexPerTile = 20,
-  style = "orange.marker", years = paste(year_range, collapse = ",")
+  srs = "EPSG:3857", taxonKey = gbif$gbif, bin = "hex", hexPerTile = 20,
+  style = "orange.marker", years = paste(range(total$winter), collapse = ",")
 ) %>%
   paste(names(.), ., sep = "=", collapse = "&") |>
   c(
@@ -106,7 +199,7 @@ c(
   rev() |>
   paste(collapse = "?") -> url
 read_vc(file = "vernacular", root = root) |>
-  filter(.data$euring == as.integer(spec)) |>
+  filter(.data$euring == as.integer(species)) |>
   mutate(
     language = factor(
       .data$language, levels = c("eng", "nld", "fra", "deu"),
@@ -121,43 +214,804 @@ read_vc(file = "vernacular", root = root) |>
   ) |>
   mutate(
     markdown = sprintf(
-      "- EURING code %i\n%s
+      "- EURING code [%1$i](https://euring.org/edb/species-maps/sp%1$i.htm)
+%2$s
 
-More information on [GBIF](https://www.gbif.org/species/%s){target=\"_blank\"}",
-      .data$euring, .data$markdown, species$gbif
+More information at the [Global Biodiversity Information Facility
+(GBIF)](https://www.gbif.org/species/%3$s){target=\"_blank\"}",
+      .data$euring, .data$markdown, gbif$gbif
     )
   ) |>
   pull(.data$markdown) -> vernacular
+range(total$winter) |>
+  paste(collapse = "-") |>
+  sprintf(
+    fmt = paste(
+      "Map of _%2$s_ on",
+      "[GBIF](https://www.gbif.org/species/%3$s){target=\"_blank\"} during %1$s"
+    ),
+    gbif$scientific, gbif$gbif
+  ) -> map_cap
 ```
 
 `r vernacular`
 
 ```{r fig-map}
-#| fig-cap: "Map of _{{this_species_name}}_ on GBIF"
+#| fig-cap: !expr map_cap
 leaflet() |>
   setView(4.37, 50.85, zoom = 7) |>
   addTiles() |>
   addTiles(urlTemplate = url)
 ```
 
-```{r tbl-linear-trend}
-#| tbl-cap: "Overview of linear trends for _{{this_species_name}}_"
-bg_colour <- c(effectclass:::detailed_signed_palette, "NA" = "white")
-trends |>
-  transmute(.data$url, .data$locationgroup, .data$when, classification = as.character(.data$classification)) |>
-  pivot_wider(names_from  = "when", values_from = "classification", values_fill = "NA") |>
-  arrange(.data$locationgroup) -> classif
-trends |>
-  select("locationgroup", "when", "yearly_change") |>
-  pivot_wider(names_from  = "when", values_from = "yearly_change", values_fill = "") |>
-  arrange(.data$locationgroup) |>
-  kable(align = "lccc") |>
-  kable_paper(c("hover", "striped", "responsive"), full_width = FALSE) |>
-  kable_styling(position = "center") |>
-  column_spec(1, link = classif$url) -> this_table
-for (i in 3:ncol(classif)) {
-  this_table <- this_table |>
-    column_spec(i - 1, color = "white", background = bg_colour[classif[[i]]])
-}
-this_table
+```{r}
+#| label: ojs-define
+#| cache: false
+ojs_define(
+  loc_group = loc_group, raw_breaks = breaks, raw_difference = difference,
+  raw_recent_difference = recent_difference, raw_impute = imputation,
+  raw_total = total, raw_trend = trend, speciesname = speciesname
+)
 ```
+
+```{ojs ojs-import}
+import { serialize } from "./serialize.js"
+import { add_error_layer, add_fan_layer, add_fan_rect_layer, add_legend_text, add_reference, classification, get_lcl, get_ucl, identity, qnorm } from "./error.js"
+signed_percent = function(value) {
+  const s = d3.formatSpecifier("+.3p")
+  return d3.format(s)(value)
+}
+function largestWinterByTypeAndLocgroup(total) {
+  // Create a map to store the largest winter value for each type and locgroup combination
+  const largestWinterMap = new Map();
+
+  // Iterate over each row in the total array
+  for (const row of total) {
+    const { winter, type, locgroup } = row;
+    const key = `${type}_${locgroup}`;
+
+    // If the type and locgroup combination is not in the map, or the current winter value is larger, update the map
+    if (!largestWinterMap.has(key) || winter > largestWinterMap.get(key).winter) {
+      largestWinterMap.set(key, row);
+    }
+  }
+
+  // Convert the map values to an array and return it
+  return Array.from(largestWinterMap.values());
+}
+```
+
+```{ojs ojs-tables}
+wintermax_type = [
+  {value: 0, label: "winter maximum"},
+  {value: 1, label: "winter average"}
+]
+display_type = [
+  {value: 0, label: "none"},
+  {value: 1, label: "ribbon"},
+  {value: 2, label: "errorbar"}
+]
+monthToNumber = [
+  {value: 1, label: "January"},
+  {value: 2, label: "February"},
+  {value: 3, label: "March"},
+  {value: -2, label: "October"},
+  {value: -1, label: "November"},
+  {value: 0, label: "December"}
+]
+duration_type = [
+  {value: "yearly", label: "average relative linear change per year"},
+  {value: "period", label: "relative linear change over the duration of the period"}
+]
+```
+
+```{ojs ojs-data-selection}
+locgroup = transpose(loc_group)
+total = transpose(raw_total).filter(
+  function(index) {
+    return wintermax.value == index.wintermax
+  }
+).map(
+  row => {
+    let type;
+    switch (row.smoothing) {
+      case 0:
+        type = "winter estimate";
+        break;
+      case 1:
+        type = "smoother";
+        break;
+      case 2:
+        type = "5 winter\naverage";
+        break;
+      case 3:
+        type = "10 winter\naverage";
+        break;
+      default:
+        type = "unknown"; // Handle unexpected cases
+    }
+    return { ...row, type };
+  }
+);
+total_loc = total.filter(function(index) {
+  return region.locgroup == index.locgroup
+})
+total_smooth = total_loc.filter(function(index) {
+  return 1 == index.smoothing
+})
+total_winter = total_loc.filter(function(index) {
+  return 0 == index.smoothing
+})
+total_winter5 = total_loc.filter(function(index) {
+  return 2 == index.smoothing
+})
+total_winter10 = total_loc.filter(function(index) {
+  return 3 == index.smoothing
+})
+total_winter5_error = total_winter5.filter(function(index) {
+  return winter5_display.label == "errorbar"
+})
+total_winter10_error = total_winter10.filter(function(index) {
+  return winter10_display.label == "errorbar"
+})
+total_winter_error = total_winter.filter(function(index) {
+  return winter_display.label == "errorbar"
+})
+total_smooth_error = total_smooth.filter(function(index) {
+  return smoother_display.label == "errorbar"
+})
+total_winter_fan = total_winter.filter(function(index) {
+  return winter_display.label == "ribbon"
+})
+total_winter5_fan = total_winter5.filter(function(index) {
+  return winter5_display.label == "ribbon"
+})
+total_winter10_fan = total_winter10.filter(function(index) {
+  return winter10_display.label == "ribbon"
+})
+total_smooth_fan = total_smooth.filter(function(index) {
+  return smoother_display.label == "ribbon"
+})
+custom_title = html`<h3 id="region-state">${wintermax.label} of
+  <i>${speciesname.scientific}</i> in ${region.description}</h3>`;
+custom_caption = html`Figure 3 ${wintermax.label} of the total number of
+  <i>${speciesname.scientific}</i> in ${region.description}.
+  Estimates displayed with an error bar have a tooltip with their credible
+  interval`;
+custom_title_diff = html`<h3 id="region-difference">Difference in
+  ${wintermax.label} of <i>${speciesname.scientific}</i> in
+  ${region.description}</h3>`;
+custom_caption_diff = html`Figure 4: difference in ${wintermax.label} of
+  the total number of <i>${speciesname.scientific}</i> in
+  ${region.description}.`; 
+difference = transpose(raw_difference).filter(
+  function(index) {
+    return wintermax.value == index.wintermax &&
+      region.locgroup == index.locgroup
+  }
+)
+difference_ref = [...new Set(difference_completed.map(item => item.centre_start))].sort((a, b) => a - b);
+difference_completed = [
+  ...difference,
+  ...difference.map(
+    item => ({
+      centre_start: item.centre_end, centre_end: item.centre_start,
+      estimate: -item.estimate, se: item.se
+    })
+  )
+];
+difference_selection = difference_completed.filter(
+  function(index) {
+    return ref_difference == index.centre_start
+  }
+).map(
+  row => {
+    return {
+      ...row,
+      flcl: signed_percent(get_lcl(0.9, row.estimate, row.se, Math.exp) - 1),
+      fucl: signed_percent(get_ucl(0.9, row.estimate, row.se, Math.exp) - 1),
+      change: signed_percent(Math.exp(row.estimate) - 1)
+    };
+  }
+);
+breaks = transpose(raw_breaks).filter(
+  function(index) {
+    return wintermax.value == index.wintermax &&
+      region.locgroup == index.locgroup &&
+      ref_difference == index.centre_start
+  }
+)
+y_ticks = breaks.map(d => d.breaks)
+y_labels = breaks.map(d => d.labels)
+recent_difference = transpose(raw_recent_difference).filter(
+  function(index) {
+    return wintermax.value == index.wintermax
+  }
+).map(
+  row => {
+    row.interpretation = classification(
+      get_lcl(0.9, row.estimate, row.se), get_ucl(0.9, row.estimate, row.se)
+    )
+    row.flcl = signed_percent(get_lcl(0.9, row.estimate, row.se, Math.exp) - 1)
+    row.fucl = signed_percent(get_ucl(0.9, row.estimate, row.se, Math.exp) - 1)
+    row.change = signed_percent(Math.exp(row.estimate) - 1)
+    row.label = row.change + " (" + row.flcl + "; " + row.fucl + ")"
+    if (row.duration == 1) {
+      row.duration = row.centre_end + " vs " + row.centre_start;
+    } else {
+      const delta = (row.duration - 1) / 2
+      row.duration = (row.centre_end - delta) + "-" + (row.centre_end + delta) +
+       " vs " + (row.centre_start - delta) + "-" + (row.centre_start + delta);
+    }
+    return row
+  }
+).map(
+  delta => {
+    const match = locgroup.find(dt => dt.locgroup === delta.locgroup);
+    return match ? { ...delta, location: match.description } : delta;
+  }
+);
+trend = transpose(raw_trend).filter(
+  function(index) {
+    return wintermax.value == index.wintermax
+  }
+).map(
+  row => {
+    row.interpretation = classification(
+      25 * get_lcl(0.9, row.estimate, row.se),
+      25 *get_ucl(0.9, row.estimate, row.se)
+    )
+    row.yearly = signed_percent(Math.exp(row.estimate) - 1) + "\n(" +
+      signed_percent(get_lcl(0.9, row.estimate, row.se, Math.exp) - 1) + "; " +
+      signed_percent(get_ucl(0.9, row.estimate, row.se, Math.exp) - 1) + ")"
+    row.period = signed_percent(Math.exp(row.duration * row.estimate) - 1) +
+      "\n(" +
+      signed_percent(
+        Math.exp(row.duration * get_lcl(0.9, row.estimate, row.se)) - 1
+      ) +
+      "; " +
+      signed_percent(
+        Math.exp(row.duration * get_ucl(0.9, row.estimate, row.se)) - 1
+      ) +
+      ")"
+    const delta = (row.duration - 1) / 2
+    row.duration = (row.centre_winter - delta) + "-" +
+      (row.centre_winter + delta);
+    return row
+  }
+).map(
+  delta => {
+    const match = locgroup.find(dt => dt.locgroup === delta.locgroup);
+    return match ? { ...delta, location: match.description } : delta;
+  }
+);
+total_average = largestWinterByTypeAndLocgroup(total).map(
+  delta => {
+    const match = locgroup.find(dt => dt.locgroup === delta.locgroup);
+    return match ? { ...delta, location: match.description } : delta;
+  }
+).map(
+  row => {
+    row.average = Math.exp(row.estimate)
+    row.lcl = get_lcl(0.9, row["estimate"], row["se"], Math.exp)
+    row.ucl = get_ucl(0.9, row["estimate"], row["se"], Math.exp)
+    return row
+  }
+)
+imputation = transpose(raw_impute).filter(function(index) {
+  return region.locgroup == index.locgroup
+})
+imputation_month = imputation.filter(function(index) {
+  return month == index.month
+}).map(
+  row => {
+    row.x50a = row.winter - 0.45
+    row.x50b = row.winter + 0.45
+    row.x05a = row.winter - 0.025
+    row.x05b = row.winter + 0.025
+    return row
+  }
+)
+uniqueMonths = [...new Set(imputation.map(item => item.month))]
+imputation_year = imputation.filter(function(index) {
+  return ref_difference == index.winter
+}).map(
+  row => {
+    let value;
+    switch (row.month) {
+      case "October":
+        value = -2;
+        break;
+      case "November":
+        value = -1;
+        break;
+      case "December":
+        value = 0;
+        break;
+      case "January":
+        value = 1;
+        break;
+      case "February":
+        value = 2;
+        break;
+      case "March":
+        value = 3;
+        break;
+      default:
+        value = -100; // Handle unexpected cases
+    }
+    row.xmin = value - 0.45
+    row.xmax = value + 0.45
+    row.xmin2 = value - 0.005
+    row.xmax2 = value + 0.005
+    return { ...row, value };
+  }
+);
+```
+
+## Overview
+
+```{ojs ojs-tab-overview}
+Plot.plot({
+  className: "large-font", width: 800, height: 600, marginLeft: 250,
+  marginTop: 50,
+  x: {label: null, axis: "top"},
+  y: {
+    label: null,
+    domain: d3.groupSort(
+      total_average, (D) => d3.max(D, (d) => d.average), (d) => d.location
+    )
+  },
+  r: {range: [0, 20]},
+  subtitle:
+    html`<h3 id="overview">${wintermax.label} of ${speciesname.scientific} for
+      the most recent period</h3>`,
+  caption:
+    html`Figure 2: ${wintermax.label} of <i>${speciesname.scientific}</i>
+      for the most recent period.
+      The area of the circle is proportional to the value.
+      Hover over the circle to see the value and its credible interval.`,
+  marks: [
+    Plot.dot(
+      total_average,
+      {
+        x: "type", y: "location", r: "average", fill: "#356196", stroke: null,
+        dx: 10
+      }
+    ),
+    Plot.text(
+      total_average,
+      {
+        x: "type", y: "location", text: "label2", fill: "black",
+        fontSize: "0.8em", frameAnchor: "right", lineAnchor: "middle", dx: -11
+      }
+    ),
+    Plot.tip(
+      total_average,
+      Plot.pointer({
+        x: "type", y: "location", anchor: "right",
+        title: (d) =>
+         `${d.location}\n${d.type}\n${d.label}`
+      })
+    )
+  ]
+})
+```
+
+```{ojs ojs-tab-change}
+Plot.plot({
+  className: "large-font", width: 800, height: 600, marginLeft: 250,
+  x: {label: null, axis: "top"},
+  y: {
+    label: null,
+    domain: d3.groupSort(
+      trend, (D) => d3.median(D, (d) => d.estimate),
+      (d) => d.location
+    )
+  },
+  subtitle:
+    html`<h3 id="linear-trend">Linear trend in ${wintermax.label} of
+      <i>${speciesname.scientific}</i></h3>`,
+  caption:
+    html`Table 1: Linear trend in ${wintermax.label} of
+      <i>${speciesname.scientific}</i>  expressed as ${duration.label}`,
+  color: {
+    legend: false, type: "categorical", className: "large-font",
+    domain: [
+      "strong increase", "increase", "moderate increase", "stable",
+      "moderate decrease", "decrease", "strong decrease", "potential increase",
+      "potential decrease", "unknown"
+    ],
+    range: [
+      "#65E06099", "#A1B60099", "#B68B0099", "#35619699", "#9C441399",
+      "#84250299", "#6D000099", "#A6A6A699", "#5A5A5A99", "#80808099"
+    ],
+  },
+  marks: [
+    Plot.cell(
+      trend,
+      {
+        x: "duration", y: "location", fill: "interpretation", inset: 0.5
+      }
+    ),
+    Plot.text(
+      trend,
+      {
+        x: "duration", y: "location", text: duration.value, fill: "black",
+        fontSize: "0.9em"
+      }
+    ),
+    Plot.tip(
+      trend,
+      Plot.pointer({
+        x: "duration", y: "location", anchor: "right",
+        title: (d) =>
+         `${d.location}\n${d.duration}\n${d.interpretation}\n${d.yearly}`
+      })
+    )
+  ]
+})
+```
+
+```{ojs ojs-tab-difference}
+Plot.plot({
+  className: "large-font", width: 800, height: 600, marginLeft: 250,
+  x: {label: null, axis: "top"},
+  y: {
+    label: null,
+    domain: d3.groupSort(
+      recent_difference, (D) => d3.median(D, (d) => d.estimate),
+      (d) => d.location
+    )
+  },
+  subtitle:
+    html`<h3 id="difference">Difference in ${wintermax.label} of
+      <i>${speciesname.scientific}</i> between consecutive non-overlapping
+      periods</h3>`,
+  caption:
+    html`Table 2: Difference between consecutive non-overlapping periods
+      for ${wintermax.label} of <i>${speciesname.scientific}</i>.`,
+  color: {
+    legend: false, type: "categorical", className: "large-font",
+    domain: [
+      "strong increase", "increase", "moderate increase", "stable",
+      "moderate decrease", "decrease", "strong decrease", "potential increase",
+      "potential decrease", "unknown"
+    ],
+    range: [
+      "#65E06099", "#A1B60099", "#B68B0099", "#35619699", "#9C441399",
+      "#84250299", "#6D000099", "#A6A6A699", "#5A5A5A99", "#80808099"
+    ],
+  },
+  marks: [
+    Plot.cell(
+      recent_difference,
+      {
+        x: "duration", y: "location", fill: "interpretation", inset: 0.5
+      }
+    ),
+    Plot.text(
+      recent_difference,
+      {x: "duration", y: "location", text: "label", fill: "black"}
+    ),
+    Plot.tip(
+      recent_difference,
+      Plot.pointer({
+        x: "duration", y: "location", anchor: "right",
+        title: (d) =>
+         `${d.location}\n${d.duration}\n${d.interpretation}\n${d.label}`
+      })
+    )
+  ]
+})
+```
+
+## Results per region
+
+```{ojs ojs-fig-region-state}
+total_plot = Plot.plot({
+  className: "large-font", width: 800, height: 600, marginLeft: 60,
+  marginRight: 130,
+  subtitle: custom_title, caption: custom_caption,
+  x: {type: "linear", tickFormat: ".4", label: null},
+  y: {type: "linear", tickFormat: "s", zero: true},
+  color: {
+    legend: false, type: "categorical", className: "large-font",
+    domain: [0, 1, 2, 3], range: ["#282A72", "#EF972C", "#C63526", "#019966"],
+    ticks: [0, 1, 2, 3],
+    tickFormat: (d, i) => ["1 winter", "smoother", "5 winters", "10 winters"][i]
+  },
+  marks: [
+    ...Array.from({ length: 18 }, (_, i) => {
+      return add_fan_layer((18 - i) * 5, total_winter10_fan);
+    }),
+    ...Array.from({ length: 18 }, (_, i) => {
+      return add_fan_layer((18 - i) * 5, total_winter5_fan);
+    }),
+    ...Array.from({ length: 18 }, (_, i) => {
+      return add_fan_layer((18 - i) * 5, total_smooth_fan);
+    }),
+    ...Array.from({ length: 18 }, (_, i) => {
+      return add_fan_layer((18 - i) * 5, total_winter_fan);
+    }),
+    add_error_layer(total_winter10_error),
+    add_error_layer(total_winter5_error),
+    add_error_layer(total_smooth_error),
+    add_error_layer(total_winter_error),
+    add_legend_text(total_winter10_fan),
+    add_legend_text(total_winter5_fan),
+    add_legend_text(total_smooth_fan),
+    add_legend_text(total_winter_fan),
+    add_legend_text(total_winter10_error, 0.95),
+    add_legend_text(total_winter5_error, 0.95),
+    add_legend_text(total_smooth_error, 0.95),
+    add_legend_text(total_winter_error, 0.95),
+  ]
+})
+DOM.download(() => serialize(total_plot), undefined, "Save as SVG")
+```
+
+```{ojs ojs-fig-region-difference}
+difference_plot = Plot.plot({
+  className: "large-font", width: 800, height: 600, marginLeft: 70,
+  marginRight: 70,
+  subtitle: custom_title_diff, caption: custom_caption_diff,
+  x: {type: "linear", tickFormat: ".4", label: null},
+  y: {
+    type: "linear", tickFormat: (d, i) => y_labels[i], ticks: y_ticks
+  },
+  marks: [
+    () => htl.svg`<defs>
+      <linearGradient id="gradient" gradientTransform="rotate(90)">
+        <stop offset="0%" stop-color="#282A7219" />
+        <stop offset="24%" stop-color="#282A7266" />
+        <stop offset="38%" stop-color="#282A72B2" />
+        <stop offset="50%" stop-color="#282A72FF" />
+        <stop offset="62%" stop-color="#282A72B2" />
+        <stop offset="76%" stop-color="#282A7266" />
+        <stop offset="100%" stop-color="#282A7219" />
+      </linearGradient>
+    </defs>`,
+    add_reference(difference_selection),
+    add_fan_rect_layer(difference_selection, "centre_end", identity)
+  ]
+})
+DOM.download(() => serialize(difference_plot), undefined, "Save as SVG")
+```
+
+```{ojs ojs-fig-region-imputation-year}
+imputation_year_plot = Plot.plot({
+  className: "large-font", width: 800, height: 600, marginLeft: 50,
+  marginRight: 50,
+  x: {
+    type: "linear", ticks: [-2, -1, 0, 1, 2, 3], label: null,
+    tickFormat: (d, i) => {
+        let month;
+        switch (d) {
+          case -2:
+            month = "October";
+            break;
+          case -1:
+            month = "November";
+            break;
+          case 0:
+            month = "December";
+            break;
+          case 1:
+            month = "January";
+            break;
+          case 2:
+            month = "February";
+            break;
+          case 3:
+            month = "March";
+            break;
+          default:
+            month = "problem"; // Handle unexpected cases
+        }
+        return month
+    }
+  },
+  y: {type: "linear", tickFormat: "s", zero: true},
+  subtitle:
+    html`<h3 id="imputed-year">Raw and imputed totals for ${wintermax.label} of
+      <i>${speciesname.scientific}</i> in ${region.description} during
+      ${ref_difference}</h3>`,
+  caption:
+    html`Figure 5: Raw and imputed totals of
+      <i>${speciesname.scientific}</i> in ${region.description} during
+      ${ref_difference}.
+      The blue bars represent the raw totals.
+      The orange dots represent the median of the imputed totals.
+      The orange ranges represent the minimum and maixmum of the imputed
+      totals.`,
+  marks: [
+    Plot.rect(
+      imputation_year,
+      {x1: "xmin", x2: "xmax", y1: 0, y2: "unimputed", fill: "#356196"}
+    ),
+    Plot.dot(
+      imputation_year,
+      {x: "value", y: "median", fill: "#EF972C", r: 6}
+    ),
+    Plot.rect(
+      imputation_year,
+      {x1: "xmin2", x2: "xmax2", y1: "min", y2: "max", fill: "#EF972C"}
+    ),
+    Plot.tip(
+      imputation_year,
+      Plot.pointerX({
+        x: "value", y: "median", fontSize: 12, anchor: "middle",
+        title: (d) => `${d.month} ${d.winter}\nobserved: ${d.unimputed}\nimputed
+  median: ${d.median}\n  min: ${d.min}\n  max: ${d.max}`
+      })
+    )
+  ]
+})
+```
+
+```{ojs ojs-fig-region-imputation-month}
+imputation_plot = Plot.plot({
+  className: "large-font", width: 800, height: 600, marginLeft: 50,
+  marginRight: 50,
+  x: {type: "linear", tickFormat: ".4", label: null},
+  y: {type: "linear", tickFormat: "s", zero: true},
+  subtitle: html`<h3 id="imputed-month">Raw and imputed totals for the
+    ${wintermax.label} of  <i>${speciesname.scientific}</i> in
+    ${region.description} during ${month}</h3>`,
+  caption:
+    html`Figure 6: Raw and imputed totals of <i>${speciesname.scientific}</i> in
+      ${region.description} during ${month}.
+    The blue bars represent the raw totals.
+    The orange dots represent the median of the imputed totals.
+    The orange ranges represent the minimum and maixmum of the imputed totals.`,
+  marks: [
+    Plot.rect(
+      imputation_month,
+      {x1: "x50a", x2: "x50b", y1: 0, y2: "unimputed", fill: "#282A72"}
+    ),
+    Plot.dot(
+      imputation_month,
+      {x: "winter", y: "median", fill: "#EF972C", r: 5}
+    ),
+    Plot.rect(
+      imputation_month,
+      {x1: "x05a", x2: "x05b", y1: "min", y2: "max", fill: "#EF972C"}
+    ),
+    Plot.tip(
+      imputation_month,
+      Plot.pointerX({
+        x: "winter", y: "median", fontSize: 12, anchor: "middle",
+        title: (d) => `${d.month} ${d.winter}\nobserved: ${d.unimputed}\nimputed
+  median: ${d.median}\n  min: ${d.min}\n  max: ${d.max}`
+      })
+    )
+  ]
+})
+```
+
+:::
+
+::: {.panel-sidebar}
+
+```{ojs selection-wintermax}
+viewof wintermax = Inputs.radio(
+  wintermax_type,
+  {
+    label: html`<b>Data selection</b><p>Type of aggregation per winter:`,
+    format: (t) => t.label,
+    value: wintermax_type.find((t) => t.label === "winter average")
+  }
+)
+```
+
+:::: {.ojs-input-border}
+
+```{ojs selection-change}
+viewof duration = Inputs.radio(
+  duration_type,
+  {
+    label: html`<b>Tables <a href="#linear-trend">1</a> and
+      <a href="#difference">2</a></b><br>How to express changes on :`,
+    format: (t) => t.label,
+    value: duration_type.find(
+      (t) => t.label === "average relative linear change per year"
+    )
+  }
+)
+```
+
+::::
+
+:::: {.ojs-input-border}
+
+```{ojs selection-region}
+viewof region = Inputs.select(
+  locgroup,
+  {
+    label: html`<b>Figures <a href="#region-state">3</a> to
+      <a href="#imputed-month">6</a></b><br>Selected region:`,
+    format: (t) => t.description
+  }
+)
+```
+
+::::: {.ojs-input-border2}
+
+```{ojs selection-display}
+viewof winter_display = Inputs.radio(
+  display_type,
+  {
+    label: html`<b>Figure <a href="#region-state">3</a></b><br>Estimates per
+      winter:`,
+    format: (t) => t.label,
+    value: display_type.find((t) => t.label === "errorbar")
+  }
+)
+viewof smoother_display = Inputs.radio(
+  display_type,
+  {
+    label: "Smoothed estimates:", format: (t) => t.label,
+    value: display_type.find((t) => t.label === "ribbon")
+  }
+)
+viewof winter5_display = Inputs.radio(
+  display_type,
+  {
+    label: "5 winter average:", format: (t) => t.label,
+    value: display_type.find((t) => t.label === "none")
+  }
+)
+viewof winter10_display = Inputs.radio(
+  display_type,
+  {
+    label: "10 winter average:", format: (t) => t.label,
+    value: display_type.find((t) => t.label === "none")
+  }
+)
+```
+:::::
+
+::::: {.ojs-input-border2}
+
+```{ojs selection-difference}
+viewof ref_difference = Inputs.range(
+  [Math.min(...difference_ref), Math.max(...difference_ref)],
+  {
+    value: Math.min(...difference_ref), step: 1,
+    label: html`<b>Figures <a href="#region-difference">4</a> to
+      <a href="#imputed-year">5</a></b><br>Reference winter:`
+  }
+)
+```
+:::::
+
+::::: {.ojs-input-border2}
+
+```{ojs selection-month}
+viewof month = Inputs.select(
+  uniqueMonths,
+  {
+    label: html`<b>Figure <a href="#imputed-month">6</a></b><br>Reference
+      month:`,
+    value: uniqueMonths[0]
+  }
+)
+```
+
+:::::
+
+::::
+
+```{=html}
+<style>
+form.oi-3a86ea>label, .oi-3a86ea-input {
+  width: auto;
+}
+form.oi-3a86ea, form.oi-3a86ea-checkbox {
+  width: 250px;
+}
+</style>
+```
+
+:::
