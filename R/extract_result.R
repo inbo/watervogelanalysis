@@ -428,6 +428,54 @@ extract_results.n2kAggregate <- function(x, root, ...) {
         max = "The maximum of the imputed total."
       )
     )
+    file.path(
+      "data", tolower(x@AnalysisMetadata$location_group_id),
+      x@AnalysisMetadata$species_group_id, "imputed_total_arithmetic_mean"
+    ) -> filename
+    x@AggregatedImputed@Imputation |>
+      bind_cols(x@AggregatedImputed@Covariate) |>
+      pivot_longer(
+        cols = -c("year", "month"), names_to = "sim", values_to = "count"
+      ) |>
+      group_by(winter = .data$year, .data$sim) |>
+      summarise(
+        count = mean(.data$count), .groups = "drop_last"
+      ) |>
+      summarise(
+        median = median(.data$count), min = min(.data$count),
+        q05 = quantile(.data$count, prob = 0.05),
+        q20 = quantile(.data$count, prob = 0.2),
+        q35 = quantile(.data$count, prob = 0.35),
+        q65 = quantile(.data$count, prob = 0.65),
+        q80 = quantile(.data$count, prob = 0.8),
+        q95 = quantile(.data$count, prob = 0.95),
+        max = max(.data$count), .groups = "drop"
+      ) |>
+      mutate(analysis = get_file_fingerprint(x)) |>
+      write_vc(
+        filename, root = root, optimize = FALSE, append = TRUE, digits = 4,
+        sorting = c("analysis", "winter"), strict = FALSE
+      )
+    update_metadata(
+      filename, root = root, name = "imputed_total_arithmetic_mean",
+      title = "Imputed total results based on arithmetic mean of months",
+      field_description = c(
+        analysis = paste(
+          "The unique identifier of the analysis.",
+          "Links to the analysis table."
+        ),
+        winter = "The winter season. Refers to the year of Januari 1st.",
+        median = "The median of the imputed total.",
+        min = "The minimum of the imputed total.",
+        q05 = "The 5th percentile of the imputed total.",
+        q20 = "The 20th percentile of the imputed total.",
+        q35 = "The 35th percentile of the imputed total.",
+        q65 = "The 65th percentile of the imputed total.",
+        q80 = "The 80th percentile of the imputed total.",
+        q95 = "The 95th percentile of the imputed total.",
+        max = "The maximum of the imputed total."
+      )
+    )
   } else {
     file.path(
       "data", tolower(x@AnalysisMetadata$location_group_id),
@@ -581,6 +629,7 @@ extract_results.n2kHurdleImputed <- function(x, root, ...) {
 #' @importFrom dplyr bind_cols group_by mutate select summarise transmute
 #' @importFrom git2rdata write_vc
 #' @importFrom n2kanalysis get_file_fingerprint
+#' @importFrom tibble rownames_to_column
 #' @importFrom tidyr pivot_longer
 extract_results.n2kInla <- function(x, root, ...) {
   if (x@AnalysisMetadata$status != "converged") {
@@ -598,12 +647,12 @@ extract_results.n2kInla <- function(x, root, ...) {
       month = factor(
         .data$month,
         levels = c(
-          "January", "February", "March", "October", "November", "December"
+          "October", "November", "December", "January", "February", "March"
         )
       )
     ) |>
     write_vc(
-      filename, root = root, optimize = FALSE, append = TRUE,
+      filename, root = root, optimize = FALSE, append = TRUE, digits = 4,
       sorting = c("analysis", "winter", "month", "location")
     )
   update_metadata(
@@ -621,6 +670,67 @@ extract_results.n2kInla <- function(x, root, ...) {
       sd = "The standard deviation of the linear predictor at the link scale."
     )
   )
+  file.path(
+    "data", "model_check", tolower(x@AnalysisMetadata$location_group_id),
+    x@AnalysisMetadata$species_group_id, "parameters"
+  ) -> filename
+  x@Model$summary.fixed |>
+    rownames_to_column("parameter") |>
+    select("parameter", "mean", "sd") |>
+    bind_rows(
+      x@Model$summary.random |>
+        map2(names(x@Model$summary.random), random_2_parameter) |>
+        bind_rows()
+    ) |>
+    mutate(
+      analysis = get_file_fingerprint(x)
+    ) |>
+    write_vc(
+      filename, root = root, optimize = FALSE, append = TRUE, digits = 4,
+      sorting = c("analysis", "parameter")
+    )
+  update_metadata(
+    filename, root = root, name = "modelfit",
+    title = "Model fit results",
+    field_description = c(
+      analysis = paste(
+        "The unique identifier of the analysis.",
+        "Links to the analysis table."
+      ),
+      parameter = paste(
+        "Name of the parameter. Names starting with 'rf' are random effects.",
+        "The colons separate the name of the random effect, the level and",
+        "optionally the replicate number."
+      ),
+      mean = "The mean of the linear predictor at the link scale.",
+      sd = "The standard deviation of the linear predictor at the link scale."
+    )
+  )
+  file.path(
+    "data", "model_check", tolower(x@AnalysisMetadata$location_group_id),
+    x@AnalysisMetadata$species_group_id, "hyperpar"
+  ) -> filename
+  x@Model$summary.hyperpar |>
+    rownames_to_column("parameter") |>
+    select("parameter", "mean", lcl95 = "0.025quant", ucl95 = "0.975quant") |>
+    write_vc(
+      filename, root = root, optimize = FALSE, append = TRUE, digits = 4,
+      sorting = c("analysis", "parameter")
+    )
+  update_metadata(
+    filename, root = root, name = "modelfit",
+    title = "Model fit results",
+    field_description = c(
+      analysis = paste(
+        "The unique identifier of the analysis.",
+        "Links to the analysis table."
+      ),
+      parameter = "Name of the hyperparameter.",
+      mean = "The mean of the linear predictor at the link scale.",
+      lcl95 = "The lower 95% confidence limit of the hyperparameter.",
+      ucl95 = "The upper 95% confidence limit of the hyperparameter."
+    )
+  )
   x@AnalysisMetadata |>
     select(
       species = "species_group_id", locationgroup = "location_group_id",
@@ -632,6 +742,23 @@ extract_results.n2kInla <- function(x, root, ...) {
       append = TRUE, sorting = "analysis"
     )
   return(invisible(NULL))
+}
+
+#' @importFrom dplyr transmute
+#' @importFrom rlang .data
+random_2_parameter <- function(z, name) {
+  if (anyDuplicated(z$ID) > 0) {
+    id <- suppressWarnings(as.integer(z$ID))
+    if (any(is.na(id)) && !all(is.na(id))) {
+      z$ID[!is.na(id)] <- z$ID[is.na(id)][id[!is.na(id)]]
+    }
+    z$ID <- factor(z$ID, levels = unique(z$ID))
+    z$ID <- paste(z$ID, cumsum(c(TRUE, diff(as.integer(z$ID)) < 0)), sep = ":")
+  }
+  z |>
+    transmute(
+      parameter = paste("rf", name, .data$ID, sep = ":"), .data$mean, .data$sd
+    )
 }
 
 #' @export

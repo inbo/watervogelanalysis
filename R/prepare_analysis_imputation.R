@@ -249,10 +249,10 @@ prepare_imputation_model <- function(
   hyper = list(theta = list(prior = \"pc.prec\", param = c(0.2, 0.01)))
 )",
       "f(
-        cyear2, model = \"rw1\", constr = TRUE, scale.model = TRUE,
-        replicate = ilocation,
-        hyper = list(theta = list(prior = \"pc.prec\", param = c(0.1, 0.01)))
-      )"
+  cyear2, model = \"rw1\", constr = TRUE, scale.model = TRUE,
+  replicate = ilocation,
+  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.05, 0.01)))
+)"
   ) |>
     paste(collapse = " +\n") |>
     sprintf(fmt = "present ~ %s") |>
