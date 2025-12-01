@@ -11,13 +11,25 @@ source_folder <- system.file("website", package = "watervogelanalysis")
 
 file.path(target_folder, "css_styles") |>
   dir.create(showWarnings = FALSE, recursive = TRUE)
+file.path(target_folder, "methodology") |>
+  dir.create(showWarnings = FALSE, recursive = TRUE)
 
 file.path(source_folder, "custom.css") |>
   file.copy(to = file.path(target_folder, "css_styles"), overwrite = TRUE)
-file.path(source_folder, "index.md") |>
+file.path(source_folder, c("index.md", "references.bib", "species_list.qmd")) |>
   file.copy(to = target_folder, overwrite = TRUE)
-file.path(source_folder, "species_list.qmd") |>
-  file.copy(to = target_folder, overwrite = TRUE)
+file.path(
+  source_folder,
+  c(
+    "analysis.md",
+    "collection.md",
+    "imputation.md",
+    "interpretation.md",
+    "selection.md",
+    "workflow.md"
+  )
+) |>
+  file.copy(to = file.path(target_folder, "methodology"), overwrite = TRUE)
 file.path(source_folder, "libs") |>
   list.files(full.names = TRUE) |>
   file.copy(to = file.path(target_folder), overwrite = TRUE)
@@ -96,11 +108,44 @@ for (i in seq_len(nrow(species))) {
     writeLines(con = species$output_file[i])
 }
 
+read_vc("analysis", results_folder) |>
+  filter(str_detect(.data$species, "^WI")) |>
+  count(.data$species) |>
+  inner_join(
+    read_vc("speciesgroup", results_folder) |>
+      filter(.data$language == "English"),
+    by = c("species" = "external_code")
+  ) |>
+  arrange(.data$species) |>
+  mutate(
+    output_file = str_remove_all(.data$name, ",") |>
+      str_remove_all("and") |>
+      str_replace_all(" +", "-") |>
+      tolower() |>
+      sprintf(fmt = "%2$s/%1$s.qmd", target_folder)
+  ) -> composite
+for (i in seq_len(nrow(composite))) {
+  message(composite$output_file[i])
+  dirname(composite$output_file[i]) |>
+    dir.create(showWarnings = FALSE, recursive = TRUE)
+  file.path(source_folder, "composite.qmd") |>
+    knit_expand(code = composite$species[i], title = composite$name[i]) |>
+    writeLines(con = composite$output_file[i])
+}
+
 file.path(source_folder, "_quarto.yml") |>
   readLines() |>
   c(
     "    - text: \"Introduction\"",
     "      file: index.md",
+    "    - section: \"Methodology\"",
+    "      contents:",
+    "      - file: methodology/collection.md",
+    "      - file: methodology/workflow.md",
+    "      - file: methodology/selection.md",
+    "      - file: methodology/imputation.md",
+    "      - file: methodology/analysis.md",
+    "      - file: methodology/interpretation.qmd",
     "    - section: \"By region\"",
     "      contents:",
     locationgroup |>
@@ -127,16 +172,71 @@ file.path(source_folder, "_quarto.yml") |>
         )
       ) |>
       pull(.data$yml),
-    "    - section: \"By species\"",
-    "      file: species_list.qmd",
+    "    - section: \"By speciesgroup\"",
     "      contents:",
-    "      - species_list.qmd",
-    species |>
+    composite |>
       mutate(
         yml = str_remove(.data$output_file, paste0(target_folder, "/")) |>
           sprintf(
             fmt = "      - text: \"%2$s\"\n        file: %1$s",
+            .data$name
+          )
+      ) |>
+      pull(.data$yml),
+    "    - section: \"By species\"",
+    "      file: species_list.qmd",
+    "      contents:",
+    "      - species_list.qmd",
+    "      - section: \"By scientific name\"",
+    "        contents:",
+    species |>
+      mutate(
+        yml = str_remove(.data$output_file, paste0(target_folder, "/")) |>
+          sprintf(
+            fmt = "        - text: \"%2$s\"\n          file: %1$s",
             .data$scientific
+          )
+      ) |>
+      pull(.data$yml),
+    "      - section: \"By English name\"",
+    "        contents:",
+    read_vc("vernacular", results_folder) |>
+      filter(.data$language == "eng") |>
+      inner_join(species, by = c("euring" = "species")) |>
+      arrange(tolower(.data$vernacular)) |>
+      mutate(
+        yml = str_remove(.data$output_file, paste0(target_folder, "/")) |>
+          sprintf(
+            fmt = "        - text: \"%2$s\"\n          file: %1$s",
+            .data$vernacular
+          )
+      ) |>
+      pull(.data$yml),
+    "      - section: \"By Dutch name\"",
+    "        contents:",
+    read_vc("vernacular", results_folder) |>
+      filter(.data$language == "nld") |>
+      inner_join(species, by = c("euring" = "species")) |>
+      arrange(tolower(.data$vernacular)) |>
+      mutate(
+        yml = str_remove(.data$output_file, paste0(target_folder, "/")) |>
+          sprintf(
+            fmt = "        - text: \"%2$s\"\n          file: %1$s",
+            .data$vernacular
+          )
+      ) |>
+      pull(.data$yml),
+    "      - section: \"By French name\"",
+    "        contents:",
+    read_vc("vernacular", results_folder) |>
+      filter(.data$language == "fra") |>
+      inner_join(species, by = c("euring" = "species")) |>
+      arrange(tolower(.data$vernacular)) |>
+      mutate(
+        yml = str_remove(.data$output_file, paste0(target_folder, "/")) |>
+          sprintf(
+            fmt = "        - text: \"%2$s\"\n          file: %1$s",
+            .data$vernacular
           )
       ) |>
       pull(.data$yml)

@@ -78,6 +78,14 @@ import_imputation <- function(path, root) {
       -"locationgroup", -"model_type"
     )
 }
+import_month <- function(path, root) {
+  read_vc(path, root = root) |>
+    inner_join(read_vc("analysis", root = root), by = "analysis") |>
+    transmute(
+      month = as.character(.data$month), .data$estimate, .data$se
+    ) |>
+    mutate(locgroup = gsub("(.*?)/.*", "\\1", path))
+}
 ```
 
 ```{r}
@@ -100,6 +108,36 @@ file.path(root, loc_group$external_code, species) |>
     label = format_ci(.data$estimate, .data$se, link = "log", si = TRUE),
     label2 = gsub(" .*", "", .data$label)
   ) -> total
+file.path(root, loc_group$external_code, species) |>
+  list.files(pattern = "^month.csv", full.names = TRUE) |>
+  gsub(pattern = ".*/data/", replacement = "") |>
+  map(import_month, root = root) |>
+  bind_rows() |>
+  mutate(
+    label = format_ci(.data$estimate, .data$se, link = "log", si = TRUE) |>
+      sprintf(fmt = "%2$s\n%1$s", .data$month),
+    month = factor(
+      .data$month,
+      levels = c(
+        "October", "November", "December", "January", "February", "March"
+      )
+    ) |>
+      as.integer(),
+    month = .data$month,
+    month_1 = .data$month - 0.008,
+    month_2 = .data$month + 0.008,
+    month_3 = .data$month - 0.1,
+    month_4 = .data$month + 0.1,
+    median = exp(.data$estimate),
+    lcl = exp(qnorm(0.05, .data$estimate, .data$se)),
+    ucl = exp(qnorm(0.95, .data$estimate, .data$se))
+  ) |>
+  group_by(.data$locgroup) |>
+  mutate(
+    lcl2 = .data$lcl + max(.data$ucl) / 200,
+    ucl2 = .data$ucl - max(.data$ucl) / 200
+  ) |>
+  ungroup() -> month
 file.path(root, loc_group$external_code, species) |>
   list.files(pattern = "^difference.csv", full.names = TRUE) |>
   gsub(pattern = ".*/data/", replacement = "") |>
@@ -250,13 +288,14 @@ leaflet() |>
 ojs_define(
   loc_group = loc_group, raw_breaks = breaks, raw_difference = difference,
   raw_recent_difference = recent_difference, raw_impute = imputation,
-  raw_total = total, raw_trend = trend, speciesname = speciesname
+  raw_month = month, raw_total = total, raw_trend = trend,
+  speciesname = speciesname
 )
 ```
 
 ```{ojs ojs-import}
 import { serialize } from "./serialize.js"
-import { add_error_layer, add_fan_layer, add_fan_rect_layer, add_legend_text, add_reference, classification, get_lcl, get_ucl, identity, qnorm } from "./error.js"
+import { add_error_layer, add_fan_layer, add_fan_rect_layer, add_legend_text, add_reference, classification, get_lcl, get_ucl, identity } from "./error.js"
 signed_percent = function(value) {
   const s = d3.formatSpecifier("+.3p")
   return d3.format(s)(value)
@@ -306,6 +345,9 @@ duration_type = [
 ```
 
 ```{ojs ojs-data-selection}
+month_effect = transpose(raw_month).filter(function(index) {
+  return region.locgroup == index.locgroup
+})
 locgroup = transpose(loc_group)
 total = transpose(raw_total).filter(
   function(index) {
@@ -779,6 +821,74 @@ difference_plot = Plot.plot({
 DOM.download(() => serialize(difference_plot), undefined, "Save as SVG")
 ```
 
+```{ojs ojs-fig-region-month}
+month_plot = Plot.plot({
+  className: "large-font", width: 800, height: 400, marginLeft: 60,
+  subtitle:
+    html`<h3 id="month-effect">Average seasonal pattern of
+      <i>${speciesname.scientific}</i> in ${region.description}</h3>`,
+  caption:
+    html`Figure 5: Average seasonal of
+      <i>${speciesname.scientific}</i> in ${region.description}.`,
+  x: {
+    type: "linear", ticks: [1, 2, 3, 4, 5, 6], label: null,
+    tickFormat: (d, i) => {
+        let month;
+        switch (d) {
+          case 1:
+            month = "October";
+            break;
+          case 2:
+            month = "November";
+            break;
+          case 3:
+            month = "December";
+            break;
+          case 4:
+            month = "January";
+            break;
+          case 5:
+            month = "February";
+            break;
+          case 6:
+            month = "March";
+            break;
+          default:
+            month = "problem"; // Handle unexpected cases
+        }
+        return month
+    }
+  },
+  y: {type: "linear", tickFormat: "s", zero: true},
+  marginRight: 130,
+  marks: [
+    Plot.rect(
+      month_effect,
+      {x1: "month_1", x2: "month_2", y1: "lcl", y2: "ucl", fill: "#EF972C"}
+    ),
+    Plot.rect(
+      month_effect,
+      {x1: "month_3", x2: "month_4", y1: "lcl", y2: "lcl2", fill: "#EF972C"}
+    ),
+    Plot.rect(
+      month_effect,
+      {x1: "month_3", x2: "month_4", y1: "ucl", y2: "ucl2", fill: "#EF972C"}
+    ),
+    Plot.dot(
+      month_effect,
+      {x: "month", y: "median", fill: "#EF972C", r: 4}
+    ),
+    Plot.tip(
+      month_effect,
+      Plot.pointer({
+        x: "month", y: "median", anchor: "right", title: (d) => `${d.label}`
+      })
+    )
+  ]
+})
+DOM.download(() => serialize(month_plot), undefined, "Save as SVG")
+```
+
 ```{ojs ojs-fig-region-imputation-year}
 imputation_year_plot = Plot.plot({
   className: "large-font", width: 800, height: 600, marginLeft: 50,
@@ -818,12 +928,12 @@ imputation_year_plot = Plot.plot({
       <i>${speciesname.scientific}</i> in ${region.description} during
       ${ref_difference}</h3>`,
   caption:
-    html`Figure 5: Raw and imputed totals of
+    html`Figure 6: Raw and imputed totals of
       <i>${speciesname.scientific}</i> in ${region.description} during
       ${ref_difference}.
       The blue bars represent the raw totals.
       The orange dots represent the median of the imputed totals.
-      The orange ranges represent the minimum and maixmum of the imputed
+      The orange ranges represent the minimum and maximum of the imputed
       totals.`,
   marks: [
     Plot.rect(
@@ -860,11 +970,11 @@ imputation_plot = Plot.plot({
     ${wintermax.label} of  <i>${speciesname.scientific}</i> in
     ${region.description} during ${month}</h3>`,
   caption:
-    html`Figure 6: Raw and imputed totals of <i>${speciesname.scientific}</i> in
+    html`Figure 7: Raw and imputed totals of <i>${speciesname.scientific}</i> in
       ${region.description} during ${month}.
     The blue bars represent the raw totals.
     The orange dots represent the median of the imputed totals.
-    The orange ranges represent the minimum and maixmum of the imputed totals.`,
+    The orange ranges represent the minimum and maximum of the imputed totals.`,
   marks: [
     Plot.rect(
       imputation_month,
@@ -930,7 +1040,7 @@ viewof region = Inputs.select(
   locgroup,
   {
     label: html`<b>Figures <a href="#region-state">3</a> to
-      <a href="#imputed-month">6</a></b><br>Selected region:`,
+      <a href="#imputed-month">7</a></b><br>Selected region:`,
     format: (t) => t.description
   }
 )
@@ -979,8 +1089,8 @@ viewof ref_difference = Inputs.range(
   [Math.min(...difference_ref), Math.max(...difference_ref)],
   {
     value: Math.min(...difference_ref), step: 1,
-    label: html`<b>Figures <a href="#region-difference">4</a> to
-      <a href="#imputed-year">5</a></b><br>Reference winter:`
+    label: html`<b>Figures <a href="#region-difference">4</a> and
+      <a href="#imputed-year">6</a></b><br>Reference winter:`
   }
 )
 ```
@@ -992,7 +1102,7 @@ viewof ref_difference = Inputs.range(
 viewof month = Inputs.select(
   uniqueMonths,
   {
-    label: html`<b>Figure <a href="#imputed-month">6</a></b><br>Reference
+    label: html`<b>Figure <a href="#imputed-month">7</a></b><br>Reference
       month:`,
     value: uniqueMonths[0]
   }

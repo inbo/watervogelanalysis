@@ -9,6 +9,11 @@ knitr:
     message: false
     warning: false
 
+execute:
+  echo: false
+  freeze: false
+  cache: false
+
 lang: en-GB
 
 format:
@@ -16,10 +21,7 @@ format:
     css:
       - css_styles/custom.css
 
-execute:
-  echo: false
-  freeze: false
-  cache: false
+bibliography: references.bib
 
 flandersqmd:
   title: "Wintering waterbirds in Belgium"
@@ -33,6 +35,9 @@ flandersqmd:
       affiliation:
         - Research Institute for Nature and Forest (INBO)
       corresponding: true
+  year: 2025
+  reportnr: TODO
+  doi: TODO
   entity: INBO
   level: 2
   funder: Research Institute for Nature and Forest (INBO)
@@ -50,9 +55,9 @@ website:
         file: index.md
     tools:
       - icon: mastodon
+        href: https://mastodon.online/&#64;inbo
       - icon: facebook
         href: https://www.facebook.com/INBOVlaanderen/
-        href: https://mastodon.online/&#64;inbo
       - icon: bluesky
         href: https://bsky.app/profile/inbo.be
       - icon: github
