@@ -1,0 +1,292 @@
+::: {.panel-fill}
+
+---
+title: "{{title}}"
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(effectclass)
+library(git2rdata)
+library(gt)
+library(leaflet)
+library(tidyverse)
+root <- "../../data"
+this_species <- "{{code}}"
+```
+
+```{r}
+#| label: read-data
+read_vc("locationgroup", root = root) |>
+  mutate(
+    external_code = tolower(.data$external_code),
+    description = str_replace(.data$description, "België", "Belgium") |>
+      str_replace("Vlaanderen", "Flanders") |>
+      str_replace("Wallonië", "Brussels & Wallonia")
+  ) -> loc_group
+list.files(root, recursive = TRUE, pattern = "difference.csv") |>
+  grepv(pattern = tolower(this_species)) |>
+  map(read_vc, root = root) |>
+  bind_rows() |>
+  filter(.data$duration %in% c(1, 10)) |>
+  inner_join(
+    read_vc("analysis", root = root) |>
+      transmute(.data$analysis, locationgroup = tolower(.data$locationgroup)),
+    by = "analysis"
+  ) |>
+  select(-"analysis") -> index
+index |>
+  filter(.data$duration == 10) |>
+  slice_max(
+    .data$centre_start, n = 1, by = c("locationgroup", "duration", "centre_end")
+  ) |>
+  slice_max(
+    .data$centre_end, n = 1, by = c("locationgroup", "duration")
+  ) |>
+  transmute(
+    .data$locationgroup,
+    text = format_ci(
+      .data$estimate, .data$se, interval = 0.9, link = "log", percent = TRUE,
+      sign = TRUE, change = TRUE
+    ) |>
+      sprintf(
+        fmt = "The average changes from %2$i-%3$i to %4$i-%5$i by %1$s (%6$s)",
+        centre_start - (duration - 1) / 2, centre_start + (duration - 1) / 2,
+        centre_end - (duration - 1) / 2, centre_end + (duration - 1) / 2,
+        class_labels()[
+          classification(.data$lcl, .data$ucl, threshold = log(0.75))
+        ]
+    ),
+  ) |>
+  left_join(x = loc_group, by = c("external_code" = "locationgroup")) |>
+  transmute(
+    locationgroup = .data$external_code,
+    text = ifelse(
+      is.na(.data$text),
+      sprintf(
+        "The data spans less than 20 years.
+        Hence we can't compute the change of two ten-year periods for %s.",
+        .data$description
+      ),
+      sprintf(
+        "The average in %s changes between the period from %s",
+        .data$description, .data$text
+      )
+    )
+  ) -> difference
+index |>
+  filter(.data$duration == 1) -> index
+read_vc("speciesgroup_species", root = root) |>
+  filter(.data$speciesgroup == this_species) |>
+  semi_join(
+    x = read_vc("species", root = root), by = c("euring" = "species")
+  ) |>
+  inner_join(
+    read_vc("vernacular", root = root) |>
+      mutate(
+        language = factor(
+          .data$language, levels = c("eng", "nld", "fra", "deu"),
+          labels = c("English", "Dutch", "French", "German")
+        )
+      ) |>
+      pivot_wider(
+        names_from = "language", values_from = "vernacular", names_sort = TRUE
+      ),
+    by = "euring"
+  ) |>
+  select(-"euring", -"gbif") -> species
+threshold <- log(0.75) / sqrt(nrow(species))
+index |>
+  rename(old = "centre_start", centre_start = "centre_end") |>
+  rename(centre_end = "old") |>
+  mutate(estimate = -.data$estimate) |>
+  bind_rows(index) |>
+  transmute(
+    locationgroup = tolower(.data$locationgroup), .data$centre_start,
+    lcl = qnorm(0.05, .data$estimate, .data$se),
+    ucl = qnorm(0.95, .data$estimate, .data$se)
+  ) |>
+  pivot_longer(c("lcl", "ucl")) |>
+  group_by(.data$locationgroup, .data$centre_start) |>
+  summarise(
+    lcl = min(.data$value), ucl = max(.data$value), .groups = "drop"
+  ) |>
+  transmute(
+    .data$locationgroup, .data$centre_start,
+    breaks = map2(
+      .data$lcl, .data$ucl,
+      ~change_breaks(
+        n = 3, extra = c(-1, 1) * threshold
+      )(c(.x, .y))
+    ) |>
+      map(~data.frame(breaks = .x, labels = change_labels(.x)))
+  ) |>
+  unnest("breaks") -> breaks
+```
+
+
+```{r}
+#| label: ojs-define
+#| cache: false
+ojs_define(
+  loc_group = loc_group, raw_breaks = breaks, raw_difference = difference,
+  raw_index = index, threshold = threshold
+)
+```
+
+```{ojs ojs-import}
+import { serialize } from "./serialize.js"
+import { add_error_layer, add_fan_layer, add_fan_rect_layer, add_legend_text, add_reference, classification, get_lcl, get_ucl, identity, qnorm } from "./error.js"
+signed_percent = function(value) {
+  const s = d3.formatSpecifier("+.3p")
+  return d3.format(s)(value)
+}
+```
+
+```{ojs ojs-data-selection}
+locgroup = transpose(loc_group)
+difference = transpose(raw_difference).filter(
+  function(index) {
+    return region.external_code == index.locationgroup
+  }
+).map(
+  row => {
+    return {
+      text: row.text
+    };
+  }
+)
+index = transpose(raw_index).filter(
+  function(index) {
+    return region.external_code == index.locationgroup
+  }
+)
+index_completed = [
+  ...index,
+  ...index.map(
+    item => ({
+      centre_start: item.centre_end, centre_end: item.centre_start,
+      estimate: -item.estimate, se: item.se
+    })
+  )
+];
+index_ref = [...new Set(index_completed.map(item => item.centre_start))].sort((a, b) => a - b);
+index_selection = index_completed.filter(
+  function(index) {
+    return ref_index == index.centre_start
+  }
+).map(
+  row => {
+    return {
+      ...row,
+      flcl: signed_percent(get_lcl(0.9, row.estimate, row.se, Math.exp) - 1),
+      fucl: signed_percent(get_ucl(0.9, row.estimate, row.se, Math.exp) - 1),
+      change: signed_percent(Math.exp(row.estimate) - 1)
+    };
+  }
+)
+breaks = transpose(raw_breaks).filter(
+  function(index) {
+    return region.external_code == index.locationgroup &&
+      ref_index == index.centre_start
+  }
+)
+y_ticks = breaks.map(d => d.breaks)
+y_labels = breaks.map(d => d.labels)
+```
+
+`{ojs} difference[0]["text"]`
+
+```{ojs fig-index}
+index_plot = Plot.plot({
+  className: "large-font", width: 800, height: 600, marginLeft: 70,
+  marginRight: 70,
+  subtitle: html`<h3 id="region-index">Evolution of {{title}} in
+  ${region.description}</h3>`,
+  x: {type: "linear", tickFormat: ".4", label: null},
+  y: {
+    type: "linear", tickFormat: (d, i) => y_labels[i], ticks: y_ticks
+  },
+  marks: [
+    () => htl.svg`<defs>
+      <linearGradient id="gradient" gradientTransform="rotate(90)">
+        <stop offset="0%" stop-color="#282A7219" />
+        <stop offset="24%" stop-color="#282A7266" />
+        <stop offset="38%" stop-color="#282A72B2" />
+        <stop offset="50%" stop-color="#282A72FF" />
+        <stop offset="62%" stop-color="#282A72B2" />
+        <stop offset="76%" stop-color="#282A7266" />
+        <stop offset="100%" stop-color="#282A7219" />
+      </linearGradient>
+    </defs>`,
+    add_reference(index_selection, "centre_end", threshold),
+    add_fan_rect_layer(index_selection, "centre_end", identity, 1, threshold)
+  ]
+})
+```
+
+```{ojs save-index}
+DOM.download(() => serialize(index_plot), undefined, "Save index plot as SVG")
+```
+
+
+```{r tbl-species}
+#| tbl-cap: The species that form the "waders" group.
+species |>
+  mutate(
+    scientific = tolower(.data$scientific) |>
+      gsub(pattern = " ", replacement = "-") |>
+      sprintf(fmt = "[%2$s](../%1$s.html)", .data$scientific)
+  ) |>
+  gt() |>
+  fmt_markdown(columns = "scientific") |>
+  opt_interactive(
+    use_search = TRUE, use_pagination = FALSE, use_resizers = TRUE,
+    use_highlight = TRUE, use_compact_mode = TRUE
+  )
+```
+
+:::
+
+::: {.panel-sidebar}
+
+:::: {.ojs-input-border}
+
+```{ojs selection-region}
+viewof region = Inputs.select(
+  locgroup,
+  {
+    label: html`Selected region:`,
+    format: (t) => t.description
+  }
+)
+```
+
+::::: {.ojs-input-border2}
+
+```{ojs selection-index}
+viewof ref_index = Inputs.range(
+  [Math.min(...index_ref), Math.max(...index_ref)],
+  {
+    value: Math.min(...index_ref), step: 1,
+    label: html`Reference winter:`
+  }
+)
+```
+:::::
+
+::::
+
+```{=html}
+<style>
+form.oi-3a86ea>label, .oi-3a86ea-input {
+  width: auto;
+}
+form.oi-3a86ea, form.oi-3a86ea-checkbox {
+  width: 250px;
+}
+</style>
+```
+
+:::
