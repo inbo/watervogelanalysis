@@ -9,11 +9,16 @@
 #' @importFrom n2kanalysis display
 #' @importFrom rlang .data
 get_gbif <- function(
-  scientific, language = c("nld", "eng", "fra", "deu"), verbose = TRUE
+  scientific,
+  language = c("nld", "eng", "fra", "deu"),
+  verbose = TRUE
 ) {
   assert_that(
-    is.string(scientific), noNA(scientific), is.character(language),
-    length(language) >= 1, noNA(language),
+    is.string(scientific),
+    noNA(scientific),
+    is.character(language),
+    length(language) >= 1,
+    noNA(language),
     requireNamespace("rgbif", quietly = TRUE)
   )
   display(verbose = verbose, sprintf("Getting GBIF data for %s", scientific))
@@ -36,19 +41,25 @@ get_gbif <- function(
     i <- i + 1
     Sys.sleep(i)
   }
-  stopifnot(
-    inherits(gbif_lookup, "gbif"),
-    as.character(backbone$usageKey) %in% names(gbif_lookup$names)
-  )
-  gbif_lookup$names[[as.character(backbone$usageKey)]] |>
+  stopifnot(inherits(gbif_lookup, "gbif"))
+  if (as.character(backbone$usageKey) %in% names(gbif_lookup$names)) {
+    these_name <- gbif_lookup$names[[as.character(backbone$usageKey)]]
+  } else {
+    bind_rows(gbif_lookup$names) |>
+      group_by(.data$language) |>
+      slice_head(n = 1) -> these_name
+  }
+  these_name |>
     inner_join(
-      data.frame(language = language), by = "language"
+      data.frame(language = language),
+      by = "language"
     ) |>
     group_by(.data$language) |>
     slice_sample(n = 1) |>
     ungroup() |>
     transmute(
-      vernacular = .data$vernacularName, .data$language,
+      vernacular = .data$vernacularName,
+      .data$language,
       key = as.character(backbone$usageKey)
     )
 }
