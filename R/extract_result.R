@@ -13,84 +13,22 @@ extract_results.default <- function(x, ...) {
 }
 
 #' @export
-#' @importFrom assertthat assert_that is.flag is.string noNA
-#' @importFrom dplyr anti_join distinct mutate select
-#' @importFrom git2rdata is_git2rdata verify_vc write_vc
+#' @importFrom assertthat assert_that is.flag noNA
+#' @importFrom git2rdata is_git2rdata update_metadata
 #' @importFrom n2kanalysis order_manifest read_manifest read_model
 #' @importFrom purrr map walk
 #' @importFrom rlang .data
-#' @importFrom tidyr unnest
-extract_results.character <- function(
-  x, base, project = "wateranalysis", raw_data, root, random = FALSE,
-  verbose = TRUE, ...
+extract_results.n2kManifest <- function(
+  x,
+  base,
+  project = "watervogelanalysis",
+  root,
+  random = FALSE,
+  verbose = TRUE,
+  ...
 ) {
-  assert_that(is.string(x), noNA(x), is.flag(random), noNA(random))
-  verify_vc(
-    "species/species", root = raw_data,
-    variables = c("euring", "scientific", "nl", "fr")
-  ) |>
-    select("euring", "scientific", "nl", "fr") |>
-    mutate(gbif = map(.data$scientific, get_gbif)) |>
-    unnest("gbif") |>
-    mutate(
-      vernacular = ifelse(
-        .data$language == "nld" & !is.na(.data$nl), .data$nl,
-        ifelse(
-          .data$language == "fra" & !is.na(.data$fr), .data$fr, .data$vernacular
-        )
-      )
-    ) -> species
-  species |>
-    distinct(.data$euring, .data$scientific, gbif = .data$key) |>
-    write_vc(
-      file.path("data", "species"), root = root, sorting = "euring",
-      optimize = FALSE
-    )
-  update_metadata(
-    file = file.path("data", "species"), root = root, name = "species",
-    title = "List of species",
-    field_description = c(
-      euring = "The European bird ringing code.",
-      scientific = "The scientific name of the species.",
-      gbif = "GBIF identifier."
-    )
-  )
-  species |>
-    select("euring", "language", "vernacular") |>
-    write_vc(
-      file.path("data", "vernacular"), root = root,
-      sorting = c("euring", "language"), optimize = FALSE
-    )
-  update_metadata(
-    file = file.path("data", "vernacular"), root = root, name = "vernacular",
-    title = "Vernacular species names",
-    field_description = c(
-      euring = "The European bird ringing code.",
-      language = "Identifier of the language.",
-      vernacular = "The vernacular name of the species."
-    )
-  )
-
-  verify_vc(
-    "location/locationgroup", root = raw_data,
-    variables = c("external_code", "description")
-  ) |>
-    select("external_code", "description") |>
-    write_vc(
-      file.path("data", "locationgroup"), root = root,
-      sorting = "external_code", optimize = FALSE
-    )
-  update_metadata(
-    file = file.path("data", "locationgroup"), root = root,
-    name = "locationgroup",
-    title = "List of locationgroups",
-    field_description = c(
-      external_code = "The identifier of the location group.",
-      description = "Full name of the location group"
-    )
-  )
-  read_manifest(base = base, project = project, hash = x) |>
-    order_manifest() -> manifest
+  assert_that(is.flag(random), noNA(random))
+  manifest <- order_manifest(x)
   if (is_git2rdata("data/analysis", root = root)) {
     file.path("data", "analysis") |>
       verify_vc(root = root, variables = "analysis") -> done
@@ -105,11 +43,13 @@ extract_results.character <- function(
     display(
       verbose = verbose,
       message = sprintf(
-        "Processing %i from %i (%.2f%%) %s ETA %s %s", i, length(manifest),
+        "Processing %i from %i (%.2f%%) %s ETA %s %s",
+        i,
+        length(manifest),
         100 * (i - 1) / length(manifest),
         format(Sys.time(), "%Y-%m-%d %H:%M:%S"),
         format(
-          start_time + (Sys.time() - start_time) * length(manifest)  / (i - 1),
+          start_time + (Sys.time() - start_time) * length(manifest) / (i - 1),
           "%d %H:%M"
         ),
         manifest[i]
@@ -125,7 +65,9 @@ extract_results.character <- function(
   }
   file.path("data", "relation") |>
     update_metadata(
-      root = root, name = "relation", title = "Relation between analyses",
+      root = root,
+      name = "relation",
+      title = "Relation between analyses",
       description = "List the analyses and their parent analyses.",
       field_description = c(
         analysis = "The unique identifier of the analysis.",
@@ -134,7 +76,9 @@ extract_results.character <- function(
     )
   file.path("data", "analysis") |>
     update_metadata(
-      root = root, name = "analysis", title = "Analysis metadata",
+      root = root,
+      name = "analysis",
+      title = "Analysis metadata",
       description = "List the analyses and their parent analyses.",
       field_description = c(
         species = "The species group identifier.",
@@ -161,23 +105,33 @@ extract_results.n2kModelImputed <- function(x, root, ...) {
     x@AnalysisRelation |>
       select("analysis", parent = "parent_analysis") |>
       write_vc(
-        file.path("data", "relation"), root = root, optimize = FALSE,
-        append = TRUE, sorting = c("analysis", "parent")
+        file.path("data", "relation"),
+        root = root,
+        optimize = FALSE,
+        append = TRUE,
+        sorting = c("analysis", "parent")
       )
     x@AnalysisMetadata |>
       select(
-        species = "species_group_id", locationgroup = "location_group_id",
-        "model_type", analysis = "file_fingerprint",
-        fingerprint = "status_fingerprint", "status"
+        species = "species_group_id",
+        locationgroup = "location_group_id",
+        "model_type",
+        analysis = "file_fingerprint",
+        fingerprint = "status_fingerprint",
+        "status"
       ) |>
       write_vc(
-        file.path("data", "analysis"), root = root, optimize = FALSE,
-        append = TRUE, sorting = "analysis"
+        file.path("data", "analysis"),
+        root = root,
+        optimize = FALSE,
+        append = TRUE,
+        sorting = "analysis"
       )
     return(invisible(NULL))
   }
   file.path(
-    "data", tolower(x@AnalysisMetadata$location_group_id),
+    "data",
+    tolower(x@AnalysisMetadata$location_group_id),
     x@AnalysisMetadata$species_group_id
   ) -> filename
   result |>
@@ -186,18 +140,28 @@ extract_results.n2kModelImputed <- function(x, root, ...) {
       .data$analysis,
       winter = gsub("total: ", "", .data$Parameter) |>
         as.integer(),
-      estimate = .data$Estimate, se = .data$SE, lcl = .data$LCL, ucl = .data$UCL
+      estimate = .data$Estimate,
+      se = .data$SE,
+      lcl = .data$LCL,
+      ucl = .data$UCL
     ) |>
     write_vc(
-      file.path(filename, "total"), root = root, digits = 4,
-      sorting = c("analysis", "winter"), optimize = FALSE, append = TRUE
+      file.path(filename, "total"),
+      root = root,
+      digits = 4,
+      sorting = c("analysis", "winter"),
+      optimize = FALSE,
+      append = TRUE
     )
   update_metadata(
-    file = file.path(filename, "total"), root = root, name = "total",
+    file = file.path(filename, "total"),
+    root = root,
+    name = "total",
     title = "Total results",
     field_description = c(
       analysis = paste(
-        "The unique identifier of the analysis.", "Links to the analysis table."
+        "The unique identifier of the analysis.",
+        "Links to the analysis table."
       ),
       winter = "The winter season. Refers to the year of January 1st.",
       estimate = "The estimate of the parameter in the log-scale.",
@@ -214,19 +178,28 @@ extract_results.n2kModelImputed <- function(x, root, ...) {
         as.numeric(),
       duration = gsub("trend_.*_(.*)", "\\1", .data$Parameter) |>
         as.integer(),
-      estimate = .data$Estimate, se = .data$SE, lcl = .data$LCL, ucl = .data$UCL
+      estimate = .data$Estimate,
+      se = .data$SE,
+      lcl = .data$LCL,
+      ucl = .data$UCL
     ) |>
     write_vc(
-      file.path(filename, "trend"), root = root, optimize = FALSE,
-      sorting = c("analysis", "duration", "centre_winter"), append = TRUE,
+      file.path(filename, "trend"),
+      root = root,
+      optimize = FALSE,
+      sorting = c("analysis", "duration", "centre_winter"),
+      append = TRUE,
       digits = c(centre_winter = 5, estimate = 4, se = 4, lcl = 4, ucl = 4)
     )
   update_metadata(
-    file = file.path(filename, "trend"), root = root, name = "trend",
+    file = file.path(filename, "trend"),
+    root = root,
+    name = "trend",
     title = "Trend results",
     field_description = c(
       analysis = paste(
-        "The unique identifier of the analysis.", "Links to the analysis table."
+        "The unique identifier of the analysis.",
+        "Links to the analysis table."
       ),
       centre_winter = "The centre of the winter season.",
       duration = "The duration of the trend.",
@@ -244,19 +217,28 @@ extract_results.n2kModelImputed <- function(x, root, ...) {
         as.numeric(),
       duration = gsub("average_.*_(.*)", "\\1", .data$Parameter) |>
         as.integer(),
-      estimate = .data$Estimate, se = .data$SE, lcl = .data$LCL, ucl = .data$UCL
+      estimate = .data$Estimate,
+      se = .data$SE,
+      lcl = .data$LCL,
+      ucl = .data$UCL
     ) |>
     write_vc(
-      file.path(filename, "average"), root = root, optimize = FALSE,
-      sorting = c("analysis", "duration", "centre_winter"), append = TRUE,
+      file.path(filename, "average"),
+      root = root,
+      optimize = FALSE,
+      sorting = c("analysis", "duration", "centre_winter"),
+      append = TRUE,
       digits = c(centre_winter = 5, estimate = 4, se = 4, lcl = 4, ucl = 4)
     )
   update_metadata(
-    file.path(filename, "average"), root = root, name = "average",
+    file.path(filename, "average"),
+    root = root,
+    name = "average",
     title = "Average results",
     field_description = c(
       analysis = paste(
-        "The unique identifier of the analysis.", "Links to the analysis table."
+        "The unique identifier of the analysis.",
+        "Links to the analysis table."
       ),
       centre_winter = "The centre of the winter of the period.",
       duration = "The duration of period in years.",
@@ -276,22 +258,35 @@ extract_results.n2kModelImputed <- function(x, root, ...) {
         as.numeric(),
       duration = gsub("difference_(.*)_(.*)_(.*)", "\\3", .data$Parameter) |>
         as.integer(),
-      estimate = .data$Estimate, se = .data$SE, lcl = .data$LCL, ucl = .data$UCL
+      estimate = .data$Estimate,
+      se = .data$SE,
+      lcl = .data$LCL,
+      ucl = .data$UCL
     ) |>
     write_vc(
-      file.path(filename, "difference"), root = root, optimize = FALSE,
+      file.path(filename, "difference"),
+      root = root,
+      optimize = FALSE,
       append = TRUE,
       sorting = c("analysis", "duration", "centre_start", "centre_end"),
       digits = c(
-        centre_start = 5, centre_end = 5, estimate = 4, se = 4, lcl = 4, ucl = 4
+        centre_start = 5,
+        centre_end = 5,
+        estimate = 4,
+        se = 4,
+        lcl = 4,
+        ucl = 4
       )
     )
   update_metadata(
-    file = file.path(filename, "difference"), root = root, name = "difference",
+    file = file.path(filename, "difference"),
+    root = root,
+    name = "difference",
     title = "Difference results",
     field_description = c(
       analysis = paste(
-        "The unique identifier of the analysis.", "Links to the analysis table."
+        "The unique identifier of the analysis.",
+        "Links to the analysis table."
       ),
       centre_start = "The centre of the winter of the start period.",
       centre_end = "The centre of the winter of the end period.",
@@ -309,21 +304,36 @@ extract_results.n2kModelImputed <- function(x, root, ...) {
       month = gsub("month", "", .data$Parameter) |>
         factor(
           levels = c(
-            "October", "November", "December", "January", "February", "March"
+            "October",
+            "November",
+            "December",
+            "January",
+            "February",
+            "March"
           )
         ),
-      estimate = .data$Estimate, se = .data$SE, lcl = .data$LCL, ucl = .data$UCL
+      estimate = .data$Estimate,
+      se = .data$SE,
+      lcl = .data$LCL,
+      ucl = .data$UCL
     ) |>
     write_vc(
-      file.path(filename, "month"), root = root, digits = 4,
-      sorting = c("analysis", "month"), optimize = FALSE, append = TRUE
+      file.path(filename, "month"),
+      root = root,
+      digits = 4,
+      sorting = c("analysis", "month"),
+      optimize = FALSE,
+      append = TRUE
     )
   update_metadata(
-    file = file.path(filename, "month"), root = root, name = "month",
+    file = file.path(filename, "month"),
+    root = root,
+    name = "month",
     title = "Average seasonal pattern",
     field_description = c(
       analysis = paste(
-        "The unique identifier of the analysis.", "Links to the analysis table."
+        "The unique identifier of the analysis.",
+        "Links to the analysis table."
       ),
       month = "The month of the winter season.",
       estimate = "The estimate of the parameter in the log-scale.",
@@ -335,18 +345,27 @@ extract_results.n2kModelImputed <- function(x, root, ...) {
   x@AnalysisRelation |>
     select("analysis", parent = "parent_analysis") |>
     write_vc(
-      file.path("data", "relation"), root = root, optimize = FALSE,
-      append = TRUE, sorting = c("analysis", "parent")
+      file.path("data", "relation"),
+      root = root,
+      optimize = FALSE,
+      append = TRUE,
+      sorting = c("analysis", "parent")
     )
   x@AnalysisMetadata |>
     select(
-      species = "species_group_id", locationgroup = "location_group_id",
-      "model_type", analysis = "file_fingerprint",
-      fingerprint = "status_fingerprint", "status"
+      species = "species_group_id",
+      locationgroup = "location_group_id",
+      "model_type",
+      analysis = "file_fingerprint",
+      fingerprint = "status_fingerprint",
+      "status"
     ) |>
     write_vc(
-      file.path("data", "analysis"), root = root, optimize = FALSE,
-      append = TRUE, sorting = "analysis"
+      file.path("data", "analysis"),
+      root = root,
+      optimize = FALSE,
+      append = TRUE,
+      sorting = "analysis"
     )
   return(invisible(NULL))
 }
@@ -363,52 +382,76 @@ extract_results.n2kAggregate <- function(x, root, ...) {
   if (nrow(x@AggregatedImputed@Covariate) == 0) {
     x@AnalysisMetadata |>
       select(
-        species = "species_group_id", locationgroup = "location_group_id",
-        "model_type", analysis = "file_fingerprint",
-        fingerprint = "status_fingerprint", "status"
+        species = "species_group_id",
+        locationgroup = "location_group_id",
+        "model_type",
+        analysis = "file_fingerprint",
+        fingerprint = "status_fingerprint",
+        "status"
       ) |>
       write_vc(
-        file.path("data", "analysis"), root = root, optimize = FALSE,
-        append = TRUE, sorting = "analysis"
+        file.path("data", "analysis"),
+        root = root,
+        optimize = FALSE,
+        append = TRUE,
+        sorting = "analysis"
       )
     return(invisible(NULL))
   }
   if ("month" %in% colnames(x@AggregatedImputed@Covariate)) {
     file.path(
-      "data", tolower(x@AnalysisMetadata$location_group_id),
-      x@AnalysisMetadata$species_group_id, "imputed_total_month"
+      "data",
+      tolower(x@AnalysisMetadata$location_group_id),
+      x@AnalysisMetadata$species_group_id,
+      "imputed_total_month"
     ) -> filename
     x@AggregatedImputed@Imputation |>
       bind_cols(x@AggregatedImputed@Covariate) |>
       pivot_longer(
-        cols = -c("year", "month"), names_to = "sim", values_to = "count"
+        cols = -c("year", "month"),
+        names_to = "sim",
+        values_to = "count"
       ) |>
       group_by(winter = .data$year, .data$month) |>
       summarise(
-        median = median(.data$count), min = min(.data$count),
+        median = median(.data$count),
+        min = min(.data$count),
         q05 = quantile(.data$count, prob = 0.05),
         q20 = quantile(.data$count, prob = 0.2),
         q35 = quantile(.data$count, prob = 0.35),
         q65 = quantile(.data$count, prob = 0.65),
         q80 = quantile(.data$count, prob = 0.8),
         q95 = quantile(.data$count, prob = 0.95),
-        max = max(.data$count), .groups = "drop"
+        max = max(.data$count),
+        .groups = "drop"
       ) |>
       mutate(
         analysis = get_file_fingerprint(x),
         month = factor(
           .data$month,
           levels = c(
-            "January", "February", "March", "October", "November", "December"
+            "January",
+            "February",
+            "March",
+            "October",
+            "November",
+            "December"
           )
         )
       ) |>
       write_vc(
-        filename, root = root, optimize = FALSE, append = TRUE, digits = 4,
-        sorting = c("analysis", "winter", "month"), strict = FALSE
+        filename,
+        root = root,
+        optimize = FALSE,
+        append = TRUE,
+        digits = 4,
+        sorting = c("analysis", "winter", "month"),
+        strict = FALSE
       )
     update_metadata(
-      filename, root = root, name = "imputed_total_month",
+      filename,
+      root = root,
+      name = "imputed_total_month",
       title = "Imputed total results per month",
       field_description = c(
         analysis = paste(
@@ -429,35 +472,49 @@ extract_results.n2kAggregate <- function(x, root, ...) {
       )
     )
     file.path(
-      "data", tolower(x@AnalysisMetadata$location_group_id),
-      x@AnalysisMetadata$species_group_id, "imputed_total_arithmetic_mean"
+      "data",
+      tolower(x@AnalysisMetadata$location_group_id),
+      x@AnalysisMetadata$species_group_id,
+      "imputed_total_arithmetic_mean"
     ) -> filename
     x@AggregatedImputed@Imputation |>
       bind_cols(x@AggregatedImputed@Covariate) |>
       pivot_longer(
-        cols = -c("year", "month"), names_to = "sim", values_to = "count"
+        cols = -c("year", "month"),
+        names_to = "sim",
+        values_to = "count"
       ) |>
       group_by(winter = .data$year, .data$sim) |>
       summarise(
-        count = mean(.data$count), .groups = "drop_last"
+        count = mean(.data$count),
+        .groups = "drop_last"
       ) |>
       summarise(
-        median = median(.data$count), min = min(.data$count),
+        median = median(.data$count),
+        min = min(.data$count),
         q05 = quantile(.data$count, prob = 0.05),
         q20 = quantile(.data$count, prob = 0.2),
         q35 = quantile(.data$count, prob = 0.35),
         q65 = quantile(.data$count, prob = 0.65),
         q80 = quantile(.data$count, prob = 0.8),
         q95 = quantile(.data$count, prob = 0.95),
-        max = max(.data$count), .groups = "drop"
+        max = max(.data$count),
+        .groups = "drop"
       ) |>
       mutate(analysis = get_file_fingerprint(x)) |>
       write_vc(
-        filename, root = root, optimize = FALSE, append = TRUE, digits = 4,
-        sorting = c("analysis", "winter"), strict = FALSE
+        filename,
+        root = root,
+        optimize = FALSE,
+        append = TRUE,
+        digits = 4,
+        sorting = c("analysis", "winter"),
+        strict = FALSE
       )
     update_metadata(
-      filename, root = root, name = "imputed_total_arithmetic_mean",
+      filename,
+      root = root,
+      name = "imputed_total_arithmetic_mean",
       title = "Imputed total results based on arithmetic mean of months",
       field_description = c(
         analysis = paste(
@@ -478,15 +535,18 @@ extract_results.n2kAggregate <- function(x, root, ...) {
     )
   } else {
     file.path(
-      "data", tolower(x@AnalysisMetadata$location_group_id),
-      x@AnalysisMetadata$species_group_id, "imputed_total"
+      "data",
+      tolower(x@AnalysisMetadata$location_group_id),
+      x@AnalysisMetadata$species_group_id,
+      "imputed_total"
     ) -> filename
     x@AggregatedImputed@Imputation |>
       bind_cols(x@AggregatedImputed@Covariate) |>
       pivot_longer(cols = -"year", names_to = "sim", values_to = "count") |>
       group_by(winter = .data$year) |>
       summarise(
-        median = median(.data$count), min = min(.data$count),
+        median = median(.data$count),
+        min = min(.data$count),
         q05 = quantile(.data$count, prob = 0.05),
         q20 = quantile(.data$count, prob = 0.2),
         q35 = quantile(.data$count, prob = 0.35),
@@ -497,11 +557,18 @@ extract_results.n2kAggregate <- function(x, root, ...) {
       ) |>
       mutate(analysis = get_file_fingerprint(x)) |>
       write_vc(
-        filename, root = root, optimize = FALSE, append = TRUE, digits = 4,
-        sorting = c("analysis", "winter"), strict = FALSE
+        filename,
+        root = root,
+        optimize = FALSE,
+        append = TRUE,
+        digits = 4,
+        sorting = c("analysis", "winter"),
+        strict = FALSE
       )
     update_metadata(
-      filename, root = root, name = "imputed_total",
+      filename,
+      root = root,
+      name = "imputed_total",
       title = "Imputed total results",
       field_description = c(
         analysis = paste(
@@ -524,18 +591,27 @@ extract_results.n2kAggregate <- function(x, root, ...) {
   x@AnalysisRelation |>
     select("analysis", parent = "parent_analysis") |>
     write_vc(
-      file.path("data", "relation"), root = root, optimize = FALSE,
-      append = TRUE, sorting = c("analysis", "parent")
+      file.path("data", "relation"),
+      root = root,
+      optimize = FALSE,
+      append = TRUE,
+      sorting = c("analysis", "parent")
     )
   x@AnalysisMetadata |>
     select(
-      species = "species_group_id", locationgroup = "location_group_id",
-      "model_type", analysis = "file_fingerprint",
-      fingerprint = "status_fingerprint", "status"
+      species = "species_group_id",
+      locationgroup = "location_group_id",
+      "model_type",
+      analysis = "file_fingerprint",
+      fingerprint = "status_fingerprint",
+      "status"
     ) |>
     write_vc(
-      file.path("data", "analysis"), root = root, optimize = FALSE,
-      append = TRUE, sorting = "analysis"
+      file.path("data", "analysis"),
+      root = root,
+      optimize = FALSE,
+      append = TRUE,
+      sorting = "analysis"
     )
   return(invisible(NULL))
 }
@@ -550,42 +626,60 @@ extract_results.n2kHurdleImputed <- function(x, root, ...) {
     return(invisible(NULL))
   }
   file.path(
-    "data", "model_check", tolower(x@AnalysisMetadata$location_group_id),
-    x@AnalysisMetadata$species_group_id, "hurdle"
+    "data",
+    "model_check",
+    tolower(x@AnalysisMetadata$location_group_id),
+    x@AnalysisMetadata$species_group_id,
+    "hurdle"
   ) -> filename
   x@Hurdle@Covariate |>
     select("year", "month", "location") |>
     bind_cols(x@Hurdle@Imputation) |>
     pivot_longer(
-      cols = -c("year", "month", "location"), names_to = "sim",
+      cols = -c("year", "month", "location"),
+      names_to = "sim",
       values_to = "count"
     ) |>
     group_by(winter = .data$year, .data$month, .data$location) |>
     summarise(
-      median = median(.data$count), min = min(.data$count),
+      median = median(.data$count),
+      min = min(.data$count),
       q05 = quantile(.data$count, prob = 0.05),
       q20 = quantile(.data$count, prob = 0.2),
       q35 = quantile(.data$count, prob = 0.35),
       q65 = quantile(.data$count, prob = 0.65),
       q80 = quantile(.data$count, prob = 0.8),
       q95 = quantile(.data$count, prob = 0.95),
-      max = max(.data$count), .groups = "drop"
+      max = max(.data$count),
+      .groups = "drop"
     ) |>
     mutate(
       analysis = get_file_fingerprint(x),
       month = factor(
         .data$month,
         levels = c(
-          "January", "February", "March", "October", "November", "December"
+          "January",
+          "February",
+          "March",
+          "October",
+          "November",
+          "December"
         )
       )
     ) |>
     write_vc(
-      filename, root = root, optimize = FALSE, append = TRUE, strict = FALSE,
-      sorting = c("analysis", "winter", "month", "location"),  digits = 4
+      filename,
+      root = root,
+      optimize = FALSE,
+      append = TRUE,
+      strict = FALSE,
+      sorting = c("analysis", "winter", "month", "location"),
+      digits = 4
     )
   update_metadata(
-    filename, root = root, name = "hurdle",
+    filename,
+    root = root,
+    name = "hurdle",
     title = "Hurdle model check results",
     field_description = c(
       analysis = paste(
@@ -609,18 +703,27 @@ extract_results.n2kHurdleImputed <- function(x, root, ...) {
   x@AnalysisRelation |>
     select("analysis", parent = "parent_analysis") |>
     write_vc(
-      file.path("data", "relation"), root = root, optimize = FALSE,
-      append = TRUE, sorting = c("analysis", "parent")
+      file.path("data", "relation"),
+      root = root,
+      optimize = FALSE,
+      append = TRUE,
+      sorting = c("analysis", "parent")
     )
   x@AnalysisMetadata |>
     select(
-      species = "species_group_id", locationgroup = "location_group_id",
-      "model_type", analysis = "file_fingerprint",
-      fingerprint = "status_fingerprint", "status"
+      species = "species_group_id",
+      locationgroup = "location_group_id",
+      "model_type",
+      analysis = "file_fingerprint",
+      fingerprint = "status_fingerprint",
+      "status"
     ) |>
     write_vc(
-      file.path("data", "analysis"), root = root, optimize = FALSE,
-      append = TRUE, sorting = "analysis"
+      file.path("data", "analysis"),
+      root = root,
+      optimize = FALSE,
+      append = TRUE,
+      sorting = "analysis"
     )
   return(invisible(NULL))
 }
@@ -636,8 +739,11 @@ extract_results.n2kInla <- function(x, root, ...) {
     return(invisible(NULL))
   }
   file.path(
-    "data", "model_check", tolower(x@AnalysisMetadata$location_group_id),
-    x@AnalysisMetadata$species_group_id, "modelfit"
+    "data",
+    "model_check",
+    tolower(x@AnalysisMetadata$location_group_id),
+    x@AnalysisMetadata$species_group_id,
+    "modelfit"
   ) -> filename
   x@Data |>
     select(winter = "year", "month", "location") |>
@@ -647,16 +753,27 @@ extract_results.n2kInla <- function(x, root, ...) {
       month = factor(
         .data$month,
         levels = c(
-          "October", "November", "December", "January", "February", "March"
+          "October",
+          "November",
+          "December",
+          "January",
+          "February",
+          "March"
         )
       )
     ) |>
     write_vc(
-      filename, root = root, optimize = FALSE, append = TRUE, digits = 4,
+      filename,
+      root = root,
+      optimize = FALSE,
+      append = TRUE,
+      digits = 4,
       sorting = c("analysis", "winter", "month", "location")
     )
   update_metadata(
-    filename, root = root, name = "modelfit",
+    filename,
+    root = root,
+    name = "modelfit",
     title = "Model fit results",
     field_description = c(
       analysis = paste(
@@ -671,8 +788,11 @@ extract_results.n2kInla <- function(x, root, ...) {
     )
   )
   file.path(
-    "data", "model_check", tolower(x@AnalysisMetadata$location_group_id),
-    x@AnalysisMetadata$species_group_id, "parameters"
+    "data",
+    "model_check",
+    tolower(x@AnalysisMetadata$location_group_id),
+    x@AnalysisMetadata$species_group_id,
+    "parameters"
   ) -> filename
   x@Model$summary.fixed |>
     rownames_to_column("parameter") |>
@@ -686,11 +806,17 @@ extract_results.n2kInla <- function(x, root, ...) {
       analysis = get_file_fingerprint(x)
     ) |>
     write_vc(
-      filename, root = root, optimize = FALSE, append = TRUE, digits = 4,
+      filename,
+      root = root,
+      optimize = FALSE,
+      append = TRUE,
+      digits = 4,
       sorting = c("analysis", "parameter")
     )
   update_metadata(
-    filename, root = root, name = "modelfit",
+    filename,
+    root = root,
+    name = "modelfit",
     title = "Model fit results",
     field_description = c(
       analysis = paste(
@@ -707,18 +833,28 @@ extract_results.n2kInla <- function(x, root, ...) {
     )
   )
   file.path(
-    "data", "model_check", tolower(x@AnalysisMetadata$location_group_id),
-    x@AnalysisMetadata$species_group_id, "hyperpar"
+    "data",
+    "model_check",
+    tolower(x@AnalysisMetadata$location_group_id),
+    x@AnalysisMetadata$species_group_id,
+    "hyperpar"
   ) -> filename
   x@Model$summary.hyperpar |>
     rownames_to_column("parameter") |>
     select("parameter", "mean", lcl95 = "0.025quant", ucl95 = "0.975quant") |>
+    mutate(analysis = get_file_fingerprint(x)) |>
     write_vc(
-      filename, root = root, optimize = FALSE, append = TRUE, digits = 4,
+      filename,
+      root = root,
+      optimize = FALSE,
+      append = TRUE,
+      digits = 4,
       sorting = c("analysis", "parameter")
     )
   update_metadata(
-    filename, root = root, name = "modelfit",
+    filename,
+    root = root,
+    name = "modelfit",
     title = "Model fit results",
     field_description = c(
       analysis = paste(
@@ -733,13 +869,19 @@ extract_results.n2kInla <- function(x, root, ...) {
   )
   x@AnalysisMetadata |>
     select(
-      species = "species_group_id", locationgroup = "location_group_id",
-      "model_type", analysis = "file_fingerprint",
-      fingerprint = "status_fingerprint", "status"
+      species = "species_group_id",
+      locationgroup = "location_group_id",
+      "model_type",
+      analysis = "file_fingerprint",
+      fingerprint = "status_fingerprint",
+      "status"
     ) |>
     write_vc(
-      file.path("data", "analysis"), root = root, optimize = FALSE,
-      append = TRUE, sorting = "analysis"
+      file.path("data", "analysis"),
+      root = root,
+      optimize = FALSE,
+      append = TRUE,
+      sorting = "analysis"
     )
   return(invisible(NULL))
 }
@@ -757,7 +899,9 @@ random_2_parameter <- function(z, name) {
   }
   z |>
     transmute(
-      parameter = paste("rf", name, .data$ID, sep = ":"), .data$mean, .data$sd
+      parameter = paste("rf", name, .data$ID, sep = ":"),
+      .data$mean,
+      .data$sd
     )
 }
 
@@ -769,14 +913,19 @@ extract_results.n2kComposite <- function(x, root, ...) {
     return(invisible(NULL))
   }
   file.path(
-    "data", tolower(x@AnalysisMetadata$location_group_id),
-    tolower(x@AnalysisMetadata$species_group_id), "difference"
+    "data",
+    tolower(x@AnalysisMetadata$location_group_id),
+    tolower(x@AnalysisMetadata$species_group_id),
+    "difference"
   ) -> filename
   x@Index |>
     transmute(
-      analysis = get_file_fingerprint(x), .data$value, .data$estimate,
+      analysis = get_file_fingerprint(x),
+      .data$value,
+      .data$estimate,
       se = (.data$upper_confidence_limit - .data$estimate) / qnorm(0.975),
-      lcl = .data$lower_confidence_limit, ucl = .data$upper_confidence_limit
+      lcl = .data$lower_confidence_limit,
+      ucl = .data$upper_confidence_limit
     ) -> result
   result |>
     filter(grepl("difference_", .data$value)) |>
@@ -788,17 +937,30 @@ extract_results.n2kComposite <- function(x, root, ...) {
         as.numeric(),
       duration = gsub("difference_(.*)_(.*)_(.*)", "\\3", .data$value) |>
         as.integer(),
-      .data$estimate, .data$se, .data$lcl, .data$ucl
+      .data$estimate,
+      .data$se,
+      .data$lcl,
+      .data$ucl
     ) |>
     write_vc(
-      filename, root = root, optimize = FALSE, append = TRUE,
+      filename,
+      root = root,
+      optimize = FALSE,
+      append = TRUE,
       sorting = c("analysis", "duration", "centre_start", "centre_end"),
       digits = c(
-        centre_start = 5, centre_end = 5, estimate = 4, se = 4, lcl = 4, ucl = 4
+        centre_start = 5,
+        centre_end = 5,
+        estimate = 4,
+        se = 4,
+        lcl = 4,
+        ucl = 4
       )
     )
   update_metadata(
-    filename, root = root, name = "difference",
+    filename,
+    root = root,
+    name = "difference",
     title = "Difference results",
     field_description = c(
       analysis = paste(
@@ -817,18 +979,27 @@ extract_results.n2kComposite <- function(x, root, ...) {
   x@AnalysisRelation |>
     select("analysis", parent = "parent_analysis") |>
     write_vc(
-      file.path("data", "relation"), root = root, optimize = FALSE,
-      append = TRUE, sorting = c("analysis", "parent")
+      file.path("data", "relation"),
+      root = root,
+      optimize = FALSE,
+      append = TRUE,
+      sorting = c("analysis", "parent")
     )
   x@AnalysisMetadata |>
     select(
-      species = "species_group_id", locationgroup = "location_group_id",
-      "model_type", analysis = "file_fingerprint",
-      fingerprint = "status_fingerprint", "status"
+      species = "species_group_id",
+      locationgroup = "location_group_id",
+      "model_type",
+      analysis = "file_fingerprint",
+      fingerprint = "status_fingerprint",
+      "status"
     ) |>
     write_vc(
-      file.path("data", "analysis"), root = root, optimize = FALSE,
-      append = TRUE, sorting = "analysis"
+      file.path("data", "analysis"),
+      root = root,
+      optimize = FALSE,
+      append = TRUE,
+      sorting = "analysis"
     )
   return(invisible(NULL))
 }
